@@ -22,6 +22,7 @@ RUN groupadd --system app && useradd --system --gid app --home-dir /srv app
 WORKDIR /srv
 
 COPY --from=builder --chown=app:app /srv/.venv /srv/.venv
+COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app app ./app
 
 USER app

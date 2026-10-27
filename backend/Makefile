@@ -1,4 +1,4 @@
-.PHONY: up down logs ps test lint psql redis-cli
+.PHONY: up down logs ps test lint psql redis-cli migrate downgrade revision
 
 up:
 	docker compose up -d --build
@@ -23,3 +23,12 @@ psql:
 
 redis-cli:
 	docker compose exec redis redis-cli
+
+migrate:
+	docker compose run --rm migrate alembic upgrade head
+
+downgrade:
+	docker compose run --rm migrate alembic downgrade -1
+
+revision:
+	uv run alembic revision --autogenerate -m "$(m)"
