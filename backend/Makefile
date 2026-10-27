@@ -1,4 +1,4 @@
-.PHONY: up down logs ps test lint psql redis-cli migrate downgrade revision
+.PHONY: up down logs ps test test-fast lint psql redis-cli migrate downgrade revision
 
 up:
 	docker compose up -d --build
@@ -14,6 +14,9 @@ ps:
 
 test:
 	uv run pytest
+
+test-fast:
+	uv run pytest -m "not docker"
 
 lint:
 	uv run ruff check . && uv run ruff format --check . && uv run mypy app

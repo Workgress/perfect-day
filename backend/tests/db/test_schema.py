@@ -10,7 +10,7 @@ from app.modules.tasks.models import Task, TaskPriority, TaskStatus
 from app.modules.users.models import Chronotype, User, UserProfile
 from tests.db.factories import make_schedule, make_slot, make_task, make_user
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.docker
 
 
 async def _count(session: AsyncSession, model: type[object]) -> int:

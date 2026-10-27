@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.db.models import metadata
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.docker
 
 EXPECTED_TABLES = {"users", "user_profiles", "tasks", "schedules", "schedule_slots"}
 
