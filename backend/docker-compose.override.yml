@@ -1,0 +1,21 @@
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  api:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./app:/srv/app
+
+  worker:
+    volumes:
+      - ./app:/srv/app
+
+  beat:
+    volumes:
+      - ./app:/srv/app
