@@ -6,3 +6,4 @@
 
 - Дизайн: [Figma](https://www.figma.com/design/MlCMZlvWvYdCJPNCdCDb53/)
 - Стек бэкенда: Python, FastAPI, PostgreSQL, Redis
+- Стек фронтенда: React 19, TypeScript, Vite, React Router, Zustand, TanStack Query

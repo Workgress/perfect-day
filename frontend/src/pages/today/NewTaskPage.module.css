@@ -1,0 +1,30 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--bg-scrim);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: min(100%, 480px);
+  height: 100%;
+  padding: var(--space-24);
+  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.description {
+  color: var(--text-secondary);
+}

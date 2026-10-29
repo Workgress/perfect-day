@@ -1,0 +1,27 @@
+.layout {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--space-24) var(--space-16);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: min(100%, 480px);
+  padding: var(--space-32);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.progress {
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: var(--space-24) var(--space-16);
+  }
+}
