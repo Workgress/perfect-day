@@ -1,11 +1,17 @@
 import { RouterProvider } from 'react-router'
 import { router } from '@/app/router/router'
-import { SessionProvider } from '@/app/session/SessionProvider'
+import { setupHttp } from '@/app/setupHttp'
+import { createQueryClient } from '@/shared/api/queryClient'
+import { AppProviders } from './AppProviders'
+
+setupHttp()
+
+const queryClient = createQueryClient()
 
 export function App() {
   return (
-    <SessionProvider>
+    <AppProviders queryClient={queryClient}>
       <RouterProvider router={router} />
-    </SessionProvider>
+    </AppProviders>
   )
 }

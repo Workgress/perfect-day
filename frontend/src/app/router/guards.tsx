@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
-import { useSession } from '@/app/session/SessionContext'
+import { selectIsAuthenticated, selectIsOnboarded, useSessionStore } from '@/stores/session'
 import { paths } from './paths'
 
 export type RedirectState = {
@@ -8,7 +8,7 @@ export type RedirectState = {
 
 export function RequireAuth() {
   const location = useLocation()
-  const isAuthenticated = useSession().state.isAuthenticated
+  const isAuthenticated = useSessionStore(selectIsAuthenticated)
 
   if (!isAuthenticated) {
     const state: RedirectState = { from: location.pathname + location.search }
@@ -18,16 +18,16 @@ export function RequireAuth() {
 }
 
 export function RequireOnboarding() {
-  const isOnboarded = useSession().state.isOnboarded
+  const isOnboarded = useSessionStore(selectIsOnboarded)
   return isOnboarded ? <Outlet /> : <Navigate to={paths.onboarding.birthDate} replace />
 }
 
 export function GuestOnly() {
-  const isAuthenticated = useSession().state.isAuthenticated
+  const isAuthenticated = useSessionStore(selectIsAuthenticated)
   return isAuthenticated ? <Navigate to={paths.today} replace /> : <Outlet />
 }
 
 export function OnboardingOnly() {
-  const isOnboarded = useSession().state.isOnboarded
+  const isOnboarded = useSessionStore(selectIsOnboarded)
   return isOnboarded ? <Navigate to={paths.today} replace /> : <Outlet />
 }

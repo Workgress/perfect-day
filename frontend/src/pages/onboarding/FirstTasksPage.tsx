@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router'
 import { paths } from '@/app/router/paths'
-import { useSession } from '@/app/session/SessionContext'
 import { Button } from '@/shared/ui/button/Button'
 import { ArrowLeftIcon, CheckIcon } from '@/shared/ui/icon/icons'
+import { useSessionStore } from '@/stores/session'
 import { OnboardingStep } from './OnboardingStep'
 
 export function FirstTasksPage() {
   const navigate = useNavigate()
-  const { completeOnboarding } = useSession().actions
+  const completeOnboarding = useSessionStore((state) => state.completeOnboarding)
 
   const handleFinish = () => {
     completeOnboarding()

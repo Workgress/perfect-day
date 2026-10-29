@@ -1,10 +1,11 @@
 import type { ComponentType } from 'react'
 import { Outlet } from 'react-router'
 import { paths } from '@/app/router/paths'
-import { useSession } from '@/app/session/SessionContext'
 import { Button } from '@/shared/ui/button/Button'
 import type { IconProps } from '@/shared/ui/icon/createIcon'
 import { ActivityIcon, CalendarIcon, SlidersIcon, SunIcon } from '@/shared/ui/icon/icons'
+import { selectUserName, useSessionStore } from '@/stores/session'
+import { ServerStatus } from './ServerStatus'
 import { SidebarLink } from './SidebarLink'
 import styles from './AppLayout.module.css'
 
@@ -16,16 +17,17 @@ const NAVIGATION: readonly { to: string; label: string; Icon: ComponentType<Icon
 ]
 
 function UserCard() {
-  const { state, actions } = useSession()
-  const initial = state.userName?.charAt(0).toUpperCase() ?? '?'
+  const userName = useSessionStore(selectUserName)
+  const signOut = useSessionStore((state) => state.signOut)
+  const initial = userName?.charAt(0).toUpperCase() ?? '?'
 
   return (
     <div className={styles.user}>
       <span className={styles.avatar} aria-hidden="true">
         {initial}
       </span>
-      <span className={`text-label ${styles.userName}`}>{state.userName}</span>
-      <Button variant="ghost" size="s" onClick={actions.signOut}>
+      <span className={`text-label ${styles.userName}`}>{userName}</span>
+      <Button variant="ghost" size="s" onClick={signOut}>
         Выйти
       </Button>
     </div>
@@ -45,7 +47,10 @@ export function AppLayout() {
             </SidebarLink>
           ))}
         </nav>
-        <UserCard />
+        <div className={styles.footer}>
+          <ServerStatus />
+          <UserCard />
+        </div>
       </aside>
       <main className={styles.main}>
         <Outlet />
