@@ -11,6 +11,17 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   font: 400 15px / 22px var(--font-sans);
+  transition:
+    background-color 200ms var(--easing-standard),
+    color 200ms var(--easing-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+  }
 }
 
 :focus-visible {

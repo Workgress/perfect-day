@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
+import { ThemeSync } from '@/app/theme/ThemeSync'
 
 const QueryDevtools = import.meta.env.DEV
   ? lazy(async () => ({
@@ -15,6 +16,7 @@ type AppProvidersProps = {
 export function AppProviders({ queryClient, children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeSync />
       {children}
       {QueryDevtools ? (
         <Suspense fallback={null}>

@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/button/Button'
 import type { IconProps } from '@/shared/ui/icon/createIcon'
 import { ActivityIcon, CalendarIcon, SlidersIcon, SunIcon } from '@/shared/ui/icon/icons'
 import { selectUserName, useSessionStore } from '@/stores/session'
+import { ThemeToggle } from '@/app/theme/ThemeToggle'
 import { ServerStatus } from './ServerStatus'
 import { SidebarLink } from './SidebarLink'
 import styles from './AppLayout.module.css'
@@ -38,7 +39,10 @@ export function AppLayout() {
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <span className={`text-heading ${styles.logo}`}>Идеальный день</span>
+        <div className={styles.brand}>
+          <span className="text-heading">Идеальный день</span>
+          <ThemeToggle />
+        </div>
         <nav aria-label="Основная навигация" className={styles.nav}>
           {NAVIGATION.map(({ to, label, Icon }) => (
             <SidebarLink key={to} to={to} className={styles.navLink}>
