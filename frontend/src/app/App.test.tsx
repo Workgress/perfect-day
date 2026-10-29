@@ -2,8 +2,9 @@ import { render, screen } from '@testing-library/react'
 import { App } from './App'
 
 describe('App', () => {
-  it('renders the product name', () => {
+  it('renders the UI kit in both themes', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Идеальный день' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Тёмная тема' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Светлая тема' })).toBeInTheDocument()
   })
 })

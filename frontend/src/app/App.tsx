@@ -1,7 +1,5 @@
+import { KitPage } from '@/pages/kit/KitPage'
+
 export function App() {
-  return (
-    <main>
-      <h1>Идеальный день</h1>
-    </main>
-  )
+  return <KitPage />
 }

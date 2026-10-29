@@ -1,0 +1,50 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  padding: 0 3px;
+  border-radius: 12px;
+  background: var(--bg-overlay);
+  transition: background-color var(--duration-fast) var(--easing-standard);
+}
+
+.knob {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--text-secondary);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard);
+}
+
+.toggle[aria-checked='true'] {
+  background: var(--accent-solid);
+}
+
+.toggle[aria-checked='true'] .knob {
+  background: var(--text-on-accent);
+  transform: translateX(16px);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.toggle:disabled {
+  background: var(--bg-elevated);
+}
+
+.toggle:disabled .knob {
+  background: var(--state-disabled-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle,
+  .knob {
+    transition: none;
+  }
+}
