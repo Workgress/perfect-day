@@ -15,8 +15,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     env: Env = Env.LOCAL
+    debug: bool = False
     app_name: str = "Идеальный День"
     api_prefix: str = "/api/v1"
+
+    cors_origins: list[str] = ["http://localhost:5173"]
 
     database_url: str = "postgresql+asyncpg://perfectday:perfectday@localhost:5432/perfectday"
 

@@ -15,7 +15,11 @@ EXPECTED_TABLES = {"users", "user_profiles", "tasks", "schedules", "schedule_slo
 
 
 def _diff(connection: Connection) -> list[object]:
-    return list(compare_metadata(MigrationContext.configure(connection), metadata))
+    context = MigrationContext.configure(
+        connection,
+        opts={"compare_type": True, "compare_server_default": True},
+    )
+    return list(compare_metadata(context, metadata))
 
 
 def _tables(connection: Connection) -> set[str]:

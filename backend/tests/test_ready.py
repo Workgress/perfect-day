@@ -52,6 +52,7 @@ def override_deps() -> Iterator[Any]:
         (True, True, 200, {"db": "ok", "redis": "ok"}),
         (True, False, 503, {"db": "ok", "redis": "error"}),
         (False, True, 503, {"db": "error", "redis": "ok"}),
+        (False, False, 503, {"db": "error", "redis": "error"}),
     ],
 )
 async def test_ready(
