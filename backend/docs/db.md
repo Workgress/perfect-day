@@ -76,10 +76,77 @@ erDiagram
 
 ## Работа с миграциями
 
+Все команды выполняются из `backend/`. Для локальных команд нужны окружение после `uv sync --frozen`, корректный `DATABASE_URL` и доступный PostgreSQL. Подготовка окружения и адреса сервисов описаны в [README](../../README.md).
+
+### Существующая цепочка
+
+| Ревизия | Содержимое |
+|---|---|
+| `0001` | расширение `citext` |
+| `0002` | `users`, `user_profiles` |
+| `0003` | `tasks` |
+| `0004` | `schedules`, `schedule_slots` |
+
+В PostgreSQL 16 используется встроенная `gen_random_uuid()`; отдельная установка `pgcrypto` для этих миграций не нужна. При первом создании PostgreSQL volume скрипт `docker/postgres/init/01-extensions.sql` также создаёт `citext`, поэтому миграция использует `IF NOT EXISTS`.
+
+Опубликованные ревизии не переименовываются и не переписываются. Изменения схемы оформляются новой миграцией поверх текущей head.
+
+### Применение и проверка
+
+При `docker compose up -d --build` сервис `migrate` автоматически выполняет upgrade до head перед запуском API, worker и beat. Эта команда изменяет БД текущего Compose-проекта. Повторное явное применение уже выполненных миграций допустимо:
+
 ```powershell
 docker compose run --rm migrate alembic upgrade head
-docker compose run --rm migrate alembic downgrade -1
-uv run alembic revision --autogenerate -m "описание"
+docker compose exec -T api alembic current
+docker compose exec -T api alembic check
 ```
+
+Последние две команды предполагают запущенный API. Вариант для локального окружения:
+
+```powershell
+$env:DEBUG = "false"
+uv run alembic heads
+uv run alembic history
+uv run alembic current
+uv run alembic check
+```
+
+`heads` и `history` показывают файлы ревизий, а `current` — состояние выбранной БД. `check` сравнивает БД с ORM-моделями без применения миграций, включая типы и серверные значения по умолчанию.
+
+### Добавление модели и миграции
+
+1. Создайте или измените модель в `app/modules/<module>/models.py`, используя общую `Base` и существующие соглашения об ограничениях.
+2. Импортируйте новую модель в `app/db/models.py`, чтобы её таблица попала в metadata Alembic.
+3. На локальной БД разработки примените существующие миграции до head и создайте новую ревизию:
+
+   ```powershell
+   uv run alembic upgrade head
+   uv run alembic revision --autogenerate -m "описание изменения"
+   ```
+
+4. Проверьте сгенерированный файл: `down_revision`, операции `upgrade()` и `downgrade()`, типы, индексы, ограничения и defaults. Автогенерация требует ручной проверки; особенно внимательно проверяйте переименования, операции с enum и преобразование существующих данных.
+5. Проверьте новую миграцию на одноразовой БД: применение, откат и повторное применение. Затем выполните `alembic check` и полный набор тестов.
+6. После проверки включите модель, её импорт, миграцию и необходимые тесты в один коммит.
+
+Автогенерацию выполняйте локально: так новый файл сразу появится в репозитории. Сравнение с БД должно выполняться на актуальной схеме без посторонних таблиц.
+
+### Проверка отката
+
+**Команды ниже предназначены только для одноразовой тестовой БД, выбранной через локальный `DATABASE_URL`.** `downgrade base` удаляет все таблицы цепочки и расширение `citext`. Не выполняйте его на общей БД или базе с нужными данными.
+
+```powershell
+uv run alembic upgrade head
+uv run alembic downgrade base
+uv run alembic upgrade head
+uv run alembic check
+```
+
+Эту последовательность и соответствие схемы моделям также проверяют тесты в `tests/db/`, использующие собственный PostgreSQL через Testcontainers:
+
+```powershell
+uv run pytest tests/db
+```
+
+Обычный `docker compose down` сохраняет volumes. Не добавляйте `--volumes` для рабочего проекта: это удалит сохранённые данные PostgreSQL и Redis.
 
 Таблицы `sessions`, `email_tokens`, уведомлений и периодических задач добавляются отдельными миграциями на соответствующих этапах.
