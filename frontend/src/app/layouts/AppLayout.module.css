@@ -1,0 +1,114 @@
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  height: 100dvh;
+  padding: var(--space-24) var(--space-16);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-left: var(--space-12);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin-top: auto;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0 var(--space-4);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--bg-overlay);
+  font: 500 13px / 18px var(--font-sans);
+}
+
+.userName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main {
+  min-width: 0;
+  padding: var(--space-32) var(--space-40);
+}
+
+@media (max-width: 768px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    display: contents;
+  }
+
+  .brand,
+  .footer {
+    display: none;
+  }
+
+  .nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: var(--space-4) var(--space-8) calc(var(--space-4) + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-sidebar);
+  }
+
+  .navLink {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-2);
+    height: 56px;
+    padding: 0;
+    font: 500 12px / 16px var(--font-sans);
+  }
+
+  .navLink[aria-current='page'] {
+    background: transparent;
+    color: var(--accent-text);
+  }
+
+  .main {
+    padding: var(--space-24) var(--space-16) calc(80px + env(safe-area-inset-bottom));
+  }
+}
