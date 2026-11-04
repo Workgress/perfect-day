@@ -44,7 +44,12 @@ def test_short_secret_rejected_without_echoing_value() -> None:
 
 def test_secret_is_masked_in_settings_representation() -> None:
     secret = "valid-test-secret-that-has-32-bytes"
-    settings = Settings(_env_file=None, env=Env.PRODUCTION, jwt_secret=SecretStr(secret))
+    settings = Settings(
+        _env_file=None,
+        env=Env.PRODUCTION,
+        jwt_secret=SecretStr(secret),
+        frontend_url="https://example.com",
+    )
 
     assert secret not in repr(settings)
     assert secret not in settings.model_dump_json()
@@ -76,3 +81,45 @@ def test_auth_settings_read_from_environment(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.refresh_ttl_days == 14
     assert settings.email_verification_ttl_hours == 24
     assert settings.password_reset_ttl_min == 60
+
+
+@pytest.mark.parametrize("env", [Env.STAGING, Env.PRODUCTION])
+def test_deployed_cookie_is_secure_by_default(env: Env) -> None:
+    settings = Settings(
+        _env_file=None,
+        env=env,
+        jwt_secret=SecretStr("valid-test-secret-that-has-32-bytes"),
+        frontend_url="https://example.com",
+    )
+
+    assert settings.secure_refresh_cookie
+
+
+@pytest.mark.parametrize("env", [Env.STAGING, Env.PRODUCTION])
+def test_deployed_cookie_cannot_disable_secure(env: Env) -> None:
+    with pytest.raises(ValidationError, match="Secure"):
+        Settings(
+            _env_file=None,
+            env=env,
+            jwt_secret=SecretStr("valid-test-secret-that-has-32-bytes"),
+            frontend_url="https://example.com",
+            refresh_cookie_secure=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:5173?token=secret",
+        "http://localhost:5173#token=secret",
+        "http://user:password@localhost:5173",
+    ],
+)
+def test_frontend_url_cannot_contain_query_fragment_or_credentials(url: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, env=Env.TEST, frontend_url=url)
+
+
+def test_smtp_tls_modes_are_mutually_exclusive() -> None:
+    with pytest.raises(ValidationError, match="SMTP_STARTTLS"):
+        Settings(_env_file=None, env=Env.TEST, smtp_starttls=True, smtp_ssl_tls=True)

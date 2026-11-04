@@ -1,6 +1,6 @@
 # Контракт аутентификации
 
-Статус: завершены этапы 1 и 2 из 6. Реализованы общий формат ошибок, схемы ответов auth, таблицы сессий и токенов, хэширование паролей и функции JWT. Маршруты `/auth/*`, SMTP, ротация и проверка текущего пользователя реализуются на этапах 3–5. Описание маршрута ниже не означает его доступность на сервере. Проверка второго этапа описана в [отдельной инструкции](auth-step-2.md).
+Статус: завершены этапы 1–3 из 6. Доступны регистрация, подтверждение email с выдачей первой сессии и повторная отправка письма. Письма отправляются через Celery и SMTP, локально — в Mailpit. Вход, refresh, выход, проверка текущего пользователя и работа с паролем остаются этапами 4–5. Ниже отдельно указаны готовые маршруты и команды проверки.
 
 ## Ответственность двух бэкендеров
 
@@ -58,6 +58,8 @@
 | `POST /auth/password/change` | Bearer access, `{old_password, new_password}` | `204`, смена пароля, отзыв всех сессий, очистка cookie |
 
 Все обязательные поля таблицы передаются строками. `204` не содержит тела. Нативная мобильная выдача refresh в JSON и социальный вход не входят в спринт.
+
+На этапе 3 доступны только `POST /auth/register`, `POST /auth/resend-verification`, `POST /auth/verify-email`. Эти маршруты уже описаны в OpenAPI. Остальные строки таблицы — согласованный контракт следующих этапов. Новая миграция для этапа 3 не требуется; текущая head остаётся `0005`.
 
 ### Ответы
 
@@ -180,7 +182,90 @@ Refresh-токены ротируются атомарно. Повтор ста�
 
 Сохраняются служебные заголовки, включая `WWW-Authenticate`, `Allow` и `Retry-After`. Существующие успешные health/readiness-ответы сохраняют формат. `/ready` при сбое возвращает свой диагностический ответ `503` с состояниями БД и Redis, поскольку это ответ проверки готовности, а не исключение. В production `DEBUG=false`; отладочный traceback не является публичным контрактом.
 
-OpenAPI работающего приложения описывает общий `ErrorResponse`. Auth-маршруты появятся в `/docs` вместе с их реализацией, без временных публичных заглушек.
+OpenAPI работающего приложения описывает общий `ErrorResponse` и три реализованных auth-маршрута. Вход, обновление и отзыв сессий появятся в `/docs` на этапе 4.
+
+## Отправка подтверждения: этап 3
+
+Пароль и email проверяются до создания пользователя. Регистрация существующего адреса возвращает нейтральный `202`, не меняет пароль и не отправляет новое письмо; для получения новой ссылки используется resend. При регистрации профиль не создаётся.
+
+Данные пользователя и SHA-256 одноразового токена сначала фиксируются в PostgreSQL, затем задача отправляется в Celery. Если публикация не удалась, API возвращает `503`: неподтверждённая учётная запись сохраняется, а повторную отправку можно запросить сразу. При сетевой неопределённости задача могла попасть в очередь; последующий resend всё равно аннулирует предыдущий токен.
+
+Для SMTP предусмотрены до трёх повторов с задержкой. Результат задачи не сохраняется; email и токен скрываются в представлении аргументов как исходной, так и повторных задач. SMTP-ошибки заменяются безопасным сообщением. Само сообщение брокера содержит данные, необходимые для отправки; Redis используется только внутри доверенной инфраструктуры.
+
+Подтверждение блокирует пользователя перед проверкой и использованием токена. Подтверждение и создание сессии фиксируются одной транзакцией. Из двух параллельных подтверждений только одно успешно. Токены сброса пароля не принимаются как подтверждение email.
+
+### Настройки почты и cookie
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `FRONTEND_URL` | `http://localhost:5173` | Базовый адрес ссылки подтверждения |
+| `SMTP_HOST` | `localhost`, в Compose — `mailpit` | Сервер SMTP |
+| `SMTP_PORT` | 1025 | Порт SMTP |
+| `SMTP_FROM` | `noreply@example.com` | Отправитель |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | пустые | Учётные данные, если SMTP требует вход |
+| `SMTP_STARTTLS`, `SMTP_SSL_TLS` | false | Режимы TLS; нельзя включать оба |
+| `REFRESH_COOKIE_SECURE` | автоматически по `ENV` | Для staging/production включён и не может быть выключен |
+
+`JWT_SECRET` нужен для подтверждения и выдачи access, минимум 32 символа. `ACCESS_TTL_MIN=15`, `REFRESH_TTL_DAYS=30`, `EMAIL_VERIFICATION_TTL_HOURS=24`, `PASSWORD_RESET_TTL_MIN=60`; все значения положительные. На staging и production `FRONTEND_URL` должен быть HTTPS, без query, fragment и учётных данных.
+
+## Как проверить этап 3
+
+Из `backend` после установки зависимостей `uv sync --frozen`:
+
+```powershell
+$env:DEBUG = "false"
+.\.venv\Scripts\python.exe -m pytest tests/auth -q -W error -p no:cacheprovider
+```
+
+Для полного набора нужен работающий Docker Desktop:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -ra -W error -p no:cacheprovider
+```
+
+Тесты используют отдельные PostgreSQL, Redis и Mailpit. Проверяются обычная регистрация, дубликаты адресов, истёкшие и использованные токены, повторная отправка, параллельные подтверждения и регистрации, лимиты, CSRF, сбои Redis и очереди. Отдельный тест `tests/integration/test_auth_mail.py` запускает настоящий Celery worker и проверяет цепочку API → Redis → Celery → SMTP → Mailpit → подтверждение токена из письма. Рабочая БД проекта в этих тестах не используется.
+
+### Ручная проверка через Mailpit
+
+В PowerShell из `backend` задайте JWT-секрет для текущего запуска и поднимите сервисы:
+
+```powershell
+$env:JWT_SECRET = .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
+docker compose up -d --build
+```
+
+Для последующих запусков сохраните собственный секрет в локальном `.env`. Compose передаёт его API и worker; `.env` не коммитится. Если запускаете API/worker непосредственно на Windows, используйте `SMTP_HOST=localhost`; в контейнерах SMTP доступен как `mailpit`. На Windows Celery запускается с `--pool=solo`, в Compose используется обычная команда worker.
+
+Регистрация с новым адресом:
+
+```powershell
+$headers = @{ Origin = "http://localhost:5173" }
+$email = [guid]::NewGuid().ToString("N") + "@example.com"
+$body = @{ email = $email; password = "Testpass123" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/auth/register -Headers $headers -ContentType "application/json" -Body $body
+```
+
+Ожидается `202` и нейтральное сообщение. Откройте http://localhost:8025: в Mailpit появится русскоязычное письмо. Скопируйте токен после `#token=` из ссылки. Фронтенд-экран подтверждения ещё не подключён, поэтому для этого этапа токен передаётся через API:
+
+```powershell
+$token = "ТОКЕН_ИЗ_ПИСЬМА"
+$body = @{ token = $token } | ConvertTo-Json
+$result = Invoke-WebRequest -Method Post -Uri http://localhost:8000/api/v1/auth/verify-email -Headers $headers -ContentType "application/json" -Body $body -SessionVariable authSession
+$result.StatusCode
+$result.Content
+$result.Headers["Set-Cookie"]
+```
+
+Ожидаются `200`, access в JSON и refresh-cookie с `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`. Для локального HTTP `Secure` выключен. Тот же запрос подтверждения второй раз возвращает `400 INVALID_EMAIL_TOKEN`.
+
+Для проверки resend зарегистрируйте другой новый адрес и до подтверждения запросите:
+
+```powershell
+$body = @{ email = $email } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/auth/resend-verification -Headers $headers -ContentType "application/json" -Body $body
+```
+
+В течение 60 секунд после регистрации ожидается `429` с `Retry-After`. После интервала — `202` и новое письмо; старая ссылка больше не подтверждает email. Без доверенного Origin/Referer auth POST возвращает `403 CSRF_ORIGIN_DENIED`. Для выполнения запросов через Swagger добавьте точный origin страницы API, например `http://localhost:8000`, в локальный `CORS_ORIGINS` и перезапустите API.
 
 ## Как проверить этап 1
 

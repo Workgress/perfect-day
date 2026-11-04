@@ -18,6 +18,8 @@ dependencies = [
     "celery[redis]>=5.4",
     "pyjwt>=2.10,<3",
     "pwdlib[argon2]>=0.3,<1",
+    "fastapi-mail>=1.5,<2",
+    "email-validator>=2.2,<3",
 ]
 
 [dependency-groups]
