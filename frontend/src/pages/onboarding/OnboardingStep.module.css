@@ -1,11 +1,11 @@
-.description {
-  color: var(--text-secondary);
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--space-8);
-  margin-top: var(--space-8);
+  padding-top: var(--space-12);
+}
+
+.actions > :only-child {
+  margin-left: auto;
 }

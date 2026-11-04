@@ -1,0 +1,126 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+  width: 100%;
+}
+
+.label {
+  color: var(--text-secondary);
+}
+
+.control {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: 400 15px / 22px var(--font-sans);
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard);
+}
+
+.control::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+.control[aria-invalid='true'] {
+  border-color: var(--status-danger);
+}
+
+.control:focus {
+  transition: none;
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: inset 0 0 0 1px var(--focus-ring);
+}
+
+.control:disabled {
+  border-color: var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--state-disabled-text);
+  cursor: not-allowed;
+  opacity: 1;
+  -webkit-text-fill-color: var(--state-disabled-text);
+}
+
+.control:disabled::placeholder {
+  color: var(--state-disabled-text);
+}
+
+.hint {
+  color: var(--text-tertiary);
+}
+
+.error {
+  color: var(--status-danger);
+}
+
+.selectWrapper {
+  position: relative;
+  min-width: 0;
+}
+
+.select {
+  display: block;
+  appearance: none;
+  padding-right: 44px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.select[data-leading] {
+  padding-left: 42px;
+}
+
+.leadingIcon {
+  position: absolute;
+  z-index: 1;
+  top: 13px;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.chevron {
+  position: absolute;
+  top: 14px;
+  right: 15px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.selectWrapper:has(.control:disabled) .chevron,
+.selectWrapper:has(.control:disabled) .leadingIcon {
+  opacity: 0.4;
+}
+
+.message {
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-sm);
+}
+
+.message[data-tone='error'] {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+}
+
+.message[data-tone='info'] {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.message[data-tone='success'] {
+  background: var(--status-success-soft);
+  color: var(--status-success);
+}

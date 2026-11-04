@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from 'react-router'
 import type { RedirectState } from '@/app/router/guards'
 import { paths } from '@/app/router/paths'
+import { OnboardingPreview } from '@/app/layouts/OnboardingPreview'
 import { Button } from '@/shared/ui/button/Button'
 import { ArrowRightIcon } from '@/shared/ui/icon/icons'
+import { OnboardingIntro, OnboardingShell } from '@/shared/ui/onboarding/OnboardingShell'
 import { useSessionStore } from '@/stores/session'
-import styles from './LoginPage.module.css'
 
 const DEMO_SESSION = {
   accessToken: 'demo-token',
@@ -23,18 +24,16 @@ export function LoginPage() {
   }
 
   return (
-    <main className={styles.page}>
+    <OnboardingShell step={1} preview={<OnboardingPreview />}>
       <title>Вход · Идеальный день</title>
-      <div className={styles.card}>
-        <h1 className="text-title">Идеальный день</h1>
-        <p className={`text-body-s ${styles.description}`}>
-          Планировщик, который раскладывает задачи по вашим биоритмам и хронотипу.
-        </p>
-        <Button onClick={handleSignIn}>
-          Войти
-          <ArrowRightIcon />
-        </Button>
-      </div>
-    </main>
+      <OnboardingIntro
+        title="Планируйте день по своим ритмам"
+        description="Учтём биоритмы, хронотип и ваши задачи — первое расписание будет готово за пару минут."
+      />
+      <Button onClick={handleSignIn}>
+        Войти
+        <ArrowRightIcon />
+      </Button>
+    </OnboardingShell>
   )
 }

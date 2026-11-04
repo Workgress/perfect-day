@@ -39,6 +39,13 @@
   gap: var(--space-12);
 }
 
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: min(100%, 360px);
+}
+
 .colorGroups {
   display: flex;
   flex-direction: column;

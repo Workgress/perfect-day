@@ -1,0 +1,21 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  min-width: 0;
+  padding: var(--space-32);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.eyebrow,
+.footer {
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 560px) {
+  .card {
+    padding: var(--space-24);
+  }
+}

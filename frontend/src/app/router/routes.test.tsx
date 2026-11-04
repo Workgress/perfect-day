@@ -23,6 +23,26 @@ function renderAt(path: string, visitor: Visitor) {
 }
 
 describe('routes', () => {
+  it.each([
+    ['/login', 'guest', 1],
+    ['/onboarding/birth-date', 'new-user', 2],
+    ['/onboarding/chronotype', 'new-user', 3],
+    ['/onboarding/first-tasks', 'new-user', 4],
+  ] as const)(
+    'shows step %s in the shared four-step onboarding shell',
+    async (path, visitor, step) => {
+      renderAt(path, visitor)
+
+      const progress = await screen.findByRole('progressbar', { name: 'Онбординг' })
+      expect(progress).toHaveAttribute('aria-valuenow', String(step))
+      expect(progress).toHaveAttribute('aria-valuemax', '4')
+      expect(progress).toHaveAttribute('aria-valuetext', `Шаг ${step} из 4`)
+      expect(screen.getByRole('complementary', { name: 'Предпросмотр' })).toHaveTextContent(
+        'Пример профиля',
+      )
+    },
+  )
+
   it('sends guests to login', async () => {
     const router = renderAt('/calendar', 'guest')
     expect(await screen.findByRole('button', { name: 'Войти' })).toBeInTheDocument()
