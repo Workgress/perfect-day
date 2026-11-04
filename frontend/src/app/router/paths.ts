@@ -1,5 +1,6 @@
 export const paths = {
   login: '/login',
+  register: '/register',
   onboarding: {
     root: '/onboarding',
     birthDate: '/onboarding/birth-date',

@@ -2,19 +2,23 @@
   position: fixed;
   inset: 0;
   z-index: 20;
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  place-items: center;
+  padding: var(--space-24);
   background: var(--bg-scrim);
+  backdrop-filter: blur(3px);
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  width: min(100%, 480px);
-  height: 100%;
-  padding: var(--space-24);
-  border-left: 1px solid var(--border-subtle);
+  width: min(100%, 640px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
 }
 

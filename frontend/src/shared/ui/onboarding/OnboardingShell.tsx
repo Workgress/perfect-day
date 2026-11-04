@@ -13,7 +13,7 @@ type OnboardingShellProps = {
 
 export function OnboardingShell({ step, children, preview }: OnboardingShellProps) {
   return (
-    <main className={styles.page}>
+    <main className={styles.page} data-auth={step === 1 || undefined}>
       <div className={cx(styles.layout, !preview && styles.withoutPreview)}>
         <div className={styles.content} data-auth={step === 1 || undefined}>
           <header className={styles.header}>

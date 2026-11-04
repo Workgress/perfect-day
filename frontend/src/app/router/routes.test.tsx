@@ -25,6 +25,7 @@ function renderAt(path: string, visitor: Visitor) {
 describe('routes', () => {
   it.each([
     ['/login', 'guest', 1],
+    ['/register', 'guest', 1],
     ['/onboarding/birth-date', 'new-user', 2],
     ['/onboarding/chronotype', 'new-user', 3],
     ['/onboarding/first-tasks', 'new-user', 4],
@@ -51,6 +52,8 @@ describe('routes', () => {
 
   it('sends a new user to onboarding after login', async () => {
     const router = renderAt('/calendar', 'guest')
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Email' }), 'anna@example.com')
+    await userEvent.type(screen.getByLabelText('Пароль'), 'demo-password')
     await userEvent.click(await screen.findByRole('button', { name: 'Войти' }))
     expect(await screen.findByRole('heading', { name: 'Дата рождения' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/onboarding/birth-date')
@@ -76,6 +79,12 @@ describe('routes', () => {
 
   it('redirects onboarded users from login to today', async () => {
     const router = renderAt('/login', 'user')
+    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/today')
+  })
+
+  it('redirects onboarded users from registration to today', async () => {
+    const router = renderAt('/register', 'user')
     expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
   })
