@@ -25,13 +25,20 @@ const CYCLES = [
   },
 ] as const
 
-export function OnboardingPreview() {
+export function OnboardingPreview({ profile = false }: { profile?: boolean }) {
   return (
     <PreviewCard
-      eyebrow="Что вы получите"
-      title="Энергетический профиль на каждый день"
-      footer="Пример профиля. Ваш появится сразу после ввода даты рождения."
+      eyebrow={profile ? undefined : 'Что вы получите'}
+      title={profile ? 'Ваш профиль на сегодня' : 'Энергетический профиль на каждый день'}
+      footer={
+        profile
+          ? 'Пример профиля. Значения пока не зависят от введённых данных.'
+          : 'Пример профиля. Ваш появится сразу после ввода даты рождения.'
+      }
     >
+      {profile ? (
+        <p className={`text-caption ${styles.hint}`}>Пример значений трёх циклов</p>
+      ) : null}
       {CYCLES.map((cycle) => (
         <div key={cycle.type} className={styles.cycle} data-cycle={cycle.type}>
           <p className={`text-label-s ${styles.label}`}>

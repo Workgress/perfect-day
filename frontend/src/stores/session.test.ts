@@ -1,4 +1,5 @@
 import { selectIsAuthenticated, selectUserName, useSessionStore } from './session'
+import { EMPTY_ONBOARDING } from '@/shared/model/onboarding'
 
 const SESSION = {
   accessToken: 'token',
@@ -24,7 +25,12 @@ describe('session store', () => {
     expect(selectIsAuthenticated(state)).toBe(true)
     expect(selectUserName(state)).toBe('Анна')
     expect(readPersisted()).toEqual({
-      state: { accessToken: 'token', user: SESSION.user, isOnboarded: false },
+      state: {
+        accessToken: 'token',
+        user: SESSION.user,
+        isOnboarded: false,
+        onboarding: EMPTY_ONBOARDING,
+      },
       version: 1,
     })
   })
@@ -59,6 +65,37 @@ describe('session store', () => {
     const state = useSessionStore.getState()
     expect(selectIsAuthenticated(state)).toBe(false)
     expect(state.isOnboarded).toBe(false)
-    expect(readPersisted().state).toEqual({ accessToken: null, user: null, isOnboarded: false })
+    expect(readPersisted().state).toEqual({
+      accessToken: null,
+      user: null,
+      isOnboarded: false,
+      onboarding: EMPTY_ONBOARDING,
+    })
+  })
+
+  it('restores entered onboarding data after rehydration', async () => {
+    useSessionStore.getState().signIn(SESSION)
+    useSessionStore
+      .getState()
+      .updateOnboarding({ birthDate: '20.09.2003', birthTime: '14:15', chronotype: 'owl' })
+    const saved = localStorage.getItem('pd-session')!
+    useSessionStore.setState({ onboarding: EMPTY_ONBOARDING })
+    localStorage.setItem('pd-session', saved)
+    await useSessionStore.persist.rehydrate()
+    expect(useSessionStore.getState().onboarding).toMatchObject({
+      birthDate: '20.09.2003',
+      birthTime: '14:15',
+      chronotype: 'owl',
+    })
+  })
+
+  it('invalidates the demo plan when the draft changes and clears it on sign-out', () => {
+    const store = useSessionStore.getState()
+    store.signIn(SESSION)
+    store.updateOnboarding({ planReady: true })
+    store.updateOnboarding({ workStart: '09:00' })
+    expect(useSessionStore.getState().onboarding.planReady).toBe(false)
+    store.signOut()
+    expect(useSessionStore.getState().onboarding).toEqual(EMPTY_ONBOARDING)
   })
 })
