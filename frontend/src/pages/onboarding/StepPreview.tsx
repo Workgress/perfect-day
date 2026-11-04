@@ -6,51 +6,51 @@ import { Button } from '@/shared/ui/button/Button'
 import { ArrowRightIcon } from '@/shared/ui/icon/icons'
 import { PreviewCard } from '@/shared/ui/onboarding/PreviewCard'
 import { useSessionStore } from '@/stores/session'
-import { demoSlots, formatTime, minutes } from './model'
+import { CHRONOTYPES, dayTicks, dayWindows } from './chronotype'
+import { demoSlots, formatTime, isTime, minutes } from './model'
 import styles from './StepPreview.module.css'
-
-const CHRONOTYPE_LABELS = { lark: 'Жаворонок', dove: 'Голубь', owl: 'Сова' }
-
-const WINDOWS = [
-  { type: 'routine', label: 'Разгон: почта, планирование', top: 10, height: 74 },
-  { type: 'intellectual', label: 'Интеллектуальное окно', top: 88, height: 126 },
-  { type: 'rest', label: 'Обед и отдых', top: 218, height: 48 },
-  { type: 'intellectual', label: 'Вторая волна', top: 270, height: 74 },
-  { type: 'physical', label: 'Физическое окно', top: 374, height: 48 },
-  { type: 'routine', label: 'Рутина', top: 426, height: 100 },
-]
 
 export function DayWindowsPreview() {
   const draft = useSessionStore((state) => state.onboarding)
   const start = minutes(draft.workStart)
   const end = minutes(draft.workEnd)
-  const validWindow = end > start
+  const validWindow = isTime(draft.workStart) && isTime(draft.workEnd) && end > start
+  const windows = dayWindows(draft.chronotype, draft.workStart, draft.workEnd)
+  const height = Math.max(520, ((end - start) / 60) * 52)
+  const position = (time: number) => ((time - start) / (end - start)) * height
 
   return (
     <PreviewCard
       title="Окна вашего дня"
-      footer="Пример окон дня. Персональные окна пока не рассчитываются."
+      footer="Предварительные окна по хронотипу, без учёта биоритмов. Показана только часть внутри выбранного дня."
     >
       <p className={`text-body-s ${styles.secondary}`}>
-        {CHRONOTYPE_LABELS[draft.chronotype]} · {draft.workStart}–{draft.workEnd}
+        {CHRONOTYPES.find((item) => item.value === draft.chronotype)?.label} · {draft.workStart}–
+        {draft.workEnd}
       </p>
       {validWindow ? (
-        <div className={styles.timeline}>
-          {Array.from({ length: 11 }, (_, index) => (
-            <div key={index} className={styles.tick} style={{ top: index * 52 }}>
-              <span>{formatTime(Math.round(start + ((end - start) * index) / 10))}</span>
+        <div className={styles.timeline} style={{ height: height + 24 }}>
+          {dayTicks(start, end).map((time) => (
+            <div key={time} className={styles.tick} style={{ top: position(time) }}>
+              <span>{formatTime(time)}</span>
               <span />
             </div>
           ))}
-          {WINDOWS.map((window) => (
+          {windows.map((window) => (
             <div
-              key={window.top}
+              key={window.start}
               className={styles.window}
               data-type={window.type}
-              style={{ top: window.top, height: window.height }}
+              data-compact={position(window.end) - position(window.start) < 48 || undefined}
+              aria-label={`${window.label}: ${formatTime(window.start)}–${formatTime(window.end)}`}
+              title={`${window.label}: ${formatTime(window.start)}–${formatTime(window.end)}`}
+              style={{
+                top: position(window.start) + 10,
+                height: position(window.end) - position(window.start) - 4,
+              }}
             >
               <span aria-hidden="true" />
-              {window.label}
+              <span className={styles.windowLabel}>{window.label}</span>
             </div>
           ))}
         </div>

@@ -55,13 +55,28 @@
   --window-soft: var(--type-rest-soft);
 }
 
-.window > span,
+.window > span:first-child,
 .dot {
   width: 8px;
   height: 8px;
   flex: 0 0 8px;
   border-radius: 50%;
   background: var(--window-color);
+}
+
+.windowLabel {
+  min-width: 0;
+}
+
+.window[data-compact] {
+  padding: 0 var(--space-8);
+  font-size: 12px;
+}
+
+.window[data-compact] .windowLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dot {

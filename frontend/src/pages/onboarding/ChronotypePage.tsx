@@ -12,33 +12,12 @@ import {
   ZapIcon,
 } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
+import { CHRONOTYPES, chronotypePeak } from './chronotype'
 import { TIME_OPTIONS } from './model'
 import { OnboardingStep } from './OnboardingStep'
 import styles from './OnboardingStep.module.css'
 
-const CHRONOTYPES = [
-  {
-    value: 'lark',
-    label: 'Жаворонок',
-    description: 'Бодрее утром',
-    peak: '08:00–11:00',
-    Icon: SunIcon,
-  },
-  {
-    value: 'dove',
-    label: 'Голубь',
-    description: 'Ровный ритм',
-    peak: '09:00–12:00',
-    Icon: ZapIcon,
-  },
-  {
-    value: 'owl',
-    label: 'Сова',
-    description: 'Лучше после обеда и вечером',
-    peak: '12:00–15:00',
-    Icon: MoonIcon,
-  },
-] as const
+const CHRONOTYPE_ICONS = { lark: SunIcon, dove: ZapIcon, owl: MoonIcon }
 
 export function ChronotypePage() {
   const navigate = useNavigate()
@@ -68,7 +47,7 @@ export function ChronotypePage() {
   return (
     <OnboardingStep
       title="Когда вам легче думается?"
-      description="Хронотип сдвигает окна внутри дня: у «совы» они на 4 часа позже, чем у «жаворонка»."
+      description="Выберите хронотип — покажем окна активности и предложим режим дня. Время можно настроить под себя."
     >
       <form
         className={styles.form}
@@ -78,23 +57,29 @@ export function ChronotypePage() {
       >
         <fieldset className={styles.choices}>
           <legend className="visually-hidden">Хронотип</legend>
-          {CHRONOTYPES.map(({ value, label, description, peak, Icon }) => (
-            <label key={value} className={styles.choice}>
-              <input
-                type="radio"
-                name="chronotype"
-                value={value}
-                checked={draft.chronotype === value}
-                onChange={() => update({ chronotype: value })}
-              />
-              <Icon />
-              <span className={styles.choiceText}>
-                <span className="text-label">{label}</span>
-                <span className={`text-caption ${styles.secondary}`}>{description}</span>
-              </span>
-              <span className={styles.badge}>Пик {peak}</span>
-            </label>
-          ))}
+          {CHRONOTYPES.map(({ value, label, description, workStart, workEnd, sleepTime }) => {
+            const Icon = CHRONOTYPE_ICONS[value]
+            return (
+              <label key={value} className={styles.choice}>
+                <input
+                  type="radio"
+                  name="chronotype"
+                  value={value}
+                  checked={draft.chronotype === value}
+                  onChange={() => {
+                    update({ chronotype: value, workStart, workEnd, sleepTime })
+                    setSubmitted(false)
+                  }}
+                />
+                <Icon />
+                <span className={styles.choiceText}>
+                  <span className="text-label">{label}</span>
+                  <span className={`text-caption ${styles.secondary}`}>{description}</span>
+                </span>
+                <span className={styles.badge}>Пик {chronotypePeak(value)}</span>
+              </label>
+            )
+          })}
         </fieldset>
         <div className={styles.times}>
           <SelectField
