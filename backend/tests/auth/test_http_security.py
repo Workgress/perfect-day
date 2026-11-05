@@ -12,7 +12,7 @@ from app.core.config import Env, Settings
 from app.core.csrf import require_trusted_origin
 from app.core.errors import AppError
 from app.core.rate_limit import AuthRateLimiter, rate_limit_key
-from app.modules.auth.cookies import set_refresh_cookie
+from app.modules.auth.cookies import clear_refresh_cookie, set_refresh_cookie
 
 
 def local_settings() -> Settings:
@@ -78,6 +78,29 @@ def test_refresh_cookie_is_host_only_and_never_readable_by_javascript(deployed: 
     assert cookie["path"] == "/api/v1/auth"
     assert not cookie["domain"]
     assert 2591998 <= int(cookie["max-age"]) <= 2592000
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize("deployed", [False, True])
+def test_cookie_deletion_uses_same_scope_and_security_flags(deployed: bool) -> None:
+    settings = Settings(
+        _env_file=None,
+        env=Env.PRODUCTION if deployed else Env.TEST,
+        jwt_secret=SecretStr("valid-test-secret-that-has-32-bytes"),
+        frontend_url="https://example.com" if deployed else "http://localhost:5173",
+    )
+    response = Response()
+
+    clear_refresh_cookie(response, settings)
+    cookie = SimpleCookie(response.headers["set-cookie"])["refresh_token"]
+
+    assert not cookie.value
+    assert cookie["max-age"] == "0"
+    assert cookie["path"] == "/api/v1/auth"
+    assert cookie["httponly"]
+    assert cookie["samesite"] == "strict"
+    assert bool(cookie["secure"]) is deployed
+    assert not cookie["domain"]
     assert response.headers["cache-control"] == "no-store"
 
 

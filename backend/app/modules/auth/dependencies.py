@@ -1,6 +1,8 @@
 from typing import Annotated
 
 from fastapi import Depends, Request
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import ValidationError
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +11,7 @@ from app.core.rate_limit import AuthRateLimiter
 from app.core.redis import get_redis
 from app.db.session import get_session
 from app.modules.auth.delivery import VerificationPublisher, get_verification_publisher
+from app.modules.auth.schemas import EmailRequest
 from app.modules.auth.service import AuthService
 
 
@@ -48,3 +51,30 @@ async def limit_resend(
     limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
 ) -> None:
     await limiter.enforce("resend-verification", client_ip(request), 30, 60)
+
+
+async def limit_login(
+    request: Request,
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    try:
+        email = str(EmailRequest.model_validate({"email": form.username}).email)
+    except ValidationError:
+        email = form.username.strip().lower()
+    identity = f"{client_ip(request)}\0{email}"
+    await limiter.enforce("login", identity, 5, 60)
+
+
+async def limit_refresh(
+    request: Request,
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    await limiter.enforce("refresh", client_ip(request), 30, 60)
+
+
+async def limit_logout(
+    request: Request,
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    await limiter.enforce("logout", client_ip(request), 30, 60)

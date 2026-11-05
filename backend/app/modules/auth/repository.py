@@ -23,10 +23,96 @@ class AuthRepository:
         return await self.session.scalar(statement)
 
     async def lock_user_by_email(self, email: str) -> User | None:
-        return await self.session.scalar(select(User).where(User.email == email).with_for_update())
+        return await self.session.scalar(
+            select(User)
+            .where(User.email == email)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
 
     async def lock_user(self, user_id: UUID) -> User | None:
-        return await self.session.scalar(select(User).where(User.id == user_id).with_for_update())
+        return await self.session.scalar(
+            select(User)
+            .where(User.id == user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    async def authentication_state(
+        self, user_id: UUID, session_id: UUID
+    ) -> tuple[User, AuthSession] | None:
+        result = await self.session.execute(
+            select(User, AuthSession)
+            .join(AuthSession, AuthSession.user_id == User.id)
+            .where(User.id == user_id, AuthSession.id == session_id)
+            .execution_options(populate_existing=True)
+        )
+        row = result.one_or_none()
+        return (row[0], row[1]) if row is not None else None
+
+    async def lock_session(self, session_id: UUID, user_id: UUID) -> AuthSession | None:
+        return await self.session.scalar(
+            select(AuthSession)
+            .where(AuthSession.id == session_id, AuthSession.user_id == user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    async def refresh_owner(self, token_hash: str) -> tuple[UUID, UUID] | None:
+        result = await self.session.execute(
+            select(AuthSession.user_id, AuthSession.id)
+            .join(RefreshToken, RefreshToken.session_id == AuthSession.id)
+            .where(RefreshToken.token_hash == token_hash)
+        )
+        row = result.one_or_none()
+        return (row[0], row[1]) if row is not None else None
+
+    async def lock_refresh_token(self, token_hash: str) -> RefreshToken | None:
+        return await self.session.scalar(
+            select(RefreshToken)
+            .where(RefreshToken.token_hash == token_hash)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    async def rotate_refresh_token(
+        self,
+        previous: RefreshToken,
+        token_hash: str,
+        now: datetime,
+        expires_at: datetime,
+    ) -> None:
+        previous.used_at = now
+        await self.session.flush()
+        replacement = RefreshToken(
+            session_id=previous.session_id,
+            token_hash=token_hash,
+            created_at=now,
+            expires_at=expires_at,
+        )
+        self.session.add(replacement)
+        await self.session.flush()
+        previous.replaced_by_id = replacement.id
+        await self.session.flush()
+
+    async def active_sessions(self, user_id: UUID, now: datetime) -> list[AuthSession]:
+        result = await self.session.scalars(
+            select(AuthSession)
+            .where(
+                AuthSession.user_id == user_id,
+                AuthSession.revoked_at.is_(None),
+                AuthSession.expires_at > now,
+            )
+            .order_by(AuthSession.last_used_at.desc(), AuthSession.id)
+        )
+        return list(result)
+
+    async def revoke_all_sessions(self, user_id: UUID, now: datetime) -> None:
+        await self.session.execute(
+            update(AuthSession)
+            .where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
 
     async def verification_owner(self, token_hash: str) -> UUID | None:
         return await self.session.scalar(

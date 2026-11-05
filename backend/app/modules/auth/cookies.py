@@ -25,3 +25,14 @@ def set_refresh_cookie(
         samesite="strict",
     )
     response.headers["Cache-Control"] = "no-store"
+
+
+def clear_refresh_cookie(response: Response, settings: Settings) -> None:
+    response.delete_cookie(
+        REFRESH_COOKIE_NAME,
+        path=f"{settings.api_prefix}/auth",
+        secure=settings.secure_refresh_cookie,
+        httponly=True,
+        samesite="strict",
+    )
+    response.headers["Cache-Control"] = "no-store"
