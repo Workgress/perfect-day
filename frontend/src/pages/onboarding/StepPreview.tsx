@@ -1,13 +1,16 @@
-import type { CSSProperties } from 'react'
-import { useNavigate } from 'react-router'
-import { paths } from '@/app/router/paths'
-import { TASK_TYPES } from '@/shared/model/onboarding'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { onboardingRequest } from '@/shared/api/profile'
+import { previewPlan } from '@/shared/api/plan'
+import { HttpError } from '@/shared/api/http'
+import { apiError } from '@/shared/api/errors'
+import { FormMessage } from '@/shared/ui/form-field/FormField'
 import { Button } from '@/shared/ui/button/Button'
-import { ArrowRightIcon } from '@/shared/ui/icon/icons'
 import { PreviewCard } from '@/shared/ui/onboarding/PreviewCard'
 import { useSessionStore } from '@/stores/session'
 import { CHRONOTYPES, dayTicks, dayWindows } from './chronotype'
-import { demoSlots, formatTime, isTime, minutes } from './model'
+import { formatTime, isTime, minutes, validateTasks } from './model'
+import { localPlanPreview } from './planPreview'
 import styles from './StepPreview.module.css'
 
 export function DayWindowsPreview() {
@@ -62,53 +65,105 @@ export function DayWindowsPreview() {
 }
 
 export function FirstTasksPreview() {
-  const navigate = useNavigate()
   const draft = useSessionStore((state) => state.onboarding)
-  const complete = useSessionStore((state) => state.completeOnboarding)
-  const slots = draft.planReady ? demoSlots(draft) : []
+  const timezone = useSessionStore((state) => state.timezone)
+  const generation = useSessionStore((state) => state.generation)
+  const body = onboardingRequest(draft.tasks, timezone)
+  const snapshot = JSON.stringify({
+    body,
+    chronotype: draft.chronotype,
+    workStart: draft.workStart,
+    workEnd: draft.workEnd,
+    timezone,
+  })
+  const [settled, setSettled] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(snapshot), 350)
+    return () => clearTimeout(timer)
+  }, [snapshot])
+  const valid = !validateTasks(draft)
+  const query = useQuery({
+    queryKey: ['onboarding-preview', generation, snapshot],
+    queryFn: async ({ signal }) => {
+      try {
+        return await previewPlan(body, signal)
+      } catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 404) throw error
+        signal.throwIfAborted()
+        return localPlanPreview(body, draft, timezone)
+      }
+    },
+    enabled: valid && settled === snapshot,
+    retry: false,
+    staleTime: 30_000,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  })
+  const preview = valid ? query.data : undefined
+  const rows = preview
+    ? [
+        ...preview.slots.map((slot) => ({
+          task: body.tasks[slot.task_index],
+          index: slot.task_index,
+          time: `${slot.start_time.slice(0, 5)}–${slot.end_time.slice(0, 5)}`,
+          explanation: slot.explanation,
+        })),
+        ...preview.unscheduled_task_indexes.map((index) => ({
+          task: body.tasks[index],
+          index,
+          time: 'Время не определено',
+          explanation:
+            'Задача не помещается в доступные окна. Измените длительность или режим дня.',
+        })),
+      ]
+    : []
 
   return (
     <PreviewCard
       title="Ваш план на сегодня"
-      footer="Пример распределения задач. Биоритмы и хронотип пока не учитываются."
+      footer={
+        preview?.local
+          ? 'Предварительная раскладка по хронотипу. Биоритмы пока не учитываются; это ещё не сохранённый план.'
+          : 'Предпросмотр не сохраняет задачи. Итоговый план подтвердится после нажатия «Составить план».'
+      }
     >
-      {!slots.length ? (
+      {!draft.tasks.length ? (
         <p className={`text-body-s ${styles.secondary}`}>
-          Добавьте свои задачи и нажмите «Составить план», чтобы увидеть пример распределения по
-          времени.
+          Добавьте свои задачи и нажмите «Составить план», чтобы сохранить их и завершить настройку.
         </p>
       ) : null}
-      {slots.map((slot) => (
+      {draft.tasks.length && !valid ? (
+        <p className={`text-body-s ${styles.secondary}`}>
+          Заполните задачи и проверьте длительность, чтобы увидеть время выполнения.
+        </p>
+      ) : null}
+      {valid && !preview && !query.isError ? (
+        <p className={`text-body-s ${styles.secondary}`} role="status">
+          Составляем предпросмотр…
+        </p>
+      ) : null}
+      {query.isError && valid ? (
+        <>
+          <FormMessage>{apiError(query.error)}</FormMessage>
+          <Button variant="secondary" onClick={() => query.refetch()}>
+            Повторить расчёт
+          </Button>
+        </>
+      ) : null}
+      {rows.map((slot) => (
         <div
-          key={slot.id}
+          key={slot.index}
           className={styles.slot}
-          style={{ '--slot-color': `var(--type-${slot.type})` } as CSSProperties}
+          style={{ '--slot-color': `var(--type-${slot.task.type})` } as CSSProperties}
         >
           <span className={styles.dot} aria-hidden="true" />
           <div>
-            <p className="text-mono-s">
-              {slot.start}–{slot.end}
-            </p>
-            <p className={`text-label ${styles.taskTitle}`}>{slot.title}</p>
-            <p className={`text-caption ${styles.secondary}`}>
-              {TASK_TYPES[slot.type]} · {slot.durationMin} мин
-            </p>
+            <p className={`text-mono-s-medium ${styles.slotTime}`}>{slot.time}</p>
+            <p className={`text-label ${styles.taskTitle}`}>{slot.task.title}</p>
+            <p className={`text-caption ${styles.secondary}`}>{slot.explanation}</p>
           </div>
         </div>
       ))}
-      {draft.planReady && import.meta.env.DEV ? (
-        <Button
-          className={styles.openPlan}
-          variant="secondary"
-          onClick={() => {
-            complete()
-            navigate(paths.today, { replace: true })
-          }}
-        >
-          <ArrowRightIcon />
-          Открыть план
-        </Button>
-      ) : null}
     </PreviewCard>
   )
 }

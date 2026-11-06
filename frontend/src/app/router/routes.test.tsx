@@ -1,25 +1,21 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { useSessionStore, type SessionUser } from '@/stores/session'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { routes } from './routes'
+import { installApiServer, profileFixture } from '@/test/apiServer'
 
 const USER: SessionUser = { name: 'Анна', birthDate: null, chronotype: null }
 
 type Visitor = 'guest' | 'new-user' | 'user'
 
 function renderAt(path: string, visitor: Visitor, profile: Partial<SessionUser> = {}) {
+  const document = profileFixture({ ...USER, ...profile }, visitor === 'user')
+  installApiServer(document, visitor !== 'guest')
   if (visitor !== 'guest') {
-    useSessionStore.setState({
-      accessToken: 'token',
-      user: { ...USER, ...profile },
-      onboarding: {
-        ...useSessionStore.getInitialState().onboarding,
-        birthDate: profile.birthDate ? profile.birthDate.split('-').reverse().join('.') : '',
-      },
-      isOnboarded: visitor === 'user',
-    })
+    useSessionStore.getState().signIn({ accessToken: 'token' })
+    useSessionStore.getState().applyProfile(document)
   }
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   renderWithProviders(<RouterProvider router={router} />)
@@ -42,11 +38,12 @@ describe('routes', () => {
         step > 2 ? { birthDate: '2003-09-20', chronotype: step > 3 ? 'lark' : null } : {},
       )
 
-      const progress = await screen.findByRole('progressbar', { name: 'Онбординг' })
+      const preview = await screen.findByRole('complementary', { name: 'Предпросмотр' })
+      const progress = screen.getByRole('progressbar', { name: 'Онбординг' })
       expect(progress).toHaveAttribute('aria-valuenow', String(step))
       expect(progress).toHaveAttribute('aria-valuemax', '4')
       expect(progress).toHaveAttribute('aria-valuetext', `Шаг ${step} из 4`)
-      expect(screen.getByRole('complementary', { name: 'Предпросмотр' })).toBeInTheDocument()
+      expect(preview).toBeInTheDocument()
     },
   )
 
@@ -83,7 +80,6 @@ describe('routes', () => {
       'Подготовка к экзамену',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Составить план' }))
-    await userEvent.click(screen.getAllByRole('button', { name: 'Открыть план' })[0])
     expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
     expect(useSessionStore.getState().isOnboarded).toBe(true)
@@ -93,6 +89,99 @@ describe('routes', () => {
     const router = renderAt('/today', 'new-user')
     expect(await screen.findByRole('heading', { name: 'Когда вы родились?' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/onboarding/birth-date')
+  })
+
+  it('restores an existing session and opens the requested URL after reload', async () => {
+    installApiServer(profileFixture({}, true), true)
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/calendar?date=2026-11-06#week'],
+    })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(await screen.findByRole('heading', { name: 'Календарь' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/calendar')
+    expect(router.state.location.search).toBe('?date=2026-11-06')
+    expect(router.state.location.hash).toBe('#week')
+    expect(localStorage.getItem('pd-session')).not.toContain('refreshed-token')
+  })
+
+  it('resumes the next onboarding step returned by the server', async () => {
+    installApiServer(profileFixture({ birthDate: '2003-09-20', chronotype: null }), true)
+    const router = createMemoryRouter(routes, { initialEntries: ['/today'] })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(
+      await screen.findByRole('heading', { name: 'Когда вам легче думается?' }),
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/onboarding/chronotype')
+  })
+
+  it('opens local onboarding when the profile API is missing', async () => {
+    const base = installApiServer(profileFixture(), true)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: URL, init?: RequestInit) =>
+        String(input).endsWith('/auth/refresh')
+          ? Promise.resolve(
+              Response.json({
+                access_token: `header.${btoa(JSON.stringify({ sub: 'local-user' }))}.signature`,
+                token_type: 'bearer',
+                expires_in: 900,
+              }),
+            )
+          : String(input).endsWith('/me')
+            ? Promise.resolve(
+                Response.json(
+                  { error: { code: 'NOT_FOUND', message: 'Маршрут профиля ещё не реализован' } },
+                  { status: 404 },
+                ),
+              )
+            : base(input, init),
+      ),
+    )
+    const router = createMemoryRouter(routes, { initialEntries: ['/today'] })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(await screen.findByRole('heading', { name: 'Когда вы родились?' })).toBeInTheDocument()
+    expect(useSessionStore.getState().user?.id).toBe('local-user')
+    expect(useSessionStore.getState().isLocalProfile).toBe(true)
+    expect(useSessionStore.getState().isOnboarded).toBe(false)
+    expect(screen.queryByRole('heading', { name: 'Сегодня' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('preserves the tasks and idempotency key when completion fails and is retried', async () => {
+    const router = renderAt('/onboarding/first-tasks', 'new-user', {
+      birthDate: '2003-09-20',
+      chronotype: 'lark',
+    })
+    const base = vi.mocked(fetch)
+    const attempts: RequestInit[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: URL, init?: RequestInit) => {
+        if (String(input).endsWith('/onboarding/complete')) {
+          attempts.push(init!)
+          if (attempts.length === 1)
+            return Promise.resolve(
+              Response.json(
+                { error: { code: 'SERVICE_UNAVAILABLE', message: 'Попробуйте ещё раз' } },
+                { status: 503 },
+              ),
+            )
+        }
+        return base(input, init)
+      }),
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить задачу' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Название задачи 1' }), 'Учёба')
+    await userEvent.click(screen.getByRole('button', { name: 'Составить план' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Попробуйте ещё раз')
+    expect(useSessionStore.getState().isOnboarded).toBe(false)
+    expect(screen.getByRole('textbox', { name: 'Название задачи 1' })).toHaveValue('Учёба')
+    await userEvent.click(screen.getByRole('button', { name: 'Составить план' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/today'))
+    expect(new Headers(attempts[0].headers).get('Idempotency-Key')).toBe(
+      new Headers(attempts[1].headers).get('Idempotency-Key'),
+    )
+    expect(attempts[0].body).toBe(attempts[1].body)
   })
 
   it('rejects an impossible birth date and focuses its field', async () => {
@@ -115,8 +204,17 @@ describe('routes', () => {
       screen.getByRole('textbox', { name: 'Время рождения · необязательно' }),
       '14:30',
     )
+    expect(screen.queryByRole('textbox', { name: 'Часовой пояс рождения' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Дальше' }))
     await userEvent.click(await screen.findByRole('radio', { name: /Сова/ }))
+    const profileCall = vi
+      .mocked(fetch)
+      .mock.calls.find(([url]) => String(url).endsWith('/me/profile'))
+    expect(JSON.parse(String(profileCall?.[1]?.body))).toEqual({
+      birth_date: '2004-02-29',
+      birth_time: '14:30:00',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Начало дня' }), '10:00')
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }))
     expect(await screen.findByRole('textbox', { name: 'Дата рождения' })).toHaveValue('29.02.2004')
@@ -212,13 +310,13 @@ describe('routes', () => {
   })
 
   it('shows that the server is unreachable', async () => {
+    renderAt('/today', 'user')
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
         throw new TypeError('Failed to fetch')
       }),
     )
-    renderAt('/today', 'user')
     expect(await screen.findByText('Нет связи с сервером')).toBeInTheDocument()
   })
 })

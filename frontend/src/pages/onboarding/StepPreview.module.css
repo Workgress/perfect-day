@@ -95,6 +95,14 @@
   min-width: 0;
 }
 
+.slotTime {
+  overflow-wrap: anywhere;
+}
+
+.slot .secondary {
+  overflow-wrap: anywhere;
+}
+
 .taskTitle {
   overflow-wrap: anywhere;
   margin-block: 2px;

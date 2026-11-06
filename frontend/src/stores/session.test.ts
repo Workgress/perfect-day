@@ -1,9 +1,14 @@
 import { selectIsAuthenticated, selectUserName, useSessionStore } from './session'
 import { EMPTY_ONBOARDING } from '@/shared/model/onboarding'
+import type { ProfileDocument } from '@/shared/model/profile'
 
-const SESSION = {
-  accessToken: 'token',
-  user: { name: 'Анна', birthDate: null, chronotype: null },
+const SESSION = { accessToken: 'secret-token', expiresIn: 900 }
+const PROFILE: ProfileDocument = {
+  id: 'user-one',
+  email: 'anna@example.com',
+  display_name: 'Анна',
+  profile: null,
+  onboarding: { completed_at: null, next_step: 'birth_date' },
 }
 
 function readPersisted() {
@@ -11,91 +16,75 @@ function readPersisted() {
 }
 
 describe('session store', () => {
-  it('starts as a guest', () => {
-    const state = useSessionStore.getState()
-    expect(selectIsAuthenticated(state)).toBe(false)
-    expect(selectUserName(state)).toBeNull()
-    expect(state.isOnboarded).toBe(false)
+  it('starts without authorization and waits for server restoration', () => {
+    expect(selectIsAuthenticated(useSessionStore.getState())).toBe(false)
+    expect(useSessionStore.getState().status).toBe('restoring')
   })
 
-  it('signs in and persists only session data', () => {
+  it('keeps access and user state out of persistent storage', () => {
     useSessionStore.getState().signIn(SESSION)
-
-    const state = useSessionStore.getState()
-    expect(selectIsAuthenticated(state)).toBe(true)
-    expect(selectUserName(state)).toBe('Анна')
+    useSessionStore.getState().applyProfile(PROFILE)
+    expect(selectUserName(useSessionStore.getState())).toBe('Анна')
     expect(readPersisted()).toEqual({
-      state: {
-        accessToken: 'token',
-        user: SESSION.user,
-        isOnboarded: false,
-        onboarding: EMPTY_ONBOARDING,
-      },
-      version: 1,
+      state: { ownerId: 'user-one', onboarding: EMPTY_ONBOARDING },
+      version: 2,
     })
+    expect(JSON.stringify(readPersisted())).not.toContain('secret-token')
+    expect(JSON.stringify(readPersisted())).not.toContain('anna@example.com')
   })
 
-  it('updates user fields', () => {
+  it('trusts only the server onboarding status', () => {
     useSessionStore.getState().signIn(SESSION)
-    useSessionStore.getState().updateUser({ chronotype: 'owl', birthDate: '2003-09-20' })
-    expect(useSessionStore.getState().user).toEqual({
-      name: 'Анна',
-      chronotype: 'owl',
-      birthDate: '2003-09-20',
+    useSessionStore.getState().updateOnboarding({ birthDate: '20.09.2003', chronotype: 'owl' })
+    expect(useSessionStore.getState().isOnboarded).toBe(false)
+    useSessionStore.getState().applyProfile({
+      ...PROFILE,
+      onboarding: { completed_at: '2026-11-06T08:00:00Z', next_step: null },
     })
-  })
-
-  it('ignores user updates for a guest', () => {
-    useSessionStore.getState().updateUser({ name: 'Борис' })
-    expect(useSessionStore.getState().user).toBeNull()
-  })
-
-  it('completes onboarding', () => {
-    useSessionStore.getState().signIn(SESSION)
-    useSessionStore.getState().completeOnboarding()
     expect(useSessionStore.getState().isOnboarded).toBe(true)
-    expect(readPersisted().state.isOnboarded).toBe(true)
   })
 
-  it('signs out and clears everything', () => {
+  it('restores a draft only for its owner without restoring authorization', async () => {
     useSessionStore.getState().signIn(SESSION)
-    useSessionStore.getState().completeOnboarding()
-    useSessionStore.getState().signOut()
-
-    const state = useSessionStore.getState()
-    expect(selectIsAuthenticated(state)).toBe(false)
-    expect(state.isOnboarded).toBe(false)
-    expect(readPersisted().state).toEqual({
-      accessToken: null,
-      user: null,
-      isOnboarded: false,
-      onboarding: EMPTY_ONBOARDING,
-    })
-  })
-
-  it('restores entered onboarding data after rehydration', async () => {
-    useSessionStore.getState().signIn(SESSION)
-    useSessionStore
-      .getState()
-      .updateOnboarding({ birthDate: '20.09.2003', birthTime: '14:15', chronotype: 'owl' })
+    useSessionStore.getState().applyProfile(PROFILE)
+    useSessionStore.getState().updateOnboarding({ birthDate: '20.09.2003', birthTime: '14:15' })
     const saved = localStorage.getItem('pd-session')!
-    useSessionStore.setState({ onboarding: EMPTY_ONBOARDING })
+    useSessionStore.setState(useSessionStore.getInitialState(), true)
     localStorage.setItem('pd-session', saved)
     await useSessionStore.persist.rehydrate()
-    expect(useSessionStore.getState().onboarding).toMatchObject({
-      birthDate: '20.09.2003',
-      birthTime: '14:15',
-      chronotype: 'owl',
-    })
+    expect(useSessionStore.getState().accessToken).toBeNull()
+    useSessionStore.getState().signIn(SESSION)
+    useSessionStore.getState().applyProfile(PROFILE)
+    expect(useSessionStore.getState().onboarding.birthTime).toBe('14:15')
+    useSessionStore.getState().applyProfile({ ...PROFILE, id: 'other-user' })
+    expect(useSessionStore.getState().onboarding.birthTime).toBe('')
   })
 
-  it('invalidates the demo plan when the draft changes and clears it on sign-out', () => {
-    const store = useSessionStore.getState()
-    store.signIn(SESSION)
-    store.updateOnboarding({ planReady: true })
-    store.updateOnboarding({ workStart: '09:00' })
-    expect(useSessionStore.getState().onboarding.planReady).toBe(false)
-    store.signOut()
-    expect(useSessionStore.getState().onboarding).toEqual(EMPTY_ONBOARDING)
+  it('discards legacy persisted demo authorization', async () => {
+    localStorage.setItem(
+      'pd-session',
+      JSON.stringify({
+        version: 1,
+        state: { accessToken: 'demo-token', isOnboarded: true, user: { name: 'Анна' } },
+      }),
+    )
+    await useSessionStore.persist.rehydrate()
+    expect(useSessionStore.getState().accessToken).toBeNull()
+    expect(useSessionStore.getState().isOnboarded).toBe(false)
+    expect(localStorage.getItem('pd-session')).not.toContain('demo-token')
+  })
+
+  it('clears owner draft and authorization on logout', () => {
+    useSessionStore.getState().signIn(SESSION)
+    useSessionStore.getState().applyProfile(PROFILE)
+    useSessionStore.getState().signOut()
+    expect(useSessionStore.getState()).toMatchObject({
+      accessToken: null,
+      user: null,
+      status: 'guest',
+      ownerId: null,
+      isOnboarded: false,
+    })
+    expect(readPersisted().state).toEqual({ ownerId: null, onboarding: EMPTY_ONBOARDING })
   })
 })

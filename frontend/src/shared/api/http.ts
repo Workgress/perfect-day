@@ -3,23 +3,27 @@ import { API_URL } from './config'
 export class HttpError extends Error {
   readonly status: number
   readonly body: unknown
+  readonly headers: Headers
 
-  constructor(status: number, body: unknown) {
+  constructor(status: number, body: unknown, headers = new Headers()) {
     super(`HTTP ${status}`)
     this.name = 'HttpError'
     this.status = status
     this.body = body
+    this.headers = headers
   }
 }
 
 type HttpConfig = {
   getAccessToken: () => string | null
   onUnauthorized: () => void
+  refreshAccessToken: (() => Promise<string | null>) | null
 }
 
 const config: HttpConfig = {
   getAccessToken: () => null,
   onUnauthorized: () => {},
+  refreshAccessToken: null,
 }
 
 export function configureHttp(next: Partial<HttpConfig>) {
@@ -31,6 +35,7 @@ type QueryValue = string | number | boolean | null | undefined
 export type HttpOptions = Omit<RequestInit, 'body'> & {
   body?: unknown
   query?: Record<string, QueryValue>
+  auth?: boolean
 }
 
 function buildUrl(path: string, query?: Record<string, QueryValue>) {
@@ -50,23 +55,48 @@ async function readBody(response: Response): Promise<unknown> {
 }
 
 export async function http<T>(path: string, options: HttpOptions = {}): Promise<T> {
-  const { body, query, headers, ...init } = options
+  const { body, query, headers, auth = true, ...init } = options
   const requestHeaders = new Headers(headers)
   requestHeaders.set('Accept', 'application/json')
 
-  const token = config.getAccessToken()
-  if (token) requestHeaders.set('Authorization', `Bearer ${token}`)
-  if (body !== undefined) requestHeaders.set('Content-Type', 'application/json')
+  const token = auth ? config.getAccessToken() : null
+  const form = body instanceof URLSearchParams
+  if (body !== undefined)
+    requestHeaders.set(
+      'Content-Type',
+      form ? 'application/x-www-form-urlencoded;charset=UTF-8' : 'application/json',
+    )
 
-  const response = await fetch(buildUrl(path, query), {
-    ...init,
-    headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  const request = (accessToken: string | null) => {
+    const nextHeaders = new Headers(requestHeaders)
+    if (accessToken) nextHeaders.set('Authorization', `Bearer ${accessToken}`)
+    return fetch(buildUrl(path, query), {
+      credentials: 'include',
+      ...init,
+      headers: nextHeaders,
+      body: body === undefined ? undefined : form ? body.toString() : JSON.stringify(body),
+    })
+  }
+  let response = await request(token)
 
-  if (response.status === 401 && token) config.onUnauthorized()
+  if (response.status === 401 && token) {
+    const currentToken = config.getAccessToken()
+    const nextToken =
+      currentToken !== token
+        ? currentToken
+        : config.refreshAccessToken
+          ? await config.refreshAccessToken()
+          : null
+    init.signal?.throwIfAborted()
+    if (nextToken) response = await request(nextToken)
+    if (
+      (!nextToken && config.getAccessToken() === token) ||
+      (response.status === 401 && nextToken === config.getAccessToken() && nextToken !== null)
+    )
+      config.onUnauthorized()
+  }
 
   const data = await readBody(response)
-  if (!response.ok) throw new HttpError(response.status, data)
+  if (!response.ok) throw new HttpError(response.status, data, response.headers)
   return data as T
 }

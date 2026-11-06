@@ -5,6 +5,15 @@
   min-width: 0;
 }
 
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
 .note {
   display: flex;
   align-items: flex-start;

@@ -1,5 +1,5 @@
 import { EMPTY_ONBOARDING } from '@/shared/model/onboarding'
-import { demoSlots, isTime, parseBirthDate, validateTasks } from './model'
+import { isTime, parseBirthDate, validateTasks } from './model'
 
 describe('onboarding validation', () => {
   it.each([
@@ -51,16 +51,22 @@ describe('onboarding validation', () => {
     )
   })
 
-  it('places demo tasks consecutively inside the selected day', () => {
+  it('enforces the contract limit of 100 tasks', () => {
+    const tasks = Array.from({ length: 100 }, (_, index) => ({
+      ...task,
+      id: String(index),
+      durationMin: 5,
+    }))
+    expect(validateTasks({ ...EMPTY_ONBOARDING, tasks })).toBeNull()
+    expect(validateTasks({ ...EMPTY_ONBOARDING, tasks: [...tasks, task] })).toContain('100')
+  })
+
+  it('accepts tasks that fit within the selected day', () => {
     const draft = {
       ...EMPTY_ONBOARDING,
       workStart: '09:30',
       tasks: [task, { ...task, id: 'two', durationMin: 90 }],
     }
     expect(validateTasks(draft)).toBeNull()
-    expect(demoSlots(draft).map(({ start, end }) => [start, end])).toEqual([
-      ['09:30', '10:30'],
-      ['10:30', '12:00'],
-    ])
   })
 })

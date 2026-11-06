@@ -36,7 +36,7 @@ function renderPage(path = '/login', state?: unknown) {
 async function fillForm(
   user: ReturnType<typeof userEvent.setup>,
   email = 'anna@example.com',
-  password = 'demo-password',
+  password = 'Testpass123',
 ) {
   await user.type(screen.getByRole('textbox', { name: 'Email' }), email)
   await user.type(screen.getByLabelText('Пароль'), password)
@@ -128,7 +128,7 @@ describe('auth forms', () => {
     await user.click(screen.getByRole('button', { name: 'Войти' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Неверный email или пароль')
-    expect(screen.getByLabelText('Пароль')).toHaveValue('demo-password')
+    expect(screen.getByLabelText('Пароль')).toHaveValue('Testpass123')
     expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('anna@example.com')
     expect(useSessionStore.getState().accessToken).toBeNull()
     expect(submitAuth).toHaveBeenCalledTimes(1)

@@ -36,6 +36,7 @@ export const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => formatTime(
 
 export function validateTasks({ tasks, workStart, workEnd }: OnboardingDraft): string | null {
   if (!tasks.length) return 'Добавьте хотя бы одну задачу.'
+  if (tasks.length > 100) return 'Можно добавить не больше 100 задач.'
   if (tasks.some((task) => !task.title.trim() || task.title.trim().length > 200)) {
     return 'Укажите название каждой задачи: от 1 до 200 символов.'
   }
@@ -57,13 +58,4 @@ export function validateTasks({ tasks, workStart, workEnd }: OnboardingDraft): s
     return 'Задачи не помещаются в рабочий день. Сократите длительность или измените режим.'
   }
   return null
-}
-
-export function demoSlots({ tasks, workStart }: OnboardingDraft) {
-  let cursor = minutes(workStart)
-  return tasks.map((task) => {
-    const start = cursor
-    cursor += task.durationMin
-    return { ...task, start: formatTime(start), end: formatTime(cursor) }
-  })
 }

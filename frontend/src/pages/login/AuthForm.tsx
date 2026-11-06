@@ -5,6 +5,8 @@ import { Button } from '@/shared/ui/button/Button'
 import { FormMessage, TextField } from '@/shared/ui/form-field/FormField'
 import { MailIcon, ShieldCheckIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
+import { useMutation } from '@tanstack/react-query'
+import { announceLogin } from '@/app/session'
 import {
   AuthError,
   resendConfirmation,
@@ -38,6 +40,21 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
   const verificationRef = useRef<HTMLHeadingElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const isRegister = mode === 'register'
+  const authMutation = useMutation({
+    mutationFn: ({
+      credentials,
+      signal,
+    }: {
+      credentials: { email: string; password: string }
+      signal: AbortSignal
+    }) => submitAuth(mode, credentials, signal),
+    gcTime: 0,
+  })
+  const resendMutation = useMutation({
+    mutationFn: ({ address, signal }: { address: string; signal: AbortSignal }) =>
+      resendConfirmation(address, signal),
+    gcTime: 0,
+  })
   const errors = validateCredentials({ email, password }, mode)
   const emailError = serverErrors.email ?? (submitted || touched.email ? errors.email : undefined)
   const passwordError =
@@ -67,6 +84,13 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
     if (error instanceof AuthError) {
       setServerErrors(error.fields)
       setNotice({ text: error.message, tone: 'error' })
+      if (error.code === 'EMAIL_NOT_VERIFIED') setVerification({ email: email.trim(), resendAt: 0 })
+      if (error.retryAfter > 0) {
+        setCooldown(error.retryAfter)
+        setVerification((current) =>
+          current ? { ...current, resendAt: Date.now() + error.retryAfter * 1000 } : current,
+        )
+      }
     } else {
       setNotice({ text: 'Не удалось выполнить запрос. Попробуйте ещё раз.', tone: 'error' })
     }
@@ -88,11 +112,15 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
     requestRef.current = controller
     setPending(true)
     try {
-      const result = await submitAuth(mode, { email: email.trim(), password }, controller.signal)
+      const result = await authMutation.mutateAsync({
+        credentials: { email: email.trim(), password },
+        signal: controller.signal,
+      })
       if (controller.signal.aborted) return
       setPassword('')
       if (result.status === 'authenticated') {
-        signIn(result.session)
+        signIn({ ...result.session, email: email.trim() })
+        announceLogin()
         navigate(redirectTo, { replace: true })
       } else {
         setCooldown(result.resendAfterSeconds)
@@ -106,6 +134,7 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
     } finally {
       if (!controller.signal.aborted) setPending(false)
       if (requestRef.current === controller) requestRef.current = null
+      authMutation.reset()
     }
   }
 
@@ -116,7 +145,10 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
     setPending(true)
     setNotice(null)
     try {
-      const seconds = await resendConfirmation(verification.email, controller.signal)
+      const seconds = await resendMutation.mutateAsync({
+        address: verification.email,
+        signal: controller.signal,
+      })
       if (controller.signal.aborted) return
       setCooldown(seconds)
       setVerification({ ...verification, resendAt: Date.now() + seconds * 1000 })
@@ -125,6 +157,7 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
     } finally {
       if (!controller.signal.aborted) setPending(false)
       if (requestRef.current === controller) requestRef.current = null
+      resendMutation.reset()
     }
   }
 
@@ -139,12 +172,18 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
           Проверьте почту
         </h2>
         <p className={styles.secondary}>
-          Ссылка для подтверждения адреса <strong>{verification.email}</strong> позволит продолжить
-          настройку.
+          {isRegister ? (
+            <>
+              Если адрес <strong>{verification.email}</strong> ещё не зарегистрирован, мы отправили
+              письмо для подтверждения. Если аккаунт уже есть — войдите.
+            </>
+          ) : (
+            <>
+              Ссылка для подтверждения адреса <strong>{verification.email}</strong> позволит
+              продолжить настройку.
+            </>
+          )}
         </p>
-        {import.meta.env.DEV ? (
-          <FormMessage tone="info">Демонстрационный режим: письмо не отправляется.</FormMessage>
-        ) : null}
         {notice ? <FormMessage tone={notice.tone}>{notice.text}</FormMessage> : null}
         <Button onClick={handleResend} disabled={pending || cooldown > 0}>
           {pending ? 'Отправляем…' : 'Отправить ещё раз'}
@@ -235,7 +274,7 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
           disabled={pending}
           value={password}
           error={passwordError}
-          hint={isRegister ? 'От 8 до 128 символов' : undefined}
+          hint={isRegister ? 'От 8 до 128 символов, минимум одна буква и одна цифра' : undefined}
           onBlur={() => setTouched((current) => ({ ...current, password: true }))}
           onChange={(event) => {
             setPassword(event.target.value)

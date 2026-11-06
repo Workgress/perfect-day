@@ -17,7 +17,12 @@ export type OnboardingDraft = {
   workEnd: string
   sleepTime: string
   tasks: OnboardingTask[]
-  planReady: boolean
+  completion?: { key: string; body: OnboardingRequest }
+}
+
+export type OnboardingRequest = {
+  planned_date: string
+  tasks: { title: string; type: TaskType; duration_min: number }[]
 }
 
 export const EMPTY_ONBOARDING: OnboardingDraft = {
@@ -28,7 +33,6 @@ export const EMPTY_ONBOARDING: OnboardingDraft = {
   workEnd: '18:00',
   sleepTime: '23:00',
   tasks: [],
-  planReady: false,
 }
 
 export const TASK_TYPES: Record<TaskType, string> = {
