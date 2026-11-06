@@ -1,6 +1,6 @@
 # Контракт аутентификации
 
-Статус: завершены этапы 1–5 из 6. Доступны регистрация, подтверждение email, вход, ротация refresh, выход, список и отзыв сессий, восстановление и смена пароля. Общая зависимость `get_current_user` готова для профиля и биоритмов. Истёкшие auth-данные очищаются через Celery Beat. Итоговая передача остаётся этапом 6.
+Статус: завершены этапы 1–6 из 6. Доступны регистрация, подтверждение email, вход, ротация refresh, выход, список и отзыв сессий, восстановление и смена пароля. Общая зависимость `get_current_user` готова для профиля и биоритмов. Истёкшие auth-данные очищаются через Celery Beat. Подключение фронтенда и реализация профиля выполняются их владельцами.
 
 ## Ответственность двух бэкендеров
 
@@ -59,7 +59,7 @@
 
 Все обязательные поля таблицы передаются строками. `204` не содержит тела. Нативная мобильная выдача refresh в JSON и социальный вход не входят в спринт.
 
-На этапе 5 доступны все строки таблицы. Готовые маршруты описаны в OpenAPI, защищённые маршруты используют OAuth2 Bearer. Новые миграции для этапов 3–5 не требуются; текущая head остаётся `0005`.
+Доступны все строки таблицы. Маршруты описаны в OpenAPI, защищённые маршруты используют OAuth2 Bearer. Новые миграции для этапов 3–6 не требуются; текущая head остаётся `0005`.
 
 ### Ответы
 
@@ -185,6 +185,50 @@ Refresh-токены ротируются атомарно. Повтор ста�
 
 OpenAPI работающего приложения описывает общий `ErrorResponse` и двенадцать реализованных auth-маршрутов. Login принимает OAuth2 form, refresh — cookie; список сессий, logout-all, адресный отзыв и смена пароля требуют Bearer.
 
+## Передача команде и приёмка: этап 6
+
+Backend auth готов к подключению. Текущий фронтенд содержит `demo-token` в `frontend/src/pages/login/LoginPage.tsx`; `frontend/src/stores/session.ts` сохраняет access в localStorage, а `frontend/src/shared/api/http.ts` сериализует любое тело как JSON и при `401` вызывает локальный выход. При интеграции фронтендер заменяет демонстрационный вход, исключает access из persistent-хранилища, добавляет form-login, credentials и согласованный refresh перед повтором защищённого запроса. Auth не возвращает `user` или профиль: их загрузка зависит от эндпоинтов второго бэкендера. Формат ошибок читается через `error.code`, `error.message`, `error.details`.
+
+Второй бэкендер подключает зависимость в своих роутерах:
+
+```python
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+
+from app.core.security import get_current_user
+from app.modules.users.models import User
+
+router = APIRouter()
+
+
+@router.get("/protected")
+async def protected(user: Annotated[User, Depends(get_current_user)]) -> dict[str, str]:
+    return {"user_id": str(user.id)}
+```
+
+Собственные выборки ограничиваются `user.id`; проверка онбординга остаётся в профиле. Для объединения согласуйте общие файлы `app/main.py`, `app/core/config.py`, `app/db/models.py`, `app/workers/celery_app.py`, `pyproject.toml`, `uv.lock` и Compose. Новые периодические задачи добавляются к существующему расписанию, новые модели — к общей metadata, миграции — поверх объединённой head. Модуль auth не реализует профиль, биоритмы и их Redis-кэш.
+
+Сводная приёмка из `backend`, после `uv sync --frozen`, с работающим Docker Desktop:
+
+```powershell
+$env:DEBUG = "false"
+uv lock --check
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+uv run pytest -ra -W error -p no:cacheprovider
+docker compose config --quiet
+docker compose exec -T api alembic current
+docker compose exec -T api alembic check
+```
+
+Для последних двух команд нужен запущенный Compose-проект. Ожидаются `0005 (head)` и отсутствие новых операций миграции. Тесты проверяют откат и повторное применение миграций на отдельной БД, всю цепочку доставки писем, сессии, смену пароля, очистку и публичный OpenAPI-контракт, включая CORS-запросы браузера с credentials.
+
+Запуск, сохранение JWT-секрета и адреса сервисов описаны в [README](../../README.md#запуск-backend). Перед auth-запросами дождитесь успешного `/api/v1/ready`. При локальном конфликте порта `8000` проверьте `docker ps`: OpenAPI нашего сервиса содержит `/api/v1/auth/login` и остальные маршруты auth. После закрытия терминала заново задайте `$email`, пароль, `$base` и `$headers`; email берётся из письма уже зарегистрированного аккаунта. Следующие команды после неуспешного login не выполняются, пока вход не вернул `200`.
+
+Локальный Compose использует Mailpit и HTTP. Для стенда задаются `ENV=staging`, стабильный собственный `JWT_SECRET`, `REFRESH_COOKIE_SECURE=true`, HTTPS-адрес фронтенда и точные `CORS_ORIGINS`, реальные SMTP-настройки. Стенд предполагает один сайт по HTTPS для API и фронтенда. Передача backend не включает публикацию, подключение демонстрационного фронтенда и выполнение работы второго бэкендера.
+
 ## Пароли и очистка: этап 5
 
 Forgot принимает нормализованный email и возвращает нейтральный `202` для неизвестного, неподтверждённого, отключённого или удалённого пользователя. Для активного подтверждённого аккаунта создаётся одноразовый токен `reset_password`; прежние ссылки сброса аннулируются. Пароль и действующие сессии на этом этапе не меняются. Письмо ставится в очередь после фиксации токена в БД. При недоступной очереди — `503`; повторный запрос допускается в пределах лимитов, старая ссылка при этом заменяется.
@@ -209,7 +253,8 @@ $env:DEBUG = "false"
 Для ручной проверки пересоберите сервисы и задайте email ранее подтверждённого аккаунта:
 
 ```powershell
-docker compose up -d --build
+docker compose up -d --build --wait
+Invoke-RestMethod -Uri http://localhost:8000/api/v1/ready
 $base = "http://localhost:8000/api/v1/auth"
 $headers = @{ Origin = "http://localhost:5173" }
 $email = "EMAIL_ПОДТВЕРЖДЁННОГО_АККАУНТА"
@@ -303,7 +348,7 @@ Invoke-RestMethod -Uri http://localhost:8000/api/v1/auth/sessions -Headers $auth
 
 | Переменная | Значение по умолчанию | Назначение |
 |---|---|---|
-| `FRONTEND_URL` | `http://localhost:5173` | Базовый адрес ссылки подтверждения |
+| `FRONTEND_URL` | `http://localhost:5173` | Базовый адрес ссылок подтверждения и сброса |
 | `SMTP_HOST` | `localhost`, в Compose — `mailpit` | Сервер SMTP |
 | `SMTP_PORT` | 1025 | Порт SMTP |
 | `SMTP_FROM` | `noreply@example.com` | Отправитель |
@@ -332,14 +377,14 @@ $env:DEBUG = "false"
 
 ### Ручная проверка через Mailpit
 
-В PowerShell из `backend` задайте JWT-секрет для текущего запуска и поднимите сервисы:
+В PowerShell из `backend` подготовьте `.env` с постоянным JWT-секретом по [README](../../README.md#запуск-backend) и поднимите сервисы:
 
 ```powershell
-$env:JWT_SECRET = .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
-docker compose up -d --build
+docker compose up -d --build --wait
+Invoke-RestMethod -Uri http://localhost:8000/api/v1/ready
 ```
 
-Для последующих запусков сохраните собственный секрет в локальном `.env`. Compose передаёт его API и worker; `.env` не коммитится. Если запускаете API/worker непосредственно на Windows, используйте `SMTP_HOST=localhost`; в контейнерах SMTP доступен как `mailpit`. На Windows Celery запускается с `--pool=solo`, в Compose используется обычная команда worker.
+Дождитесь `db: ok`, `redis: ok`. Compose передаёт секрет API и worker; `.env` не коммитится. Сохраняйте прежний секрет между запусками. Если запускаете API/worker непосредственно на Windows, используйте `SMTP_HOST=localhost`; в контейнерах SMTP доступен как `mailpit`. На Windows Celery запускается с `--pool=solo`, в Compose используется обычная команда worker.
 
 Регистрация с новым адресом:
 
@@ -355,7 +400,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/auth/register -
 ```powershell
 $token = "ТОКЕН_ИЗ_ПИСЬМА"
 $body = @{ token = $token } | ConvertTo-Json
-$result = Invoke-WebRequest -Method Post -Uri http://localhost:8000/api/v1/auth/verify-email -Headers $headers -ContentType "application/json" -Body $body -SessionVariable authSession
+$result = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:8000/api/v1/auth/verify-email -Headers $headers -ContentType "application/json" -Body $body -SessionVariable authSession
 $result.StatusCode
 $result.Content
 $result.Headers["Set-Cookie"]
