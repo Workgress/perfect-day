@@ -47,6 +47,26 @@ class VerifyEmailRequest(BaseModel):
     )
 
 
+class NewPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    new_password: SecretStr = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def check_new_password(cls, value: SecretStr) -> SecretStr:
+        validate_password(value.get_secret_value())
+        return value
+
+
+class ResetPasswordRequest(NewPasswordRequest):
+    token: SecretStr = Field(min_length=1, max_length=256)
+
+
+class ChangePasswordRequest(NewPasswordRequest):
+    old_password: SecretStr = Field(min_length=1, max_length=128)
+
+
 class TokenResponse(BaseModel):
     access_token: str = Field(min_length=1)
     token_type: Literal["bearer"] = "bearer"

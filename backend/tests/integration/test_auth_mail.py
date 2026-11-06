@@ -11,7 +11,12 @@ from redis.asyncio import Redis
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy
 
-from app.modules.auth.delivery import CeleryVerificationPublisher, get_verification_publisher
+from app.modules.auth.delivery import (
+    CeleryPasswordResetPublisher,
+    CeleryVerificationPublisher,
+    get_password_reset_publisher,
+    get_verification_publisher,
+)
 from app.workers import email as email_module
 from app.workers.celery_app import celery_app
 from tests.integration.test_auth import AuthAPI
@@ -66,6 +71,7 @@ def mail_worker(
     auth_api.settings.smtp_host = mailpit.host
     auth_api.settings.smtp_port = mailpit.smtp_port
     auth_api.app.dependency_overrides[get_verification_publisher] = CeleryVerificationPublisher
+    auth_api.app.dependency_overrides[get_password_reset_publisher] = CeleryPasswordResetPublisher
     monkeypatch.setattr(email_module, "get_settings", lambda: auth_api.settings)
     monkeypatch.setattr(celery_app.conf, "broker_url", f"{redis_url}/4")
     monkeypatch.setattr(celery_app.conf, "result_backend", f"{redis_url}/5")
@@ -114,6 +120,38 @@ async def test_registration_email_travels_through_celery_and_smtp(
     assert confirmation.json()["token_type"] == "bearer"
     assert "refresh_token=" in confirmation.headers["set-cookie"]
     assert (await auth_api.verify(token)).status_code == 400
+
+    forgot = await auth_api.client.post(
+        "/api/v1/auth/password/forgot", json={"email": auth_api.email}
+    )
+    assert forgot.status_code == 202
+    deadline = asyncio.get_running_loop().time() + 15
+    async with AsyncClient(base_url=mailpit.http_url, timeout=3) as client:
+        while True:
+            message = await client.get("/view/latest.html")
+            if message.status_code == 200 and "/reset-password#" in message.text:
+                break
+            assert asyncio.get_running_loop().time() < deadline, "Письмо сброса не доставлено"
+            await asyncio.sleep(0.2)
+    assert "Задать новый пароль" in message.text
+    parser = LinkParser()
+    parser.feed(message.text)
+    link = next(link for link in parser.links if "/reset-password#" in link)
+    parsed = urlsplit(link)
+    assert parsed.netloc == "localhost:5173"
+    assert parsed.query == ""
+    reset_token = parse_qs(parsed.fragment)["token"][0]
+    reset_body = {"token": reset_token, "new_password": "Changed456"}
+    reset = await auth_api.client.post("/api/v1/auth/password/reset", json=reset_body)
+    assert reset.status_code == 204
+    assert (
+        await auth_api.client.post("/api/v1/auth/password/reset", json=reset_body)
+    ).status_code == 400
+    assert (
+        await auth_api.client.post(
+            "/api/v1/auth/login", data={"username": auth_api.email, "password": "Changed456"}
+        )
+    ).status_code == 200
 
     results: Redis = Redis.from_url(f"{redis_url}/5")
     try:

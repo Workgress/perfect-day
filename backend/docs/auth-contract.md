@@ -1,6 +1,6 @@
 # Контракт аутентификации
 
-Статус: завершены этапы 1–4 из 6. Доступны регистрация, подтверждение email, вход, ротация refresh, выход, список и отзыв сессий. Общая зависимость `get_current_user` готова для профиля и биоритмов. Работа с паролем остаётся этапом 5, итоговая передача — этапом 6.
+Статус: завершены этапы 1–5 из 6. Доступны регистрация, подтверждение email, вход, ротация refresh, выход, список и отзыв сессий, восстановление и смена пароля. Общая зависимость `get_current_user` готова для профиля и биоритмов. Истёкшие auth-данные очищаются через Celery Beat. Итоговая передача остаётся этапом 6.
 
 ## Ответственность двух бэкендеров
 
@@ -59,7 +59,7 @@
 
 Все обязательные поля таблицы передаются строками. `204` не содержит тела. Нативная мобильная выдача refresh в JSON и социальный вход не входят в спринт.
 
-На этапе 4 доступны все строки таблицы, кроме `/auth/password/*`. Готовые маршруты описаны в OpenAPI, защищённые маршруты используют OAuth2 Bearer. Новые миграции для этапов 3–4 не требуются; текущая head остаётся `0005`.
+На этапе 5 доступны все строки таблицы. Готовые маршруты описаны в OpenAPI, защищённые маршруты используют OAuth2 Bearer. Новые миграции для этапов 3–5 не требуются; текущая head остаётся `0005`.
 
 ### Ответы
 
@@ -149,6 +149,7 @@ Refresh никогда не входит в JSON. Access действует 15 �
 | Login | 5 запросов/мин на комбинацию IP + email |
 | Register | 10 запросов/час на IP |
 | Forgot | 3 запроса/час отдельно на IP и на email |
+| Change password | 5 запросов/мин на пользователя |
 | Resend | 1 запрос/60 секунд на email |
 | Прочие публичные auth-маршруты | 30 запросов/мин на IP |
 
@@ -182,7 +183,71 @@ Refresh-токены ротируются атомарно. Повтор ста�
 
 Сохраняются служебные заголовки, включая `WWW-Authenticate`, `Allow` и `Retry-After`. Существующие успешные health/readiness-ответы сохраняют формат. `/ready` при сбое возвращает свой диагностический ответ `503` с состояниями БД и Redis, поскольку это ответ проверки готовности, а не исключение. В production `DEBUG=false`; отладочный traceback не является публичным контрактом.
 
-OpenAPI работающего приложения описывает общий `ErrorResponse` и девять реализованных auth-маршрутов. Login принимает OAuth2 form, refresh — cookie; список сессий, logout-all и адресный отзыв требуют Bearer. Маршруты паролей появятся на этапе 5.
+OpenAPI работающего приложения описывает общий `ErrorResponse` и двенадцать реализованных auth-маршрутов. Login принимает OAuth2 form, refresh — cookie; список сессий, logout-all, адресный отзыв и смена пароля требуют Bearer.
+
+## Пароли и очистка: этап 5
+
+Forgot принимает нормализованный email и возвращает нейтральный `202` для неизвестного, неподтверждённого, отключённого или удалённого пользователя. Для активного подтверждённого аккаунта создаётся одноразовый токен `reset_password`; прежние ссылки сброса аннулируются. Пароль и действующие сессии на этом этапе не меняются. Письмо ставится в очередь после фиксации токена в БД. При недоступной очереди — `503`; повторный запрос допускается в пределах лимитов, старая ссылка при этом заменяется.
+
+Ссылка из письма имеет вид `${FRONTEND_URL}/reset-password#token=...`. Токен действует `PASSWORD_RESET_TTL_MIN` минут (по умолчанию 60). Фронтенд передаёт его в `POST /auth/password/reset` вместе с `new_password`. Подтверждающий email-токен не подходит для сброса, а токен сброса — для подтверждения email.
+
+`POST /auth/password/change` принимает Bearer, `old_password` и `new_password`; доверенный Origin не требуется. Проверяется актуальный хэш текущего пароля под блокировкой пользователя. Для нового пароля действует та же политика 8–128 символов с буквой и цифрой; пробелы сохраняются.
+
+Успешный reset или change атомарно меняет хэш пароля, аннулирует все ссылки сброса пользователя и отзывает все его сессии. Ответ — пустой `204` с удалением refresh-cookie и `Cache-Control: no-store`. Автоматический вход не выполняется. Старые access и refresh перестают работать; требуется новый login. Параллельные запросы сериализуются блокировкой пользователя; повторное использование ссылки не меняет пароль.
+
+Celery Beat раз в час ставит задачу `auth.cleanup_expired`. Она удаляет истёкшие сессии вместе со всей историей refresh через каскад БД и истёкшие email-токены обоих назначений. Отозванные сессии и использованные refresh сохраняются до исходного срока сессии для обнаружения повторов. Неистёкшие email-токены, пользователи, профили и Redis-кэш не удаляются. Повторный запуск безопасен. Нужны запущенные `worker` и `beat`.
+
+### Проверка этапа 5
+
+Из `backend`, с работающим Docker Desktop:
+
+```powershell
+$env:DEBUG = "false"
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_passwords.py tests/integration/test_auth_cleanup.py tests/integration/test_auth_mail.py tests/auth/test_delivery.py -q -W error -p no:cacheprovider
+```
+
+Для ручной проверки пересоберите сервисы и задайте email ранее подтверждённого аккаунта:
+
+```powershell
+docker compose up -d --build
+$base = "http://localhost:8000/api/v1/auth"
+$headers = @{ Origin = "http://localhost:5173" }
+$email = "EMAIL_ПОДТВЕРЖДЁННОГО_АККАУНТА"
+$body = @{ email = $email } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$base/password/forgot" -Headers $headers -ContentType "application/json" -Body $body
+```
+
+Ожидается `202`. В http://localhost:8025 откройте новое письмо сброса и скопируйте значение после `#token=`. Переход по ссылке не меняет пароль; экран фронтенда подключается отдельно.
+
+```powershell
+$token = "ТОКЕН_ИЗ_ПИСЬМА_СБРОСА"
+$newPassword = "Changed456"
+$body = @{ token = $token; new_password = $newPassword } | ConvertTo-Json
+(Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$base/password/reset" -Headers $headers -ContentType "application/json" -Body $body).StatusCode
+$form = @{ username = $email; password = $newPassword }
+$login = Invoke-RestMethod -Method Post -Uri "$base/login" -Headers $headers -ContentType "application/x-www-form-urlencoded" -Body $form -SessionVariable device
+$authHeaders = @{ Authorization = "Bearer " + $login.access_token }
+```
+
+Reset возвращает `204`, новый вход — `200`. Старый пароль даёт `401 INVALID_CREDENTIALS`, повтор reset с той же ссылкой — `400 INVALID_EMAIL_TOKEN`. Ранее сохранённые access/refresh всех устройств перестают работать.
+
+Смена уже известного пароля:
+
+```powershell
+$body = @{ old_password = $newPassword; new_password = "Another789" } | ConvertTo-Json
+(Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$base/password/change" -Headers $authHeaders -ContentType "application/json" -Body $body -WebSession $device).StatusCode
+Invoke-RestMethod -Uri "$base/sessions" -Headers $authHeaders
+```
+
+Ожидаются `204`, затем `401 AUTHENTICATION_REQUIRED`; вход теперь выполняется с `Another789`. Неверный текущий пароль даёт `400 INVALID_CURRENT_PASSWORD`. Forgot ограничен тремя запросами в час отдельно на IP и email, change — пятью в минуту на пользователя, reset — тридцатью в минуту на IP; превышение даёт `429` и `Retry-After`.
+
+Очистку можно запустить вручную, не дожидаясь Beat:
+
+```powershell
+docker compose exec worker celery -A app.workers.celery_app call auth.cleanup_expired
+```
+
+Команда возвращает ID поставленной задачи. Сохранение действующей сессии, удаление просроченных записей и каскад истории refresh проверяются интеграционным тестом на отдельной БД.
 
 ## Вход и сессии: этап 4
 

@@ -9,8 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import AuthRateLimiter
 from app.core.redis import get_redis
+from app.core.security import AuthContext, get_auth_context
 from app.db.session import get_session
-from app.modules.auth.delivery import VerificationPublisher, get_verification_publisher
+from app.modules.auth.delivery import (
+    VerificationPublisher,
+    get_password_reset_publisher,
+    get_verification_publisher,
+)
 from app.modules.auth.schemas import EmailRequest
 from app.modules.auth.service import AuthService
 
@@ -24,8 +29,9 @@ def get_auth_service(
     settings: Annotated[Settings, Depends(get_settings)],
     limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
     publisher: Annotated[VerificationPublisher, Depends(get_verification_publisher)],
+    password_publisher: Annotated[VerificationPublisher, Depends(get_password_reset_publisher)],
 ) -> AuthService:
-    return AuthService(session, settings, limiter, publisher)
+    return AuthService(session, settings, limiter, publisher, password_publisher)
 
 
 def client_ip(request: Request) -> str:
@@ -78,3 +84,26 @@ async def limit_logout(
     limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
 ) -> None:
     await limiter.enforce("logout", client_ip(request), 30, 60)
+
+
+async def limit_forgot_password(
+    request: Request,
+    body: EmailRequest,
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    await limiter.enforce("password-forgot-ip", client_ip(request), 3, 3600)
+    await limiter.enforce("password-forgot-email", str(body.email), 3, 3600)
+
+
+async def limit_reset_password(
+    request: Request,
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    await limiter.enforce("password-reset", client_ip(request), 30, 60)
+
+
+async def limit_change_password(
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    limiter: Annotated[AuthRateLimiter, Depends(get_auth_limiter)],
+) -> None:
+    await limiter.enforce("password-change", str(context.user.id), 5, 60)

@@ -19,7 +19,7 @@ from app.core.security import (
     verify_password,
 )
 from app.modules.auth.delivery import VerificationPublisher, VerificationPublishError
-from app.modules.auth.models import AuthSession
+from app.modules.auth.models import AuthSession, EmailTokenPurpose
 from app.modules.auth.repository import AuthRepository
 
 
@@ -38,12 +38,14 @@ class AuthService:
         settings: Settings,
         limiter: AuthRateLimiter,
         publisher: VerificationPublisher,
+        password_publisher: VerificationPublisher,
     ) -> None:
         self.session = session
         self.repository = AuthRepository(session)
         self.settings = settings
         self.limiter = limiter
         self.publisher = publisher
+        self.password_publisher = password_publisher
 
     async def _issue_session(
         self,
@@ -89,9 +91,7 @@ class AuthService:
             now = datetime.now(UTC)
             expires_at = now + timedelta(hours=self.settings.email_verification_ttl_hours)
             token = generate_token()
-            await self.repository.add_verification_token(
-                user.id, hash_token(token), now, expires_at
-            )
+            await self.repository.add_email_token(user.id, hash_token(token), now, expires_at)
         await self._publish(email, token, expires_at, lease)
 
     async def resend_verification(self, email: str) -> None:
@@ -103,10 +103,8 @@ class AuthService:
             now = datetime.now(UTC)
             expires_at = now + timedelta(hours=self.settings.email_verification_ttl_hours)
             token = generate_token()
-            await self.repository.invalidate_verification_tokens(user.id, now)
-            await self.repository.add_verification_token(
-                user.id, hash_token(token), now, expires_at
-            )
+            await self.repository.invalidate_email_tokens(user.id, now)
+            await self.repository.add_email_token(user.id, hash_token(token), now, expires_at)
         await self._publish(email, token, expires_at, lease)
 
     async def verify_email(
@@ -119,9 +117,9 @@ class AuthService:
             raise unavailable()
         digest = hash_token(token)
         async with self.session.begin():
-            user_id = await self.repository.verification_owner(digest)
+            user_id = await self.repository.email_token_owner(digest)
             user = await self.repository.lock_user(user_id) if user_id is not None else None
-            email_token = await self.repository.lock_verification_token(digest)
+            email_token = await self.repository.lock_email_token(digest)
             now = datetime.now(UTC)
             if (
                 user is None
@@ -133,7 +131,7 @@ class AuthService:
                 or email_token.expires_at <= now
             ):
                 raise AppError(400, "INVALID_EMAIL_TOKEN", "Ссылка недействительна или устарела")
-            await self.repository.invalidate_verification_tokens(user.id, now)
+            await self.repository.invalidate_email_tokens(user.id, now)
             user.is_email_verified = True
             issued = await self._issue_session(user.id, now, ip, user_agent)
         return issued
@@ -258,3 +256,58 @@ class AuthService:
             if device.revoked_at is None:
                 device.revoked_at = datetime.now(UTC)
         return session_id == context.session_id
+
+    async def forgot_password(self, email: str) -> None:
+        async with self.session.begin():
+            user = await self.repository.lock_user_by_email(email)
+            if user is None or not user.is_active or user.deleted_at or not user.is_email_verified:
+                return
+            now = datetime.now(UTC)
+            expires_at = now + timedelta(minutes=self.settings.password_reset_ttl_min)
+            token = generate_token()
+            await self.repository.invalidate_email_tokens(
+                user.id, now, EmailTokenPurpose.RESET_PASSWORD
+            )
+            await self.repository.add_email_token(
+                user.id, hash_token(token), now, expires_at, EmailTokenPurpose.RESET_PASSWORD
+            )
+        try:
+            await self.password_publisher.publish(email, token, expires_at)
+        except VerificationPublishError:
+            raise unavailable() from None
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        digest = hash_token(token)
+        purpose = EmailTokenPurpose.RESET_PASSWORD
+        async with self.session.begin():
+            user_id = await self.repository.email_token_owner(digest, purpose)
+            user = await self.repository.lock_user(user_id) if user_id is not None else None
+            email_token = await self.repository.lock_email_token(digest, purpose)
+            now = datetime.now(UTC)
+            if (
+                user is None
+                or not user.is_active
+                or user.deleted_at is not None
+                or not user.is_email_verified
+                or email_token is None
+                or email_token.used_at is not None
+                or email_token.expires_at <= now
+            ):
+                raise AppError(400, "INVALID_EMAIL_TOKEN", "Ссылка недействительна или устарела")
+            user.password_hash = await hash_password(new_password)
+            await self.repository.invalidate_email_tokens(user.id, now, purpose)
+            await self.repository.revoke_all_sessions(user.id, now)
+
+    async def change_password(
+        self, context: AuthContext, old_password: str, new_password: str
+    ) -> None:
+        async with self.session.begin():
+            await self._lock_context(context)
+            if not await verify_password(old_password, context.user.password_hash):
+                raise AppError(400, "INVALID_CURRENT_PASSWORD", "Неверный текущий пароль")
+            context.user.password_hash = await hash_password(new_password)
+            now = datetime.now(UTC)
+            await self.repository.invalidate_email_tokens(
+                context.user.id, now, EmailTokenPurpose.RESET_PASSWORD
+            )
+            await self.repository.revoke_all_sessions(context.user.id, now)

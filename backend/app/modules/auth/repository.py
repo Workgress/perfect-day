@@ -114,46 +114,57 @@ class AuthRepository:
             .values(revoked_at=now)
         )
 
-    async def verification_owner(self, token_hash: str) -> UUID | None:
+    async def email_token_owner(
+        self, token_hash: str, purpose: EmailTokenPurpose = EmailTokenPurpose.VERIFY_EMAIL
+    ) -> UUID | None:
         return await self.session.scalar(
             select(EmailToken.user_id).where(
                 EmailToken.token_hash == token_hash,
-                EmailToken.purpose == EmailTokenPurpose.VERIFY_EMAIL,
+                EmailToken.purpose == purpose,
             )
         )
 
-    async def lock_verification_token(self, token_hash: str) -> EmailToken | None:
+    async def lock_email_token(
+        self, token_hash: str, purpose: EmailTokenPurpose = EmailTokenPurpose.VERIFY_EMAIL
+    ) -> EmailToken | None:
         return await self.session.scalar(
             select(EmailToken)
             .where(
                 EmailToken.token_hash == token_hash,
-                EmailToken.purpose == EmailTokenPurpose.VERIFY_EMAIL,
+                EmailToken.purpose == purpose,
             )
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
 
-    async def invalidate_verification_tokens(self, user_id: UUID, now: datetime) -> None:
+    async def invalidate_email_tokens(
+        self,
+        user_id: UUID,
+        now: datetime,
+        purpose: EmailTokenPurpose = EmailTokenPurpose.VERIFY_EMAIL,
+    ) -> None:
         await self.session.execute(
             update(EmailToken)
             .where(
                 EmailToken.user_id == user_id,
-                EmailToken.purpose == EmailTokenPurpose.VERIFY_EMAIL,
+                EmailToken.purpose == purpose,
                 EmailToken.used_at.is_(None),
             )
             .values(used_at=now)
         )
 
-    async def add_verification_token(
+    async def add_email_token(
         self,
         user_id: UUID,
         token_hash: str,
         now: datetime,
         expires_at: datetime,
+        purpose: EmailTokenPurpose = EmailTokenPurpose.VERIFY_EMAIL,
     ) -> None:
         self.session.add(
             EmailToken(
                 user_id=user_id,
-                purpose=EmailTokenPurpose.VERIFY_EMAIL,
+                purpose=purpose,
                 token_hash=token_hash,
                 created_at=now,
                 expires_at=expires_at,

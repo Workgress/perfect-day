@@ -4,7 +4,7 @@ from typing import Protocol
 from kombu.exceptions import KombuError
 from starlette.concurrency import run_in_threadpool
 
-from app.workers.email import send_verification_email
+from app.workers.email import send_password_reset_email, send_verification_email
 
 
 class VerificationPublishError(Exception):
@@ -16,10 +16,12 @@ class VerificationPublisher(Protocol):
 
 
 class CeleryVerificationPublisher:
+    task = send_verification_email
+
     async def publish(self, email: str, token: str, expires_at: datetime) -> None:
         try:
             await run_in_threadpool(
-                send_verification_email.apply_async,
+                self.task.apply_async,
                 args=[email, token],
                 argsrepr="(<скрыто>, <скрыто>)",
                 kwargsrepr="{}",
@@ -33,3 +35,11 @@ class CeleryVerificationPublisher:
 
 def get_verification_publisher() -> VerificationPublisher:
     return CeleryVerificationPublisher()
+
+
+class CeleryPasswordResetPublisher(CeleryVerificationPublisher):
+    task = send_password_reset_email
+
+
+def get_password_reset_publisher() -> VerificationPublisher:
+    return CeleryPasswordResetPublisher()

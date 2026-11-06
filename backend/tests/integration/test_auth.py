@@ -20,7 +20,11 @@ from app.core.rate_limit import rate_limit_key
 from app.core.security import decode_access_token, generate_token, hash_token, verify_password
 from app.db.session import create_sessionmaker
 from app.main import create_app
-from app.modules.auth.delivery import VerificationPublishError, get_verification_publisher
+from app.modules.auth.delivery import (
+    VerificationPublishError,
+    get_password_reset_publisher,
+    get_verification_publisher,
+)
 from app.modules.auth.models import AuthSession, EmailToken, EmailTokenPurpose, RefreshToken
 from app.modules.users.models import User, UserProfile
 from tests.db.conftest import alembic_config as alembic_config
@@ -88,6 +92,7 @@ async def auth_api(engine: AsyncEngine, redis_url: str) -> AsyncIterator[AuthAPI
     app.state.redis = redis
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_verification_publisher] = lambda: publisher
+    app.dependency_overrides[get_password_reset_publisher] = lambda: publisher
     try:
         async with AsyncClient(
             transport=ASGITransport(app=app),

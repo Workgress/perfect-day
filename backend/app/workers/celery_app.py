@@ -8,7 +8,7 @@ celery_app = Celery(
     "perfect_day",
     broker=settings.redis_dsn(settings.redis_broker_db),
     backend=settings.redis_dsn(settings.redis_result_db),
-    include=["app.workers.email"],
+    include=["app.workers.email", "app.workers.auth_cleanup"],
 )
 
 celery_app.conf.update(
@@ -23,6 +23,9 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     broker_connection_timeout=5,
     broker_transport_options={"socket_connect_timeout": 5, "socket_timeout": 5},
+    beat_schedule={
+        "auth-cleanup-expired": {"task": "auth.cleanup_expired", "schedule": 3600.0},
+    },
 )
 
 

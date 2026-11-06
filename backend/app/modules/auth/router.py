@@ -13,17 +13,22 @@ from app.modules.auth.cookies import REFRESH_COOKIE_NAME, clear_refresh_cookie, 
 from app.modules.auth.dependencies import (
     client_ip,
     get_auth_service,
+    limit_change_password,
+    limit_forgot_password,
     limit_login,
     limit_logout,
     limit_refresh,
     limit_registration,
     limit_resend,
+    limit_reset_password,
     limit_verification,
 )
 from app.modules.auth.schemas import (
+    ChangePasswordRequest,
     EmailRequest,
     MessageResponse,
     RegisterRequest,
+    ResetPasswordRequest,
     SessionResponse,
     SessionsResponse,
     TokenResponse,
@@ -245,4 +250,58 @@ async def revoke_session(
     response = Response(status_code=204, headers={"Cache-Control": "no-store"})
     if is_current:
         clear_refresh_cookie(response, settings)
+    return response
+
+
+@router.post(
+    "/password/forgot",
+    status_code=202,
+    response_model=MessageResponse,
+    dependencies=[Depends(require_trusted_origin), Depends(limit_forgot_password)],
+    summary="Запрос письма сброса пароля",
+)
+async def forgot_password(
+    body: EmailRequest,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+) -> MessageResponse:
+    await service.forgot_password(str(body.email))
+    return MessageResponse(message=NEUTRAL_MESSAGE)
+
+
+@router.post(
+    "/password/reset",
+    status_code=204,
+    dependencies=[Depends(require_trusted_origin), Depends(limit_reset_password)],
+    summary="Сброс пароля и отзыв всех сессий",
+)
+async def reset_password(
+    body: ResetPasswordRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
+) -> Response:
+    await service.reset_password(
+        body.token.get_secret_value(), body.new_password.get_secret_value()
+    )
+    response = Response(status_code=204)
+    clear_refresh_cookie(response, settings)
+    return response
+
+
+@router.post(
+    "/password/change",
+    status_code=204,
+    dependencies=[Depends(limit_change_password)],
+    summary="Смена пароля и отзыв всех сессий",
+)
+async def change_password(
+    body: ChangePasswordRequest,
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
+) -> Response:
+    await service.change_password(
+        context, body.old_password.get_secret_value(), body.new_password.get_secret_value()
+    )
+    response = Response(status_code=204)
+    clear_refresh_cookie(response, settings)
     return response

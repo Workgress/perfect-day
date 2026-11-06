@@ -14,7 +14,7 @@ class MailDeliveryError(Exception):
     pass
 
 
-async def send_verification_message(email: str, token: str) -> None:
+async def send_token_message(email: str, token: str, *, password_reset: bool = False) -> None:
     settings = get_settings()
     configuration = ConnectionConfig.model_validate(
         {
@@ -33,21 +33,35 @@ async def send_verification_message(email: str, token: str) -> None:
             "TEMPLATE_FOLDER": TEMPLATE_FOLDER,
         }
     )
-    verification_url = (
-        f"{str(settings.frontend_url).rstrip('/')}/verify-email#{urlencode({'token': token})}"
-    )
+    path = "reset-password" if password_reset else "verify-email"
+    link = f"{str(settings.frontend_url).rstrip('/')}/{path}#{urlencode({'token': token})}"
     message = MessageSchema.model_validate(
         {
-            "subject": "Подтвердите email — Идеальный День",
+            "subject": (
+                "Сброс пароля — Идеальный День"
+                if password_reset
+                else "Подтвердите email — Идеальный День"
+            ),
             "recipients": [email],
             "subtype": "html",
             "template_body": {
-                "verification_url": verification_url,
+                "verification_url": link,
+                "reset_url": link,
                 "hours": settings.email_verification_ttl_hours,
+                "minutes": settings.password_reset_ttl_min,
             },
         }
     )
-    await FastMail(configuration).send_message(message, template_name="verify_email.html")
+    template = "reset_password.html" if password_reset else "verify_email.html"
+    await FastMail(configuration).send_message(message, template_name=template)
+
+
+async def send_verification_message(email: str, token: str) -> None:
+    await send_token_message(email, token)
+
+
+async def send_password_reset_message(email: str, token: str) -> None:
+    await send_token_message(email, token, password_reset=True)
 
 
 @celery_app.task(
@@ -69,3 +83,20 @@ def send_verification_email(email: str, token: str) -> None:
         asyncio.run(send_verification_message(email, token))
     except Exception:
         raise MailDeliveryError("Не удалось отправить письмо подтверждения") from None
+
+
+@celery_app.task(
+    name="auth.send_password_reset_email",
+    ignore_result=True,
+    store_errors_even_if_ignored=False,
+    autoretry_for=(MailDeliveryError,),
+    retry_kwargs={"max_retries": 3, "argsrepr": "(<скрыто>, <скрыто>)", "kwargsrepr": "{}"},
+    retry_backoff=5,
+    retry_backoff_max=60,
+    retry_jitter=True,
+)
+def send_password_reset_email(email: str, token: str) -> None:
+    try:
+        asyncio.run(send_password_reset_message(email, token))
+    except Exception:
+        raise MailDeliveryError("Не удалось отправить письмо сброса пароля") from None
