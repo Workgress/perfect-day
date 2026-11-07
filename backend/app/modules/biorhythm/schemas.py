@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Any
 
 from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field
@@ -16,11 +16,22 @@ def _local_date(value: Any) -> Any:
 LocalDate = Annotated[date, BeforeValidator(_local_date)]
 
 
+def _iso_datetime(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not re.match(r"^\d{4}-\d{2}-\d{2}[Tt ]", value):
+        raise ValueError("Укажите дату и время в формате ISO 8601 с часовым поясом")
+    return value
+
+
+IsoAwareDatetime = Annotated[AwareDatetime, BeforeValidator(_iso_datetime)]
+
+
 class SnapshotQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    at: AwareDatetime | None = Field(
-        default=None, description="Момент с UTC-смещением; по умолчанию текущее время"
+    at: IsoAwareDatetime | None = Field(
+        default=None, description="Момент ISO 8601 с UTC-смещением; по умолчанию текущее время"
     )
 
 
