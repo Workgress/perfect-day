@@ -1,0 +1,23 @@
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-12);
+  color: var(--text-tertiary);
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-tertiary);
+}
+
+.status[data-status='success'] .dot {
+  background: var(--status-success);
+}
+
+.status[data-status='error'] .dot {
+  background: var(--status-danger);
+}

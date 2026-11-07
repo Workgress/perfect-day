@@ -17,7 +17,9 @@ ENV PATH="/srv/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN groupadd --system app && useradd --system --gid app --home-dir /srv app
+RUN groupadd --system app \
+    && useradd --system --gid app --home-dir /srv app \
+    && install -d -o app -g app -m 0700 /srv/.gunicorn
 
 WORKDIR /srv
 

@@ -1,0 +1,120 @@
+.secondary {
+  color: var(--text-secondary);
+}
+
+.timeline {
+  position: relative;
+  height: 560px;
+  min-width: 0;
+}
+
+.tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--text-tertiary);
+  font: 400 13px / 16px var(--font-mono);
+}
+
+.tick > :last-child {
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.window {
+  --window-color: var(--type-routine);
+  --window-soft: var(--type-routine-soft);
+  position: absolute;
+  left: 64px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(var(--window-soft), var(--window-soft)), var(--bg-base);
+  font: 500 13px / 18px var(--font-sans);
+}
+
+.window[data-type='intellectual'] {
+  --window-color: var(--type-intellectual);
+  --window-soft: var(--type-intellectual-soft);
+}
+
+.window[data-type='physical'] {
+  --window-color: var(--type-physical);
+  --window-soft: var(--type-physical-soft);
+}
+
+.window[data-type='rest'] {
+  --window-color: var(--type-rest);
+  --window-soft: var(--type-rest-soft);
+}
+
+.window > span:first-child,
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--window-color);
+}
+
+.windowLabel {
+  min-width: 0;
+}
+
+.window[data-compact] {
+  padding: 0 var(--space-8);
+  font-size: 12px;
+}
+
+.window[data-compact] .windowLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  margin-top: 4px;
+  background: var(--slot-color);
+}
+
+.slot {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.slot > div {
+  min-width: 0;
+}
+
+.slotTime {
+  overflow-wrap: anywhere;
+}
+
+.slot .secondary {
+  overflow-wrap: anywhere;
+}
+
+.taskTitle {
+  overflow-wrap: anywhere;
+  margin-block: 2px;
+}
+
+.openPlan {
+  align-self: flex-start;
+}
+
+@media (max-width: 560px) {
+  .window {
+    padding: var(--space-8);
+    font-size: 12px;
+  }
+}

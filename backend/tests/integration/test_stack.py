@@ -16,6 +16,7 @@ from app.modules.biorhythm.cache import BiorhythmCache
 pytestmark = pytest.mark.docker
 
 UNREACHABLE_REDIS_URL = "redis://127.0.0.1:1"
+UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://test:test@127.0.0.1:1/test"
 
 LiveApp = Callable[..., AbstractAsyncContextManager[FastAPI]]
 
@@ -23,8 +24,11 @@ LiveApp = Callable[..., AbstractAsyncContextManager[FastAPI]]
 @pytest.fixture
 def live_app(postgres_url: str, redis_url: str, monkeypatch: pytest.MonkeyPatch) -> LiveApp:
     @asynccontextmanager
-    async def start(redis: str = redis_url) -> AsyncIterator[FastAPI]:
-        monkeypatch.setenv("DATABASE_URL", postgres_url)
+    async def start(
+        redis: str = redis_url,
+        database: str = postgres_url,
+    ) -> AsyncIterator[FastAPI]:
+        monkeypatch.setenv("DATABASE_URL", database)
         monkeypatch.setenv("REDIS_URL", redis)
         get_settings.cache_clear()
         try:
@@ -56,6 +60,14 @@ async def test_ready_reports_unreachable_redis(live_app: LiveApp) -> None:
 
     assert status == 503
     assert body == {"db": "ok", "redis": "error"}
+
+
+async def test_ready_reports_unreachable_database(live_app: LiveApp) -> None:
+    async with live_app(database=UNREACHABLE_DATABASE_URL) as running:
+        status, body = await _get(running, "/api/v1/ready")
+
+    assert status == 503
+    assert body == {"db": "error", "redis": "ok"}
 
 
 async def test_cached_responses_always_expire(live_app: LiveApp) -> None:

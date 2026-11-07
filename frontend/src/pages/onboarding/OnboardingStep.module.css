@@ -1,0 +1,252 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  color: var(--text-tertiary);
+}
+
+.note > svg {
+  flex: 0 0 16px;
+}
+
+.secondary {
+  color: var(--text-secondary);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.choice:has(:checked) {
+  border-color: var(--text-primary);
+  box-shadow: inset 0 0 0 0.5px var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.choice:has(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.choice > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.choice > svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.choiceText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  font: 500 13px / 18px var(--font-sans);
+}
+
+.times {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.empty {
+  padding: var(--space-20);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.task {
+  --task-color: var(--type-intellectual);
+  --task-soft: var(--type-intellectual-soft);
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto 68px 28px;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 48px;
+  padding: 6px 8px 6px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.task[data-type='physical'] {
+  --task-color: var(--type-physical);
+  --task-soft: var(--type-physical-soft);
+}
+
+.task[data-type='creative'] {
+  --task-color: var(--type-creative);
+  --task-soft: var(--type-creative-soft);
+}
+
+.task[data-type='routine'] {
+  --task-color: var(--type-routine);
+  --task-soft: var(--type-routine-soft);
+}
+
+.taskTitle,
+.taskType select,
+.duration input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.taskTitle {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.taskTitle::placeholder {
+  color: var(--text-tertiary);
+}
+
+.taskType {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--task-soft);
+}
+
+.taskType > span {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--task-color);
+}
+
+.taskType select {
+  width: 138px;
+  font: 500 12px / 18px var(--font-sans);
+  cursor: pointer;
+}
+
+.taskType option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.duration {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+  font: 400 12px / 16px var(--font-mono);
+}
+
+.duration input {
+  width: 40px;
+  appearance: textfield;
+}
+
+.duration input::-webkit-inner-spin-button,
+.duration input::-webkit-outer-spin-button {
+  appearance: none;
+}
+
+.task > button[data-size='s'] {
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+}
+
+.addTask {
+  align-self: flex-start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding-top: var(--space-12);
+}
+
+@media (max-width: 600px) {
+  .choice {
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    margin-left: 34px;
+  }
+
+  .times {
+    grid-template-columns: 1fr;
+  }
+
+  .task {
+    grid-template-columns: minmax(0, 1fr) 68px 28px;
+    padding: var(--space-12);
+  }
+
+  .taskTitle {
+    grid-column: 1 / -1;
+    padding-bottom: var(--space-8);
+  }
+}
+
+.actions > :only-child {
+  margin-left: auto;
+}

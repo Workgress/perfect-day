@@ -1,0 +1,13 @@
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.mark {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+}
