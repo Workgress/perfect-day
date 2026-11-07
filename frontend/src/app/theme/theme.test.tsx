@@ -48,10 +48,17 @@ describe('ThemeSync', () => {
     meta.remove()
   })
 
-  it('applies dark theme by default', () => {
+  it('applies the dark system preference by default', () => {
     render(<ThemeSync />)
     expect(currentTheme()).toBe('dark')
     expect(meta.content).toBe(THEME_COLORS.dark)
+  })
+
+  it('applies the light system preference by default', () => {
+    mockMatchMedia(false)
+    render(<ThemeSync />)
+    expect(currentTheme()).toBe('light')
+    expect(meta.content).toBe(THEME_COLORS.light)
   })
 
   it('applies the selected mode', () => {
@@ -61,9 +68,8 @@ describe('ThemeSync', () => {
     expect(meta.content).toBe(THEME_COLORS.light)
   })
 
-  it('follows system changes in system mode', () => {
+  it('follows system changes without requiring a selection in settings', () => {
     const media = mockMatchMedia(true)
-    useThemeStore.setState({ mode: 'system' })
     render(<ThemeSync />)
     expect(currentTheme()).toBe('dark')
 
@@ -89,7 +95,10 @@ describe('ThemeSwitcher', () => {
         <ThemeSwitcher />
       </>,
     )
-    expect(screen.getByRole('radio', { name: 'Тёмная' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Как в системе' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
 
     await userEvent.click(screen.getByRole('radio', { name: 'Светлая' }))
 
@@ -156,11 +165,15 @@ describe('inline theme script', () => {
     expect(script).toContain('pd-theme')
   })
 
-  it('uses dark theme without a saved mode', () => {
-    runScript()
-    expect(currentTheme()).toBe('dark')
-    expect(meta.content).toBe(THEME_COLORS.dark)
-  })
+  it.each([true, false])(
+    'follows the system before React starts when prefersDark is %s',
+    (prefersDark) => {
+      mockMatchMedia(prefersDark)
+      runScript()
+      expect(currentTheme()).toBe(prefersDark ? 'dark' : 'light')
+      expect(meta.content).toBe(prefersDark ? THEME_COLORS.dark : THEME_COLORS.light)
+    },
+  )
 
   it('reads the mode saved by the theme store', () => {
     useThemeStore.getState().setMode('light')
@@ -176,9 +189,10 @@ describe('inline theme script', () => {
     expect(currentTheme()).toBe('light')
   })
 
-  it('falls back to dark theme on broken storage', () => {
+  it('follows the system on broken storage', () => {
+    mockMatchMedia(false)
     localStorage.setItem('pd-theme', '{broken')
     runScript()
-    expect(currentTheme()).toBe('dark')
+    expect(currentTheme()).toBe('light')
   })
 })

@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 import { Outlet } from 'react-router'
 import { paths } from '@/app/router/paths'
-import { Button } from '@/shared/ui/button/Button'
+import { LogoutButton } from '@/app/LogoutButton'
 import type { IconProps } from '@/shared/ui/icon/createIcon'
 import { ActivityIcon, CalendarIcon, SlidersIcon, SunIcon } from '@/shared/ui/icon/icons'
 import { selectUserName, useSessionStore } from '@/stores/session'
@@ -19,7 +19,6 @@ const NAVIGATION: readonly { to: string; label: string; Icon: ComponentType<Icon
 
 function UserCard() {
   const userName = useSessionStore(selectUserName)
-  const signOut = useSessionStore((state) => state.signOut)
   const initial = userName?.charAt(0).toUpperCase() ?? '?'
 
   return (
@@ -28,9 +27,7 @@ function UserCard() {
         {initial}
       </span>
       <span className={`text-label ${styles.userName}`}>{userName}</span>
-      <Button variant="ghost" size="s" onClick={signOut}>
-        Выйти
-      </Button>
+      <LogoutButton />
     </div>
   )
 }

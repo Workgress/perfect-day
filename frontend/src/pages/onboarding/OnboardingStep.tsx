@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import styles from './OnboardingStep.module.css'
+import { OnboardingIntro } from '@/shared/ui/onboarding/OnboardingShell'
 
 type OnboardingStepProps = {
   title: string
@@ -11,9 +11,8 @@ export function OnboardingStep({ title, description, children }: OnboardingStepP
   return (
     <>
       <title>{`${title} · Идеальный день`}</title>
-      <h1 className="text-title">{title}</h1>
-      <p className={`text-body-s ${styles.description}`}>{description}</p>
-      <div className={styles.actions}>{children}</div>
+      <OnboardingIntro title={title} description={description} />
+      {children}
     </>
   )
 }

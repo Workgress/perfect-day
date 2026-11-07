@@ -16,7 +16,7 @@ describe('http', () => {
 
   beforeEach(() => {
     onUnauthorized.mockReset()
-    configureHttp({ getAccessToken: () => null, onUnauthorized })
+    configureHttp({ getAccessToken: () => null, onUnauthorized, refreshAccessToken: null })
   })
 
   it('requests JSON from the API prefix with query params', async () => {

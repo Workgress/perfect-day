@@ -39,6 +39,8 @@ import {
 import { NavItem } from '@/shared/ui/nav-item/NavItem'
 import * as Segment from '@/shared/ui/segment/Segment'
 import { Toggle } from '@/shared/ui/toggle/Toggle'
+import { Brand } from '@/shared/ui/brand/Brand'
+import { FormMessage, SelectField, TextField } from '@/shared/ui/form-field/FormField'
 import styles from './KitPage.module.css'
 
 type Theme = 'dark' | 'light'
@@ -257,10 +259,58 @@ function Icons() {
   )
 }
 
+function FormFields() {
+  const [email, setEmail] = useState('anna@example.com')
+  const [start, setStart] = useState('08:00')
+
+  return (
+    <div className={styles.fields}>
+      <TextField
+        label="Email"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        hint="Пришлём письмо для подтверждения почты"
+      />
+      <TextField
+        label="Пароль"
+        type="password"
+        autoComplete="new-password"
+        placeholder="Не менее 8 символов"
+      />
+      <TextField label="Название задачи" defaultValue="" error="Укажите название задачи" />
+      <TextField label="Недоступное поле" defaultValue="Эссе по философии" disabled />
+      <SelectField
+        label="Начало дня"
+        value={start}
+        onChange={(event) => setStart(event.target.value)}
+        leadingIcon={<ClockIcon size={18} />}
+      >
+        <option value="08:00">08:00</option>
+        <option value="09:00">09:00</option>
+        <option value="10:00">10:00</option>
+      </SelectField>
+      <SelectField label="Недоступный выбор" defaultValue="23:00" disabled>
+        <option value="23:00">23:00</option>
+      </SelectField>
+      <FormMessage>Не удалось сохранить данные. Попробуйте ещё раз.</FormMessage>
+      <FormMessage tone="info">Проверьте почту — мы отправили письмо.</FormMessage>
+      <FormMessage tone="success">Почта подтверждена.</FormMessage>
+    </div>
+  )
+}
+
 function KitPanel({ theme, title }: { theme: Theme; title: string }) {
   return (
     <div data-theme={theme} className={styles.panel}>
       <h2 className="text-title">{title}</h2>
+      <KitSection title="Логотип">
+        <div className={styles.row}>
+          <Brand />
+          <Brand variant="mark" />
+        </div>
+      </KitSection>
       <KitSection title="Цвета">
         <ColorTokens />
       </KitSection>
@@ -275,6 +325,9 @@ function KitPanel({ theme, title }: { theme: Theme; title: string }) {
       </KitSection>
       <KitSection title="Toggle и Segment">
         <Controls />
+      </KitSection>
+      <KitSection title="Поля форм и сообщения">
+        <FormFields />
       </KitSection>
       <KitSection title="Иконки">
         <Icons />

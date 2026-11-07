@@ -20,7 +20,7 @@ export function SettingsPage() {
         <div className={styles.row}>
           <div className={styles.rowText}>
             <span className="text-label">Тема</span>
-            <span className={`text-caption ${styles.hint}`}>Тёмная тема — по умолчанию</span>
+            <span className={`text-caption ${styles.hint}`}>По умолчанию — как в системе</span>
           </div>
           <ThemeSwitcher />
         </div>

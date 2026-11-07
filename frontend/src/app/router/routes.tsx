@@ -22,10 +22,20 @@ export const routes: RouteObject[] = [
     HydrateFallback: () => null,
     children: [
       {
+        path: paths.verifyEmail,
+        lazy: async () => ({
+          Component: (await import('@/pages/login/VerifyEmailPage')).VerifyEmailPage,
+        }),
+      },
+      {
         element: <GuestOnly />,
         children: [
           {
             path: paths.login,
+            lazy: async () => ({ Component: (await import('@/pages/login/LoginPage')).LoginPage }),
+          },
+          {
+            path: paths.register,
             lazy: async () => ({ Component: (await import('@/pages/login/LoginPage')).LoginPage }),
           },
         ],

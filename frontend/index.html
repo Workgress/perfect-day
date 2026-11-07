@@ -7,13 +7,11 @@
     <meta name="theme-color" content="#0e0e11" />
     <script>
       ;(function () {
-        var theme = 'dark'
+        var theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
         try {
           var stored = JSON.parse(localStorage.getItem('pd-theme') || 'null')
           var mode = stored && stored.state && stored.state.mode
           if (mode === 'light' || mode === 'dark') theme = mode
-          else if (mode === 'system')
-            theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
         } catch (error) {}
         document.documentElement.dataset.theme = theme
         document

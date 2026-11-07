@@ -11,7 +11,7 @@ type ThemeStore = {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
-      mode: 'dark',
+      mode: 'system',
       setMode: (mode) => set({ mode }),
     }),
     {
@@ -19,6 +19,13 @@ export const useThemeStore = create<ThemeStore>()(
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: ({ mode }) => ({ mode }),
+      merge: (persisted, current) => {
+        const mode = (persisted as { mode?: unknown } | null)?.mode
+        return {
+          ...current,
+          mode: mode === 'light' || mode === 'dark' || mode === 'system' ? mode : 'system',
+        }
+      },
     },
   ),
 )

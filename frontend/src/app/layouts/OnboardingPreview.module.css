@@ -1,0 +1,42 @@
+.cycle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--text-secondary);
+}
+
+.swatch {
+  flex: 0 0 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--cycle-color);
+}
+
+.cycle[data-cycle='physical'] {
+  --cycle-color: var(--bio-physical);
+}
+
+.cycle[data-cycle='emotional'] {
+  --cycle-color: var(--bio-emotional);
+}
+
+.cycle[data-cycle='intellectual'] {
+  --cycle-color: var(--bio-intellectual);
+}
+
+.value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.hint {
+  color: var(--text-secondary);
+}
