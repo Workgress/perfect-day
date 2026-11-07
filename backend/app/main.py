@@ -12,7 +12,9 @@ from app.core.redis import create_redis
 from app.db.session import create_engine, create_sessionmaker
 from app.modules.auth.router import router as auth_router
 from app.modules.biorhythm.cache import BiorhythmCache
+from app.modules.biorhythm.router import router as biorhythm_router
 from app.modules.meta.router import router as meta_router
+from app.modules.users.router import router as profile_router
 
 CACHE_DEFAULT_EXPIRE_SECONDS = 3600
 CACHE_PREFIX = "pd"
@@ -57,6 +59,8 @@ def create_app() -> FastAPI:
     )
     app.include_router(meta_router, prefix=settings.api_prefix)
     app.include_router(auth_router, prefix=settings.api_prefix)
+    app.include_router(profile_router, prefix=settings.api_prefix)
+    app.include_router(biorhythm_router, prefix=settings.api_prefix)
     return app
 
 

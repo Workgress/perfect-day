@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.time import Clock, parse_timezone, to_utc
+from app.modules.users.events import ProfileChanged, ProfileChangedHandler
 from app.modules.users.models import ChronotypeSource, User, UserProfile
 from app.modules.users.repository import ProfileRepository
 from app.modules.users.schemas import (
@@ -135,6 +136,18 @@ class ProfileService:
         if user is None:
             raise ProfileUserNotFoundError()
         return _document(user, await self.get_profile(user_id))
+
+    async def patch_document(
+        self, user_id: UUID, patch: ProfilePatch, on_changed: ProfileChangedHandler
+    ) -> ProfileDocument:
+        """Commit the HTTP update before notifying the future scheduling module."""
+        async with self.session.begin():
+            result = await self.update_profile(user_id, patch)
+        if result.changed_fields:
+            await on_changed(
+                ProfileChanged(user_id, result.changed_fields, to_utc(self.clock.now()))
+            )
+        return result.document
 
     async def update_profile(self, user_id: UUID, patch: ProfilePatch) -> ProfileUpdate:
         async with self.session.begin_nested():
