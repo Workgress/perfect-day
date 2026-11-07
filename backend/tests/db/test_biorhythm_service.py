@@ -12,10 +12,14 @@ from fastapi_cache.backends.redis import RedisBackend
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.time import FrozenClock, LocalTimeError
+from app.core.time import FrozenClock
 from app.modules.biorhythm import engine
 from app.modules.biorhythm.cache import BiorhythmCache
-from app.modules.biorhythm.service import BiorhythmService, OnboardingRequiredError
+from app.modules.biorhythm.service import (
+    BiorhythmService,
+    BiorhythmValidationError,
+    OnboardingRequiredError,
+)
 from app.modules.biorhythm.types import (
     BiorhythmSnapshot,
     CriticalDays,
@@ -51,7 +55,7 @@ async def completed_user(session: AsyncSession, email: str = "user@example.ru") 
     await ProfileService(session, CLOCK).update_profile(
         user.id,
         ProfilePatch.model_validate(
-            {"birth_date": "2000-01-01", "birth_time": "12:00", "chronotype": "dove"}
+            {"birth_date": "2000-01-01", "birth_time": "12:00:00", "chronotype": "dove"}
         ),
     )
     profile = await session.get(UserProfile, user.id)
@@ -113,9 +117,8 @@ async def test_miss_and_hit_have_identical_types_and_data_with_real_redis(
     "change",
     [
         {"birth_date": "2000-01-02"},
-        {"birth_time": "13:00"},
-        {"birth_tz": "Europe/Moscow"},
-        {"birth_time_known": False},
+        {"birth_time": "13:00:00"},
+        {"birth_time": None},
         {"timezone": "Asia/Yekaterinburg"},
     ],
 )
@@ -142,7 +145,7 @@ async def test_unrelated_profile_fields_do_not_invalidate_cycles(
     before = await service.get_snapshot(user.id, NOW)
     original_keys = await keys(cache)
     await ProfileService(session, CLOCK).update_profile(
-        user.id, ProfilePatch(display_name="Ирина", chronotype=Chronotype.OWL, sleep_time=time(1))
+        user.id, ProfilePatch(chronotype=Chronotype.OWL, sleep_time=time(1))
     )
     with patch.object(engine, "snapshot", side_effect=AssertionError("unexpected calculation")):
         assert await service.get_snapshot(user.id, NOW) == before
@@ -264,7 +267,7 @@ async def test_invalid_range_is_rejected_before_cache(
         patch.object(
             cache.backend, "get", side_effect=AssertionError("invalid request read cache")
         ),
-        pytest.raises(engine.ForecastValidationError),
+        pytest.raises(BiorhythmValidationError),
     ):
         await method(user.id, start, start + timedelta(days=days - 1))
 
@@ -280,13 +283,13 @@ async def test_before_birth_rules_use_actual_points_and_critical_day_start(
     with patch.object(
         cache.backend, "get", side_effect=AssertionError("invalid request read cache")
     ):
-        with pytest.raises(engine.ForecastValidationError, match="до момента рождения"):
+        with pytest.raises(BiorhythmValidationError):
             await service.get_snapshot(user.id, birth - timedelta(microseconds=1))
-        with pytest.raises(engine.ForecastValidationError, match="до момента рождения"):
+        with pytest.raises(BiorhythmValidationError):
             await service.get_series(user.id, birth.date(), birth.date(), Step.HOUR)
-        with pytest.raises(engine.ForecastValidationError, match="до момента рождения"):
+        with pytest.raises(BiorhythmValidationError):
             await service.get_critical_days(user.id, birth.date(), birth.date())
-        with pytest.raises(engine.ForecastValidationError, match="до момента рождения"):
+        with pytest.raises(BiorhythmValidationError):
             await BiorhythmService(session, cache, FrozenClock(birth)).get_forecast(
                 user.id, ForecastPeriod.DAY
             )
@@ -301,7 +304,7 @@ async def test_nonexistent_noon_does_not_block_critical_days(
     )
     service = BiorhythmService(session, cache, CLOCK)
     day = date(2000, 1, 15)
-    with pytest.raises(LocalTimeError):
+    with pytest.raises(BiorhythmValidationError):
         await service.get_series(user.id, day, day)
     assert (await service.get_critical_days(user.id, day, day)).start == day
 
@@ -340,7 +343,7 @@ async def test_datetime_range_bounds_are_rejected_before_cache(
     bounds[field] = NOW
     with (
         patch.object(cache.backend, "get", side_effect=AssertionError("invalid range read cache")),
-        pytest.raises(engine.ForecastValidationError) as error,
+        pytest.raises(BiorhythmValidationError) as error,
     ):
         await service.get_series(user.id, **bounds)
     assert error.value.code == "INVALID_DATE"
@@ -370,3 +373,18 @@ async def test_expired_entry_is_recomputed(session: AsyncSession, cache: Biorhyt
         assert await service.get_snapshot(user.id, NOW) == first
         calculate.assert_called_once()
     assert 86390 <= await backend.redis.ttl(key) <= 86400
+
+
+async def test_biorhythm_input_errors_use_shared_422_contract(
+    session: AsyncSession,
+    cache: BiorhythmCache,
+) -> None:
+    user = await completed_user(session)
+    service = BiorhythmService(session, cache, CLOCK)
+    with pytest.raises(BiorhythmValidationError) as error:
+        await service.get_snapshot(user.id, datetime(2026, 11, 7))
+    assert error.value.status_code == 422 and error.value.body.code == "VALIDATION_ERROR"
+    assert error.value.body.details["fields"][0]["field"] == "query.at"
+    with pytest.raises(BiorhythmValidationError) as error:
+        await service.get_snapshot(user.id, datetime.max.replace(tzinfo=UTC))
+    assert error.value.code == "DATE_RANGE_UNSUPPORTED"

@@ -1,6 +1,7 @@
 import re
 from datetime import date, datetime, time
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
+from uuid import UUID
 
 from pydantic import (
     AwareDatetime,
@@ -45,15 +46,15 @@ BirthDate = Annotated[date, BeforeValidator(_birth_date), Field(ge=date(1900, 1,
 
 
 class ProfileFields(BaseModel):
-    """Editable data and defaults shared by PATCH and merged-state validation."""
+    """Internal profile fields and defaults, separate from the public PATCH."""
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     display_name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     birth_date: BirthDate | None = None
-    birth_time: LocalTime | None = None
-    birth_time_known: StrictBool = True
-    birth_tz: str | None = None
+    birth_time: LocalTime | None = time(12)
+    birth_time_known: StrictBool = False
+    birth_tz: str | None = "UTC"
     chronotype: Chronotype | None = None
     timezone: str = "UTC"
     wake_time: LocalTime = time(7)
@@ -84,11 +85,41 @@ class ProfileFields(BaseModel):
         return value
 
 
-class ProfilePatch(ProfileFields):
-    """Only model_fields_set / exclude_unset define the actual patch."""
+def _minute_time(value: Any) -> time:
+    if isinstance(value, str) and not re.fullmatch(r"\d{2}:\d{2}:00", value):
+        raise ValueError("Укажите время в формате HH:mm:ss, секунды должны быть 00")
+    parsed = _local_time(value)
+    if parsed.second:
+        raise ValueError("Секунды должны быть 00")
+    return parsed
 
 
-class ProfileResponse(ProfileFields):
+MinuteTime = Annotated[time, BeforeValidator(_minute_time)]
+
+
+class ProfilePatch(BaseModel):
+    """Public v1 PATCH; internal calculation fields never come from clients."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    birth_date: BirthDate | None = None
+    birth_time: MinuteTime | None = None
+    timezone: str = "UTC"
+    chronotype: Chronotype | None = None
+    work_start: MinuteTime = time(8)
+    work_end: MinuteTime = time(18)
+    sleep_time: MinuteTime = time(23)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        parse_timezone(value)
+        return value
+
+
+class ProfileState(ProfileFields):
+    """Internal service data, not an HTTP response model."""
+
     birth_at_utc: AwareDatetime | None
     chronotype_source: ChronotypeSource | None
     onboarding_completed_at: AwareDatetime | None
@@ -98,3 +129,30 @@ class ProfileResponse(ProfileFields):
     @classmethod
     def normalize_timestamp(cls, value: datetime | None) -> datetime | None:
         return to_utc(value) if value is not None else None
+
+
+class ProfileResponse(BaseModel):
+    """Public profile fragment from docs/api/contract.md."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    birth_date: BirthDate | None
+    birth_time: MinuteTime | None
+    timezone: str
+    chronotype: Chronotype | None
+    work_start: MinuteTime
+    work_end: MinuteTime
+    sleep_time: MinuteTime
+
+
+class OnboardingProgress(BaseModel):
+    completed_at: AwareDatetime | None
+    next_step: Literal["birth_date", "chronotype", "first_tasks"] | None
+
+
+class ProfileDocument(BaseModel):
+    id: UUID
+    email: str
+    display_name: str | None
+    profile: ProfileResponse | None
+    onboarding: OnboardingProgress

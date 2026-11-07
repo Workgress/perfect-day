@@ -30,13 +30,13 @@ async def test_engine_uses_normalized_birth_from_profile(session: AsyncSession) 
         ProfilePatch.model_validate(
             {
                 "birth_date": "2000-01-01",
-                "birth_time": "12:00",
-                "birth_tz": "Asia/Yekaterinburg",
+                "birth_time": "12:00:00",
+                "timezone": "Asia/Yekaterinburg",
             }
         ),
     )
     birth = update.profile.birth_at_utc
-    assert birth == datetime(2000, 1, 1, 7, tzinfo=UTC)
+    assert birth == datetime(2000, 1, 1, 12, tzinfo=UTC)
     at = birth + timedelta(days=23 / 4)
     original = snapshot(birth, at)
     physical = original.cycles[Cycle.PHYSICAL]
@@ -60,9 +60,7 @@ async def test_profile_timezone_changes_local_critical_day_not_crossing(
     service = ProfileService(session, FrozenClock(datetime(2026, 11, 7, tzinfo=UTC)))
     update = await service.update_profile(
         user.id,
-        ProfilePatch.model_validate(
-            {"birth_date": "2000-01-01", "birth_time": "12:00", "birth_tz": "Asia/Yekaterinburg"}
-        ),
+        ProfilePatch.model_validate({"birth_date": "2000-01-01", "birth_time": "07:00:00"}),
     )
     birth = update.profile.birth_at_utc
     assert birth is not None
@@ -90,7 +88,7 @@ async def test_forecast_uses_profile_timezone_and_explicit_clock(session: AsyncS
         ProfilePatch.model_validate(
             {
                 "birth_date": "2000-01-01",
-                "birth_time": "12:00",
+                "birth_time": "12:00:00",
                 "timezone": "Asia/Yekaterinburg",
             }
         ),

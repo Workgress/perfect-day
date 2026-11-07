@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from uuid import UUID
@@ -6,7 +8,8 @@ from zoneinfo import ZoneInfo
 from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.time import Clock, local_day_bounds, parse_timezone, to_utc
+from app.core.errors import AppError
+from app.core.time import Clock, LocalTimeError, local_day_bounds, parse_timezone, to_utc
 from app.modules.biorhythm import engine
 from app.modules.biorhythm.cache import BiorhythmCache, CacheParameters, build_cache_key
 from app.modules.biorhythm.config import ALGORITHM_VERSION
@@ -18,7 +21,7 @@ from app.modules.biorhythm.types import (
     ForecastPeriod,
     Step,
 )
-from app.modules.users.schemas import ProfileResponse
+from app.modules.users.schemas import ProfileState
 from app.modules.users.service import ProfileService
 
 SNAPSHOT_ADAPTER = TypeAdapter(BiorhythmSnapshot)
@@ -26,11 +29,37 @@ FORECAST_ADAPTER = TypeAdapter(Forecast)
 CRITICAL_DAYS_ADAPTER = TypeAdapter(CriticalDays)
 
 
-class OnboardingRequiredError(ValueError):
+class OnboardingRequiredError(AppError):
     code = "ONBOARDING_REQUIRED"
 
     def __init__(self) -> None:
-        super().__init__("Сначала завершите настройку профиля")
+        super().__init__(409, "ONBOARDING_REQUIRED", "Сначала завершите настройку профиля")
+
+
+class BiorhythmValidationError(AppError):
+    def __init__(self, field: str, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(
+            422,
+            "VALIDATION_ERROR",
+            "Ошибка проверки данных",
+            {"fields": [{"field": f"query.{field}", "code": code, "message": message}]},
+        )
+
+
+@contextmanager
+def _validate_input(field: str) -> Iterator[None]:
+    try:
+        yield
+    except engine.ForecastValidationError as exc:
+        name = {"start": "from", "days": "to", "range": "from"}.get(exc.field, exc.field)
+        raise BiorhythmValidationError(name, exc.code, str(exc)) from exc
+    except LocalTimeError as exc:
+        raise BiorhythmValidationError(field, exc.code, str(exc)) from exc
+    except OverflowError as exc:
+        raise BiorhythmValidationError(
+            field, "DATE_RANGE_UNSUPPORTED", "Дата выходит за поддерживаемый диапазон"
+        ) from exc
 
 
 def _utc_key(at: datetime) -> str:
@@ -45,7 +74,7 @@ class _Context:
     birth_data: CacheParameters
 
 
-def _birth_data(profile: ProfileResponse, birth_utc: datetime) -> CacheParameters:
+def _birth_data(profile: ProfileState, birth_utc: datetime) -> CacheParameters:
     return {
         "birth_date": profile.birth_date.isoformat() if profile.birth_date is not None else None,
         "birth_time": profile.birth_time.isoformat() if profile.birth_time is not None else None,
@@ -103,11 +132,16 @@ class BiorhythmService:
 
     async def get_snapshot(self, user_id: UUID, at: datetime | None = None) -> BiorhythmSnapshot:
         context = await self._context(user_id)
-        at_utc = to_utc(self.clock.now() if at is None else at)
-        _check_birth(at_utc, context.birth_utc, "at")
-        day = at_utc.astimezone(context.tz).date()
-        # Resolve calendar validity before any cache access.
-        local_day_bounds(day, context.tz)
+        with _validate_input("at"):
+            instant = self.clock.now() if at is None else at
+            if instant.utcoffset() is None:
+                raise engine.ForecastValidationError(
+                    "at", "TIMEZONE_REQUIRED", "Укажите часовой пояс"
+                )
+            at_utc = to_utc(instant)
+            _check_birth(at_utc, context.birth_utc, "at")
+            day = at_utc.astimezone(context.tz).date()
+            local_day_bounds(day, context.tz)
         key = self._key(context, {"kind": "snapshot", "at": _utc_key(at_utc)})
 
         def calculate() -> BiorhythmSnapshot:
@@ -127,9 +161,10 @@ class BiorhythmService:
         self, user_id: UUID, start: date, end: date, step: Step = Step.DAY
     ) -> Forecast:
         context = await self._context(user_id)
-        days = _range_days(start, end)
-        moments = engine.time_grid(start, days, context.tz, step)
-        _check_birth(moments[0], context.birth_utc, "from")
+        with _validate_input("from"):
+            days = _range_days(start, end)
+            moments = engine.time_grid(start, days, context.tz, step)
+            _check_birth(moments[0], context.birth_utc, "from")
         key = self._key(
             context,
             {
@@ -147,9 +182,10 @@ class BiorhythmService:
 
     async def get_forecast(self, user_id: UUID, period: ForecastPeriod) -> Forecast:
         context = await self._context(user_id)
-        params = engine.forecast_range(self.clock.now(), period, context.tz)
-        moments = engine.time_grid(params.start, params.days, context.tz, params.step)
-        _check_birth(moments[0], context.birth_utc, "from")
+        with _validate_input("period"):
+            params = engine.forecast_range(self.clock.now(), period, context.tz)
+            moments = engine.time_grid(params.start, params.days, context.tz, params.step)
+            _check_birth(moments[0], context.birth_utc, "from")
         end = params.start + timedelta(days=params.days - 1)
         key = self._key(
             context,
@@ -174,9 +210,10 @@ class BiorhythmService:
 
     async def get_critical_days(self, user_id: UUID, start: date, end: date) -> CriticalDays:
         context = await self._context(user_id)
-        days = _range_days(start, end)
-        moments = engine.time_grid(start, days, context.tz, Step.HOUR)
-        _check_birth(moments[0], context.birth_utc, "from")
+        with _validate_input("from"):
+            days = _range_days(start, end)
+            moments = engine.time_grid(start, days, context.tz, Step.HOUR)
+            _check_birth(moments[0], context.birth_utc, "from")
         key = self._key(
             context,
             {
