@@ -29,6 +29,7 @@ from app.modules.biorhythm.types import (
     Forecast,
     ForecastPeriod,
     ForecastPoint,
+    ForecastRange,
     Phase,
     Step,
     Trend,
@@ -269,10 +270,8 @@ def forecast(
     )
 
 
-def forecast_for_period(
-    birth_utc: datetime, at_utc: datetime, period: ForecastPeriod, tz: ZoneInfo
-) -> Forecast:
-    """Day/week/rolling-month forecast anchored to an explicit instant."""
+def forecast_range(at_utc: datetime, period: ForecastPeriod, tz: ZoneInfo) -> ForecastRange:
+    """Resolve calendar parameters without calculating the cycle values."""
     try:
         period = ForecastPeriod(period)
     except ValueError as exc:
@@ -295,4 +294,14 @@ def forecast_for_period(
                 "start", "DATE_RANGE_UNSUPPORTED", "Диапазон выходит за поддерживаемые даты"
             ) from exc
         days, step = (end - start).days, Step.DAY
-    return replace(forecast(birth_utc, start, days, tz, step), period=period)
+    return ForecastRange(start=start, days=days, step=step, period=period)
+
+
+def forecast_for_period(
+    birth_utc: datetime, at_utc: datetime, period: ForecastPeriod, tz: ZoneInfo
+) -> Forecast:
+    """Day/week/rolling-month forecast anchored to an explicit instant."""
+    params = forecast_range(at_utc, period, tz)
+    return replace(
+        forecast(birth_utc, params.start, params.days, tz, params.step), period=params.period
+    )

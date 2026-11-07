@@ -8,9 +8,11 @@ from fastapi_cache.backends.redis import RedisBackend
 from app.core.config import get_settings
 from app.core.redis import create_redis
 from app.db.session import create_engine, create_sessionmaker
+from app.modules.biorhythm.cache import BiorhythmCache
 from app.modules.meta.router import router as meta_router
 
 CACHE_DEFAULT_EXPIRE_SECONDS = 3600
+CACHE_PREFIX = "pd"
 
 
 @asynccontextmanager
@@ -19,11 +21,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = create_engine(settings)
     app.state.sessionmaker = create_sessionmaker(app.state.engine)
     app.state.redis = create_redis(settings)
+    cache_backend = RedisBackend(app.state.redis)
     FastAPICache.init(
-        RedisBackend(app.state.redis),
-        prefix="pd",
+        cache_backend,
+        prefix=CACHE_PREFIX,
         expire=CACHE_DEFAULT_EXPIRE_SECONDS,
     )
+    app.state.biorhythm_cache = BiorhythmCache(cache_backend, prefix=CACHE_PREFIX)
     try:
         yield
     finally:

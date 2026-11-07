@@ -83,3 +83,38 @@ class Forecast:
     step: Step
     points: tuple[ForecastPoint, ...]
     period: ForecastPeriod | None = None
+
+
+@dataclass(frozen=True)
+class ForecastRange:
+    start: date
+    days: int
+    step: Step
+    period: ForecastPeriod
+
+
+@dataclass(frozen=True)
+class BiorhythmSnapshot:
+    algorithm_version: str
+    timezone: str
+    at: datetime
+    date: date
+    cycles: dict[Cycle, CycleSnapshot]
+    critical: CriticalInfo
+
+
+@dataclass(frozen=True)
+class CriticalDay:
+    date: date
+    level: int
+    kind: CriticalKind
+    crossings: tuple[CriticalCrossing, ...]
+
+
+@dataclass(frozen=True)
+class CriticalDays:
+    algorithm_version: str
+    timezone: str
+    start: date
+    end: date
+    days: tuple[CriticalDay, ...]
