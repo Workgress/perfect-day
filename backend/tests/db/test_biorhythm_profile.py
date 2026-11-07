@@ -5,8 +5,16 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import FrozenClock
-from app.modules.biorhythm.engine import critical_info, snapshot
-from app.modules.biorhythm.types import CriticalCrossing, CriticalKind, Cycle, Phase, Trend
+from app.modules.biorhythm.engine import critical_info, forecast_for_period, snapshot
+from app.modules.biorhythm.types import (
+    CriticalCrossing,
+    CriticalKind,
+    Cycle,
+    ForecastPeriod,
+    Phase,
+    Step,
+    Trend,
+)
 from app.modules.users.schemas import ProfilePatch
 from app.modules.users.service import ProfileService
 from tests.db.factories import make_user
@@ -71,3 +79,39 @@ async def test_profile_timezone_changes_local_critical_day_not_crossing(
     assert critical_info(birth, original_day, tz).kind is CriticalKind.NONE
     shifted = critical_info(birth, at.astimezone(tz).date(), tz)
     assert shifted.crossings == before.crossings
+
+
+async def test_forecast_uses_profile_timezone_and_explicit_clock(session: AsyncSession) -> None:
+    user = await make_user(session)
+    clock = FrozenClock(datetime(2026, 11, 7, 23, 30, tzinfo=UTC))
+    service = ProfileService(session, clock)
+    await service.update_profile(
+        user.id,
+        ProfilePatch.model_validate(
+            {
+                "birth_date": "2000-01-01",
+                "birth_time": "12:00",
+                "timezone": "Asia/Yekaterinburg",
+            }
+        ),
+    )
+    profile = await service.get_profile(user.id)
+    assert profile is not None and profile.birth_at_utc is not None
+    birth = profile.birth_at_utc
+    original = forecast_for_period(
+        birth, clock.now(), ForecastPeriod.WEEK, ZoneInfo(profile.timezone)
+    )
+    assert original.start.isoformat() == "2026-11-08"
+    assert original.end.isoformat() == "2026-11-14"
+    assert original.step is Step.DAY and len(original.points) == 7
+    assert original.points[0].at == datetime(2026, 11, 8, 7, tzinfo=UTC)
+
+    await service.update_profile(user.id, ProfilePatch(timezone="America/New_York"))
+    changed = await service.get_profile(user.id)
+    assert changed is not None and changed.birth_at_utc == birth
+    result = forecast_for_period(
+        birth, clock.now(), ForecastPeriod.WEEK, ZoneInfo(changed.timezone)
+    )
+    assert result.start.isoformat() == "2026-11-07"
+    assert result.points[0].at == datetime(2026, 11, 7, 17, tzinfo=UTC)
+    assert result.points[0].cycles == snapshot(birth, result.points[0].at).cycles

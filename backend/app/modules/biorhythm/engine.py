@@ -1,15 +1,19 @@
+from calendar import monthrange
 from collections.abc import Sequence
-from datetime import date, datetime, timedelta
+from dataclasses import replace
+from datetime import date, datetime, time, timedelta
 from math import isfinite
 from zoneinfo import ZoneInfo
 
 import numpy as np
 from numpy.typing import NDArray
 
-from app.core.time import local_day_bounds, to_utc
+from app.core.time import LocalTimeError, local_day_bounds, local_time_candidates, to_utc
 from app.modules.biorhythm.config import (
+    ALGORITHM_VERSION,
     CYCLES,
     DAY_MICROSECONDS,
+    MAX_FORECAST_DAYS,
     NUMERICAL_TOLERANCE,
     PERIODS,
     PHASE_BOUNDARIES,
@@ -22,13 +26,24 @@ from app.modules.biorhythm.types import (
     CriticalKind,
     Cycle,
     CycleSnapshot,
+    Forecast,
+    ForecastPeriod,
+    ForecastPoint,
     Phase,
+    Step,
     Trend,
 )
 
 type FloatArray = NDArray[np.float64]
 type IntArray = NDArray[np.int64]
 type Moments = Sequence[datetime] | NDArray[np.object_]
+
+
+class ForecastValidationError(ValueError):
+    def __init__(self, field: str, code: str, message: str) -> None:
+        super().__init__(message)
+        self.field = field
+        self.code = code
 
 
 def _elapsed_microseconds(birth_utc: datetime, at: datetime) -> int:
@@ -98,6 +113,19 @@ def _trend(value: float, cosine: float) -> Trend:
     return Trend.UP if cosine > 0 else Trend.DOWN
 
 
+def _cycle_snapshots(values: FloatArray, cosines: FloatArray) -> dict[Cycle, CycleSnapshot]:
+    cycles = {}
+    for index, cycle in enumerate(CYCLES):
+        value = float(values[index])
+        cycles[cycle] = CycleSnapshot(
+            value=value,
+            percent=percent(value),
+            phase=phase(value),
+            trend=_trend(value, float(cosines[index])),
+        )
+    return cycles
+
+
 def cycle_value(birth_utc: datetime, at_utc: datetime, cycle: Cycle) -> float:
     """Value of one cycle; negative elapsed time is valid in the pure engine."""
     cycle = Cycle(cycle)
@@ -111,16 +139,7 @@ def snapshot(birth_utc: datetime, at_utc: datetime) -> BioSnapshot:
     angles = _angles(elapsed, CYCLES)
     values = _normalize(np.sin(angles))[0]
     cosines = np.cos(angles)[0]
-    cycles = {}
-    for index, cycle in enumerate(CYCLES):
-        value = float(values[index])
-        cycles[cycle] = CycleSnapshot(
-            value=value,
-            percent=percent(value),
-            phase=phase(value),
-            trend=_trend(value, float(cosines[index])),
-        )
-    return BioSnapshot(at=to_utc(at_utc), cycles=cycles)
+    return BioSnapshot(at=to_utc(at_utc), cycles=_cycle_snapshots(values, cosines))
 
 
 def series(birth_utc: datetime, moments: Moments) -> dict[Cycle, FloatArray]:
@@ -160,3 +179,120 @@ def critical_info(birth_utc: datetime, day: date, tz: ZoneInfo) -> CriticalInfo:
     crossings.sort(key=lambda crossing: (crossing.at, CYCLES.index(crossing.cycle)))
     level = len({crossing.cycle for crossing in crossings})
     return CriticalInfo(level=level, kind=tuple(CriticalKind)[level], crossings=tuple(crossings))
+
+
+def _validate_forecast_range(start: date, days: int) -> None:
+    if not isinstance(start, date) or isinstance(start, datetime):
+        raise ForecastValidationError("start", "INVALID_DATE", "Укажите локальную дату без времени")
+    if type(days) is not int or days < 1:
+        raise ForecastValidationError(
+            "days", "RANGE_INVALID", "Диапазон должен содержать хотя бы день"
+        )
+    if days > MAX_FORECAST_DAYS:
+        raise ForecastValidationError("days", "RANGE_TOO_LONG", "Максимальный диапазон — 62 дня")
+    try:
+        start + timedelta(days=days)  # The exclusive end must also be representable.
+    except OverflowError as exc:
+        raise ForecastValidationError(
+            "start", "DATE_RANGE_UNSUPPORTED", "Диапазон выходит за поддерживаемые даты"
+        ) from exc
+
+
+def time_grid(start: date, days: int, tz: ZoneInfo, step: Step = Step.DAY) -> tuple[datetime, ...]:
+    """UTC instants for local dates, inclusive start, at most 62 days.
+
+    Hourly grids restart at each day's first instant and advance in UTC.
+    Daily points use local noon, choosing its earlier occurrence if repeated.
+    """
+    _validate_forecast_range(start, days)
+    try:
+        step = Step(step)
+    except ValueError as exc:
+        raise ForecastValidationError(
+            "step", "INVALID_STEP", "Шаг должен быть hour или day"
+        ) from exc
+    moments = []
+    for offset in range(days):
+        day = start + timedelta(days=offset)
+        day_start, day_end = local_day_bounds(day, tz)
+        if step is Step.DAY:
+            candidates = local_time_candidates(datetime.combine(day, time(12)), tz)
+            if not candidates:
+                raise LocalTimeError(
+                    "LOCAL_TIME_NONEXISTENT",
+                    "Локальные 12:00 отсутствуют из-за смены часового пояса",
+                )
+            moments.append(candidates[0])
+        else:
+            at = day_start
+            while at < day_end:
+                moments.append(at)
+                at += timedelta(hours=1)
+    return tuple(moments)
+
+
+def forecast(
+    birth_utc: datetime, start: date, days: int, tz: ZoneInfo, step: Step = Step.DAY
+) -> Forecast:
+    """Vectorized cycles and daily criticality on an explicit calendar grid.
+
+    Like the other pure functions this accepts moments before birth. The
+    future API validates BEFORE_BIRTH without silently truncating the series.
+    """
+    birth_utc = to_utc(birth_utc)
+    moments = time_grid(start, days, tz, step)
+    angles = _angles(_elapsed_array(birth_utc, moments), CYCLES)
+    values = _normalize(np.sin(angles))
+    cosines = np.cos(angles)
+    critical_by_day = {
+        day: critical_info(birth_utc, day, tz)
+        for day in (start + timedelta(days=offset) for offset in range(days))
+    }
+    points = []
+    for index, at in enumerate(moments):
+        day = at.astimezone(tz).date()
+        points.append(
+            ForecastPoint(
+                at=at,
+                date=day,
+                cycles=_cycle_snapshots(values[index], cosines[index]),
+                critical=critical_by_day[day],
+            )
+        )
+    return Forecast(
+        algorithm_version=ALGORITHM_VERSION,
+        timezone=tz.key,
+        start=start,
+        end=start + timedelta(days=days - 1),
+        step=Step(step),
+        points=tuple(points),
+    )
+
+
+def forecast_for_period(
+    birth_utc: datetime, at_utc: datetime, period: ForecastPeriod, tz: ZoneInfo
+) -> Forecast:
+    """Day/week/rolling-month forecast anchored to an explicit instant."""
+    try:
+        period = ForecastPeriod(period)
+    except ValueError as exc:
+        raise ForecastValidationError(
+            "period", "INVALID_PERIOD", "Период должен быть day, week или month"
+        ) from exc
+    start = to_utc(at_utc).astimezone(tz).date()
+    if period is ForecastPeriod.DAY:
+        days, step = 1, Step.HOUR
+    elif period is ForecastPeriod.WEEK:
+        days, step = 7, Step.DAY
+    else:
+        year, month = start.year + start.month // 12, start.month % 12 + 1
+        try:
+            end = start.replace(
+                year=year, month=month, day=min(start.day, monthrange(year, month)[1])
+            )
+        except ValueError as exc:
+            raise ForecastValidationError(
+                "start", "DATE_RANGE_UNSUPPORTED", "Диапазон выходит за поддерживаемые даты"
+            ) from exc
+        days, step = (end - start).days, Step.DAY
+    return replace(forecast(birth_utc, start, days, tz, step), period=period)

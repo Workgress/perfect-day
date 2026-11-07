@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 
@@ -28,6 +28,17 @@ class CriticalKind(StrEnum):
     TRIPLE = "triple"
 
 
+class Step(StrEnum):
+    HOUR = "hour"
+    DAY = "day"
+
+
+class ForecastPeriod(StrEnum):
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+
+
 @dataclass(frozen=True)
 class CycleSnapshot:
     value: float
@@ -53,3 +64,22 @@ class CriticalInfo:
     level: int
     kind: CriticalKind
     crossings: tuple[CriticalCrossing, ...]
+
+
+@dataclass(frozen=True)
+class ForecastPoint:
+    at: datetime
+    date: date
+    cycles: dict[Cycle, CycleSnapshot]
+    critical: CriticalInfo
+
+
+@dataclass(frozen=True)
+class Forecast:
+    algorithm_version: str
+    timezone: str
+    start: date
+    end: date
+    step: Step
+    points: tuple[ForecastPoint, ...]
+    period: ForecastPeriod | None = None
