@@ -392,3 +392,59 @@ pd:bio:{algorithm_version}:{user_id}:{birth_hash}:{timezone_hash}:{request_hash}
 `tests/db/test_profile_service.py`. Интеграционные тесты используют временный
 PostgreSQL через testcontainers; покрывают частичный PATCH, защиту завершённого
 профиля, откат и конкурентные обновления в отдельных транзакциях.
+
+## 12. Реализация этапа 3
+
+Добавлен пакет `app/modules/biorhythm/`:
+
+- `config.py` — версия 1.0.0, неизменяемые периоды, порог фаз и численный допуск;
+- `types.py` — перечисления циклов, фаз и трендов, dataclass-результаты;
+- `engine.py` — `cycle_value`, `phase`, `percent`, `snapshot`, `series`.
+
+Одиночный расчёт возвращает `float`; `snapshot` — `BioSnapshot` с UTC-моментом
+`at` и словарём `cycles`. Значения цикла имеют поля `value`, `percent`, `phase`,
+`trend`. Ядро не обращается к БД, Redis, HTTP или текущему времени. Поля
+критичности и публичные Pydantic-схемы будут добавлены на следующих этапах.
+
+`series(birth_utc, moments)` принимает последовательность aware datetime либо
+одномерный NumPy-массив `dtype=object` с такими моментами. Массивы `datetime64`
+не содержат пояс и отклоняются; нельзя молча считать их локальным временем
+или UTC. Возвращается словарь из трёх одномерных массивов `float64`, порядок
+и повторы входных моментов сохраняются. Пустой вход даёт три пустых массива.
+
+Временная разность считается в целых микросекундах; перед вычислением синуса
+из неё выделяется остаток по периоду. Это сохраняет точную периодичность
+и исключает потерю точности из-за большого аргумента синуса для далёких дат.
+Тригонометрические расчёты векторизованы одновременно по моментам и циклам.
+Проценты рассчитываются как `rint(value * 1000) / 10` с приведением -0.0 к 0.0.
+
+Пример использования:
+
+```python
+from datetime import UTC, datetime
+
+from app.modules.biorhythm.engine import snapshot
+from app.modules.biorhythm.types import Cycle
+
+birth = datetime(2000, 1, 1, 12, tzinfo=UTC)
+at = datetime(2000, 1, 7, 6, tzinfo=UTC)  # четверть физического периода
+physical = snapshot(birth, at).cycles[Cycle.PHYSICAL]
+assert physical.value == 1.0
+assert physical.percent == 100.0
+assert physical.phase == "peak"
+assert physical.trend == "down"
+```
+
+Unit-тесты: `tests/unit/test_biorhythm_engine.py`, включая property-based
+проверки Hypothesis. Интеграция с данными профиля проверяется в
+`tests/db/test_biorhythm_profile.py`. CI проверяет покрытие строк и ветвей
+`biorhythm/engine.py` с порогом 95%.
+
+Команда полного прогона из `backend/` (нужен запущенный Docker):
+
+```text
+uv run pytest --cov=app.modules.biorhythm.engine --cov-branch --cov-report=term-missing --cov-fail-under=95
+```
+
+Следующий этап — аналитическое определение критических дней; построение
+календарных сеток, прогноз, Redis-кэш и HTTP-эндпоинты выполняются после него.

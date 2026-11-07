@@ -43,7 +43,10 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen
-      - run: uv run pytest -ra
+      - run: >-
+          uv run pytest -ra
+          --cov=app.modules.biorhythm.engine --cov-branch
+          --cov-report=term-missing --cov-fail-under=95
 
   docker:
     runs-on: ubuntu-latest
