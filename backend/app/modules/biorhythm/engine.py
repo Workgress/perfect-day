@@ -1,11 +1,12 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from math import isfinite
+from zoneinfo import ZoneInfo
 
 import numpy as np
 from numpy.typing import NDArray
 
-from app.core.time import to_utc
+from app.core.time import local_day_bounds, to_utc
 from app.modules.biorhythm.config import (
     CYCLES,
     DAY_MICROSECONDS,
@@ -14,7 +15,16 @@ from app.modules.biorhythm.config import (
     PHASE_BOUNDARIES,
     PHASE_THRESHOLD,
 )
-from app.modules.biorhythm.types import BioSnapshot, Cycle, CycleSnapshot, Phase, Trend
+from app.modules.biorhythm.types import (
+    BioSnapshot,
+    CriticalCrossing,
+    CriticalInfo,
+    CriticalKind,
+    Cycle,
+    CycleSnapshot,
+    Phase,
+    Trend,
+)
 
 type FloatArray = NDArray[np.float64]
 type IntArray = NDArray[np.int64]
@@ -123,3 +133,30 @@ def series(birth_utc: datetime, moments: Moments) -> dict[Cycle, FloatArray]:
     elapsed = _elapsed_array(birth_utc, moments)
     values = _normalize(np.sin(_angles(elapsed, CYCLES)))
     return {cycle: values[:, index].copy() for index, cycle in enumerate(CYCLES)}
+
+
+def critical_info(birth_utc: datetime, day: date, tz: ZoneInfo) -> CriticalInfo:
+    """Analytical zero crossings in a local day, with exact UTC timestamps.
+
+    The interval is [local midnight, next local midnight), including DST.
+    The pure engine accepts negative cycle indices and the birth instant k=0.
+    No sign sampling or floating-point tolerance is used to assign a day.
+    """
+    birth_utc = to_utc(birth_utc)
+    start, end = local_day_bounds(day, tz)
+    start_us = _elapsed_microseconds(birth_utc, start)
+    end_us = _elapsed_microseconds(birth_utc, end)
+    crossings = []
+    for cycle in CYCLES:
+        half_period_us = PERIODS[cycle] * DAY_MICROSECONDS // 2
+        index = -(-start_us // half_period_us)  # ceil, including negative elapsed time
+        offset_us = index * half_period_us
+        # Each half-period is >= 11.5 days, longer than any supported local day:
+        # only the first candidate per cycle can belong to this day.
+        if offset_us < end_us:
+            crossings.append(
+                CriticalCrossing(cycle=cycle, at=birth_utc + timedelta(microseconds=offset_us))
+            )
+    crossings.sort(key=lambda crossing: (crossing.at, CYCLES.index(crossing.cycle)))
+    level = len({crossing.cycle for crossing in crossings})
+    return CriticalInfo(level=level, kind=tuple(CriticalKind)[level], crossings=tuple(crossings))

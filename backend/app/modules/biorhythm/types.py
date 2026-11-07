@@ -21,6 +21,13 @@ class Trend(StrEnum):
     DOWN = "down"
 
 
+class CriticalKind(StrEnum):
+    NONE = "none"
+    SINGLE = "single"
+    DOUBLE = "double"
+    TRIPLE = "triple"
+
+
 @dataclass(frozen=True)
 class CycleSnapshot:
     value: float
@@ -33,3 +40,16 @@ class CycleSnapshot:
 class BioSnapshot:
     at: datetime
     cycles: dict[Cycle, CycleSnapshot]
+
+
+@dataclass(frozen=True)
+class CriticalCrossing:
+    cycle: Cycle
+    at: datetime
+
+
+@dataclass(frozen=True)
+class CriticalInfo:
+    level: int
+    kind: CriticalKind
+    crossings: tuple[CriticalCrossing, ...]
