@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.core.private_api import PrivateAPIRoute
 from app.core.security import get_current_user
 from app.modules.biorhythm.dependencies import get_biorhythm_service
+from app.modules.biorhythm.documentation import CALCULATION_DESCRIPTION, ZERO_SNAPSHOT_EXAMPLE
 from app.modules.biorhythm.schemas import (
     CriticalDaysQuery,
     ForecastQuery,
@@ -25,7 +26,26 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 Biorhythms = Annotated[BiorhythmService, Depends(get_biorhythm_service)]
 
 
-@router.get("/now", response_model=BiorhythmSnapshot, summary="Текущие значения биоритмов")
+@router.get(
+    "/now",
+    response_model=BiorhythmSnapshot,
+    summary="Текущие значения биоритмов",
+    description=CALCULATION_DESCRIPTION,
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "birth_zero": {
+                            "summary": "Рождение 2000-01-01 00:00:00 UTC",
+                            "value": ZERO_SNAPSHOT_EXAMPLE,
+                        }
+                    }
+                }
+            }
+        }
+    },
+)
 async def get_now(
     user: CurrentUser, service: Biorhythms, query: Annotated[SnapshotQuery, Query()]
 ) -> BiorhythmSnapshot:
@@ -44,6 +64,10 @@ async def get_series(
     """Локальные даты from/to включительны; диапазон от 1 до 62 дней.
 
     Суточный шаг использует локальный полдень, часовой учитывает переходы DST.
+    Часовой ряд начинается заново с начала каждых локальных суток и идёт по UTC;
+    при смене пояса день может содержать не 24 точки. Первая точка до рождения — 422.
+    Ответ: algorithm_version, timezone, start/end включительно, step, points, period=null.
+    Каждая точка содержит UTC at, локальную date, cycles и критичность всего дня.
     Требует завершённого онбординга (409 ONBOARDING_REQUIRED).
     """
     return await service.get_series(user.id, query.start, query.end, query.step)
@@ -58,6 +82,8 @@ async def get_critical_days(
     """Локальные даты from/to включительны; диапазон от 1 до 62 дней.
 
     Только критические дни; моменты пересечений возвращаются в UTC.
+    Ответ: algorithm_version, timezone, start/end, days; в days только level > 0.
+    День начинается до рождения — 422. Несуществующая локальная дата — 422.
     Требует завершённого онбординга (409 ONBOARDING_REQUIRED).
     """
     return await service.get_critical_days(user.id, query.start, query.end)
@@ -69,6 +95,10 @@ async def get_forecast(
 ) -> Forecast:
     """Начинается с текущего локального дня. day — часовой шаг, week/month — суточный.
 
+    week включает текущую дату и следующие 6. month заканчивается перед соответствующим
+    числом следующего месяца; если числа нет, исключительная граница — его последний день.
+    Например, 2024-01-31 даёт точки по 2024-02-28 включительно.
+    Ответ имеет форму ряда для графика с заполненным period.
     Требует завершённого онбординга (409 ONBOARDING_REQUIRED).
     """
     return await service.get_forecast(user.id, query.period)

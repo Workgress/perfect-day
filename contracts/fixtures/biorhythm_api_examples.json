@@ -1,0 +1,498 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "1.0.0",
+  "context": {
+    "now": "2026-11-08T10:00:00Z",
+    "profile": {
+      "birth_date": "2000-01-01",
+      "birth_time": "12:00:00",
+      "timezone": "UTC",
+      "chronotype": "dove",
+      "work_start": "08:00:00",
+      "work_end": "18:00:00",
+      "sleep_time": "23:00:00"
+    },
+    "onboarding_completed_at": "2026-11-08T10:00:00Z",
+    "authorization": "Bearer access token of a verified user"
+  },
+  "examples": {
+    "me": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/me"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "email": "person@example.test",
+          "display_name": null,
+          "profile": {
+            "birth_date": "2000-01-01",
+            "birth_time": "12:00:00",
+            "timezone": "UTC",
+            "chronotype": "dove",
+            "work_start": "08:00:00",
+            "work_end": "18:00:00",
+            "sleep_time": "23:00:00"
+          },
+          "onboarding": {
+            "completed_at": "2026-11-08T10:00:00Z",
+            "next_step": null
+          }
+        }
+      }
+    },
+    "patch_profile": {
+      "request": {
+        "method": "PATCH",
+        "path": "/api/v1/me/profile",
+        "body": {
+          "timezone": "Asia/Yekaterinburg"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "email": "person@example.test",
+          "display_name": null,
+          "profile": {
+            "birth_date": "2000-01-01",
+            "birth_time": "12:00:00",
+            "timezone": "Asia/Yekaterinburg",
+            "chronotype": "dove",
+            "work_start": "08:00:00",
+            "work_end": "18:00:00",
+            "sleep_time": "23:00:00"
+          },
+          "onboarding": {
+            "completed_at": "2026-11-08T10:00:00Z",
+            "next_step": null
+          }
+        }
+      }
+    },
+    "now": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/biorhythms/now",
+        "query": {
+          "at": "2026-11-08T10:00:00Z"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "algorithm_version": "1.0.0",
+          "timezone": "UTC",
+          "at": "2026-11-08T10:00:00Z",
+          "date": "2026-11-08",
+          "cycles": {
+            "physical": {
+              "value": 0.419176520417,
+              "percent": 41.9,
+              "phase": "rising",
+              "trend": "down"
+            },
+            "emotional": {
+              "value": 0.978918345898,
+              "percent": 97.9,
+              "phase": "peak",
+              "trend": "down"
+            },
+            "intellectual": {
+              "value": 0.967948701396,
+              "percent": 96.8,
+              "phase": "peak",
+              "trend": "up"
+            }
+          },
+          "critical": {
+            "level": 0,
+            "kind": "none",
+            "crossings": []
+          }
+        }
+      }
+    },
+    "series": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/biorhythms",
+        "query": {
+          "from": "2026-11-08",
+          "to": "2026-11-09",
+          "step": "day"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "algorithm_version": "1.0.0",
+          "timezone": "UTC",
+          "start": "2026-11-08",
+          "end": "2026-11-09",
+          "step": "day",
+          "points": [
+            {
+              "at": "2026-11-08T12:00:00Z",
+              "date": "2026-11-08",
+              "cycles": {
+                "physical": {
+                  "value": 0.398401089846,
+                  "percent": 39.8,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.974927912182,
+                  "percent": 97.5,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.971811568324,
+                  "percent": 97.2,
+                  "phase": "peak",
+                  "trend": "up"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-09T12:00:00Z",
+              "date": "2026-11-09",
+              "cycles": {
+                "physical": {
+                  "value": 0.136166649096,
+                  "percent": 13.6,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.900968867902,
+                  "percent": 90.1,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.998867339183,
+                  "percent": 99.9,
+                  "phase": "peak",
+                  "trend": "up"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            }
+          ],
+          "period": null
+        }
+      }
+    },
+    "critical_days": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/biorhythms/critical-days",
+        "query": {
+          "from": "2026-11-08",
+          "to": "2026-11-14"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "algorithm_version": "1.0.0",
+          "timezone": "UTC",
+          "start": "2026-11-08",
+          "end": "2026-11-14",
+          "days": [
+            {
+              "date": "2026-11-10",
+              "level": 1,
+              "kind": "single",
+              "crossings": [
+                {
+                  "cycle": "physical",
+                  "at": "2026-11-10T00:00:00Z"
+                }
+              ]
+            },
+            {
+              "date": "2026-11-14",
+              "level": 1,
+              "kind": "single",
+              "crossings": [
+                {
+                  "cycle": "emotional",
+                  "at": "2026-11-14T12:00:00Z"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "forecast": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/biorhythms/forecast",
+        "query": {
+          "period": "week"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "algorithm_version": "1.0.0",
+          "timezone": "UTC",
+          "start": "2026-11-08",
+          "end": "2026-11-14",
+          "step": "day",
+          "points": [
+            {
+              "at": "2026-11-08T12:00:00Z",
+              "date": "2026-11-08",
+              "cycles": {
+                "physical": {
+                  "value": 0.398401089846,
+                  "percent": 39.8,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.974927912182,
+                  "percent": 97.5,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.971811568324,
+                  "percent": 97.2,
+                  "phase": "peak",
+                  "trend": "up"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-09T12:00:00Z",
+              "date": "2026-11-09",
+              "cycles": {
+                "physical": {
+                  "value": 0.136166649096,
+                  "percent": 13.6,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.900968867902,
+                  "percent": 90.1,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.998867339183,
+                  "percent": 99.9,
+                  "phase": "peak",
+                  "trend": "up"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-10T12:00:00Z",
+              "date": "2026-11-10",
+              "cycles": {
+                "physical": {
+                  "value": -0.136166649096,
+                  "percent": -13.6,
+                  "phase": "declining",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.781831482468,
+                  "percent": 78.2,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.989821441881,
+                  "percent": 99.0,
+                  "phase": "peak",
+                  "trend": "down"
+                }
+              },
+              "critical": {
+                "level": 1,
+                "kind": "single",
+                "crossings": [
+                  {
+                    "cycle": "physical",
+                    "at": "2026-11-10T00:00:00Z"
+                  }
+                ]
+              }
+            },
+            {
+              "at": "2026-11-11T12:00:00Z",
+              "date": "2026-11-11",
+              "cycles": {
+                "physical": {
+                  "value": -0.398401089846,
+                  "percent": -39.8,
+                  "phase": "declining",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.623489801859,
+                  "percent": 62.3,
+                  "phase": "peak",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.945000818715,
+                  "percent": 94.5,
+                  "phase": "peak",
+                  "trend": "down"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-12T12:00:00Z",
+              "date": "2026-11-12",
+              "cycles": {
+                "physical": {
+                  "value": -0.631087944326,
+                  "percent": -63.1,
+                  "phase": "minimum",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.433883739118,
+                  "percent": 43.4,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.866025403784,
+                  "percent": 86.6,
+                  "phase": "peak",
+                  "trend": "down"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-13T12:00:00Z",
+              "date": "2026-11-13",
+              "cycles": {
+                "physical": {
+                  "value": -0.81696989301,
+                  "percent": -81.7,
+                  "phase": "minimum",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.222520933956,
+                  "percent": 22.3,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.755749574354,
+                  "percent": 75.6,
+                  "phase": "peak",
+                  "trend": "down"
+                }
+              },
+              "critical": {
+                "level": 0,
+                "kind": "none",
+                "crossings": []
+              }
+            },
+            {
+              "at": "2026-11-14T12:00:00Z",
+              "date": "2026-11-14",
+              "cycles": {
+                "physical": {
+                  "value": -0.942260922119,
+                  "percent": -94.2,
+                  "phase": "minimum",
+                  "trend": "down"
+                },
+                "emotional": {
+                  "value": 0.0,
+                  "percent": 0.0,
+                  "phase": "rising",
+                  "trend": "down"
+                },
+                "intellectual": {
+                  "value": 0.618158986221,
+                  "percent": 61.8,
+                  "phase": "peak",
+                  "trend": "down"
+                }
+              },
+              "critical": {
+                "level": 1,
+                "kind": "single",
+                "crossings": [
+                  {
+                    "cycle": "emotional",
+                    "at": "2026-11-14T12:00:00Z"
+                  }
+                ]
+              }
+            }
+          ],
+          "period": "week"
+        }
+      }
+    }
+  }
+}
