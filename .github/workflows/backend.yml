@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - "contracts/**"
       - ".github/workflows/backend.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "contracts/**"
       - ".github/workflows/backend.yml"
 
 concurrency:
@@ -43,7 +45,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen
-      - run: uv run pytest -ra
+      - run: uv run python -m scripts.generate_biorhythm_vectors --check
+      - run: >-
+          uv run pytest -ra
+          --cov=app.modules.biorhythm.engine --cov-branch
+          --cov-report=term-missing --cov-fail-under=95
 
   docker:
     runs-on: ubuntu-latest
