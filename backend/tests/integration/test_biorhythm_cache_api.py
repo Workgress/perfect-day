@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 from fastapi_cache.backends.redis import RedisBackend
 from redis.asyncio import Redis
-from sqlalchemy import update
+from sqlalchemy import func, update
 
 from app.core.security import decode_access_token
 from app.core.time import FrozenClock
@@ -171,7 +171,7 @@ async def test_cached_response_cannot_bypass_current_access_checks(
     async with profile_api.api.engine.begin() as connection:
         if state == "revoked":
             statement = update(AuthSession).where(AuthSession.user_id == profile_api.user_id)
-            await connection.execute(statement.values(revoked_at=NOW))
+            await connection.execute(statement.values(revoked_at=func.now()))
         elif state == "unverified":
             statement = update(User).where(User.id == profile_api.user_id)
             await connection.execute(statement.values(is_email_verified=False))

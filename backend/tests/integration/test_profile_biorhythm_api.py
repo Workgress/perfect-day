@@ -9,7 +9,7 @@ import pytest
 from fastapi_cache.backends.redis import RedisBackend
 from httpx import Response
 from redis.asyncio import Redis
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 
 from app.core.security import decode_access_token
 from app.core.time import FrozenClock
