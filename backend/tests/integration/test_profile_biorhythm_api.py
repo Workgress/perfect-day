@@ -9,7 +9,7 @@ import pytest
 from fastapi_cache.backends.redis import RedisBackend
 from httpx import Response
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 
 from app.core.security import decode_access_token
 from app.core.time import FrozenClock
@@ -165,7 +165,7 @@ async def test_existing_auth_checks_are_not_bypassed(profile_api: ProfileAPI, st
             await connection.execute(
                 update(AuthSession)
                 .where(AuthSession.user_id == profile_api.user_id)
-                .values(revoked_at=NOW)
+                .values(revoked_at=func.now())
             )
         else:
             values = {"is_email_verified": False} if state == "unverified" else {"is_active": False}
