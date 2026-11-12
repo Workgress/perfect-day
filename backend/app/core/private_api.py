@@ -10,6 +10,7 @@ from app.core.errors import (
     AppError,
     app_error_handler,
     http_error_handler,
+    unexpected_error_handler,
     validation_error_handler,
 )
 
@@ -29,6 +30,8 @@ class PrivateAPIRoute(APIRoute):
                 response = await validation_error_handler(request, exc)
             except HTTPException as exc:
                 response = await http_error_handler(request, exc)
+            except Exception as exc:
+                response = await unexpected_error_handler(request, exc)
             response.headers["Cache-Control"] = "no-store"
             return response
 
