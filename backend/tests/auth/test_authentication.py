@@ -13,6 +13,15 @@ from app.modules.auth.models import AuthSession
 from app.modules.users.models import User
 
 
+def test_registration_documents_email_conflict() -> None:
+    operation = create_app().openapi()["paths"]["/api/v1/auth/register"]["post"]
+    assert "202" in operation["responses"]
+    assert operation["responses"]["409"]["description"] == "Аккаунт с этой почтой уже существует"
+    assert operation["responses"]["409"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ErrorResponse"
+    }
+
+
 @pytest.mark.parametrize(
     ("state", "status"),
     [
