@@ -1,0 +1,320 @@
+.chart {
+  min-width: 0;
+}
+.controls,
+.legend,
+.criticalToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.controls {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  margin-bottom: var(--space-16);
+}
+.legend {
+  flex-wrap: wrap;
+}
+.legendButton[data-size='m'] {
+  height: 36px;
+  padding: 0 12px 0 10px;
+  background: var(--bg-surface);
+}
+.legendButton[aria-pressed='false'] {
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle);
+}
+.legendButton[aria-pressed='false'] .lineSample {
+  opacity: 0.4;
+}
+.check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.chart [data-cycle='physical'] {
+  --cycle-color: var(--bio-physical);
+}
+.chart [data-cycle='emotional'] {
+  --cycle-color: var(--bio-emotional);
+}
+.chart [data-cycle='intellectual'] {
+  --cycle-color: var(--bio-intellectual);
+}
+.lineSample {
+  width: 14px;
+  height: 3px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--cycle-color);
+}
+.criticalToggle {
+  gap: 10px;
+  color: var(--text-secondary);
+  font: 500 14px / 20px var(--font-sans);
+}
+.plotWrap {
+  position: relative;
+  min-width: 0;
+}
+.plot {
+  display: block;
+  width: 100%;
+  height: 298px;
+  overflow: visible;
+  touch-action: pan-y;
+  border-radius: var(--radius-sm);
+}
+.axisLabel {
+  fill: var(--text-tertiary);
+  font: 400 13px / 16px var(--font-mono);
+}
+.criticalLabel {
+  fill: var(--status-warning);
+}
+.grid {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+.zeroGrid {
+  stroke: var(--border-strong);
+}
+.criticalBand {
+  fill: var(--status-warning-soft);
+}
+.curve {
+  fill: none;
+  stroke: var(--cycle-color);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.crossing {
+  fill: var(--bg-base);
+  stroke: var(--cycle-color);
+  stroke-width: 1.5;
+}
+.selectedDot {
+  fill: var(--cycle-color);
+  stroke: var(--bg-base);
+  stroke-width: 2;
+}
+.selectionLine {
+  stroke: var(--text-tertiary);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+.referenceLine {
+  stroke: var(--now-line);
+  stroke-width: 1.5;
+  stroke-dasharray: none;
+}
+.referenceBadge {
+  fill: var(--now-line);
+}
+.referenceLabel {
+  fill: var(--bg-base);
+  font: 500 13px / 18px var(--font-sans);
+}
+.tooltip {
+  position: absolute;
+  z-index: 1;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 300px;
+  max-width: 100%;
+  padding: var(--space-12) 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-overlay);
+  pointer-events: none;
+}
+.tooltipRow {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-8);
+  font: 400 12px / 18px var(--font-sans);
+}
+.tooltipRow > span:nth-child(2) {
+  color: var(--text-secondary);
+}
+.tooltipRow > span:last-child {
+  text-align: right;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cycle-color);
+}
+.criticalNote,
+.nextCritical {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  font: 400 13px / 18px var(--font-sans);
+}
+.criticalNote {
+  color: var(--status-warning);
+}
+.criticalNote > svg,
+.nextCritical > svg {
+  flex-shrink: 0;
+  margin-top: var(--space-2);
+}
+.nextCritical > svg {
+  color: var(--status-warning);
+}
+.caption {
+  margin-top: var(--space-12);
+  color: var(--text-tertiary);
+  font: 400 12px / 18px var(--font-sans);
+}
+.summaries {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-24);
+  margin-top: var(--space-24);
+  padding-top: var(--space-24);
+  border-top: 1px solid var(--border-subtle);
+}
+.summary {
+  min-width: 0;
+}
+.summaryLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.phase {
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-8);
+  font: 600 28px / 32px var(--font-sans);
+  letter-spacing: -0.5px;
+}
+.muted,
+.nextCritical,
+.readingGuide p {
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.nextCritical {
+  margin-top: var(--space-4);
+}
+.readingGuide p {
+  margin-top: var(--space-8);
+}
+.empty {
+  display: grid;
+  min-height: 298px;
+  place-items: center;
+  padding: var(--space-24);
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.noCycles {
+  position: absolute;
+  top: 100px;
+  left: 48px;
+  right: 12px;
+  padding: var(--space-16);
+  text-align: center;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+}
+.tableDetails {
+  margin-top: var(--space-24);
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.tableDetails summary {
+  width: fit-content;
+  padding-block: var(--space-8);
+  cursor: pointer;
+}
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: var(--space-8);
+}
+.tableScroll table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+  text-align: left;
+}
+.tableScroll th,
+.tableScroll td {
+  padding: var(--space-12);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.tableScroll caption {
+  padding: var(--space-12);
+  text-align: left;
+}
+@media (max-width: 1200px) {
+  .summaries {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .readingGuide {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 768px) {
+  .controls {
+    gap: var(--space-16);
+  }
+  .legend {
+    gap: var(--space-8);
+  }
+  .legendButton[data-size='m'] {
+    min-height: 44px;
+    padding-inline: 10px;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .cyclePeriod {
+    display: none;
+  }
+  .criticalToggle {
+    min-height: 44px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .tooltip {
+    position: static;
+    width: 100%;
+    max-width: none;
+    margin-top: var(--space-16);
+    pointer-events: auto;
+  }
+  .tooltipRow {
+    font-size: 13px;
+  }
+  .summaries {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-20);
+  }
+  .summary {
+    padding-bottom: var(--space-16);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .phase {
+    font-size: 24px;
+    line-height: 28px;
+  }
+  .noCycles {
+    font-size: 13px;
+  }
+}

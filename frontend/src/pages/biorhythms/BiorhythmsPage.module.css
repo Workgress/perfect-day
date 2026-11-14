@@ -1,0 +1,258 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-32);
+  min-width: 0;
+}
+.heading h1 {
+  font: 600 36px / 40px var(--font-sans);
+  letter-spacing: -0.54px;
+}
+.demo {
+  margin-bottom: var(--space-4);
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
+.periodNavigation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.periodNavigation .arrow {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+.rangeLabel {
+  min-width: 110px;
+  max-width: 240px;
+  text-align: center;
+  text-transform: capitalize;
+  font: 500 14px / 20px var(--font-sans);
+}
+.explanation {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: var(--space-16) var(--space-20);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.explanation > svg {
+  flex-shrink: 0;
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+}
+.explanation > div {
+  flex: 1;
+  min-width: 0;
+}
+.explanation p {
+  margin-top: var(--space-4);
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
+.methodButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 24px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font: 500 13px / 18px var(--font-sans);
+}
+.method {
+  margin-top: var(--space-16);
+}
+.method p + p {
+  margin-top: var(--space-8);
+}
+.forecast {
+  min-width: 0;
+}
+.forecastHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+}
+.forecastHeader p {
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
+.forecastGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-12);
+}
+.forecastCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  text-align: left;
+}
+.forecastCard:hover {
+  border-color: var(--border-strong);
+}
+.forecastCard[data-critical='true'] {
+  background: var(--status-warning-soft);
+}
+.forecastCard[aria-pressed='true'] {
+  border-color: var(--now-line);
+}
+.forecastDate {
+  text-transform: capitalize;
+  font: 500 14px / 20px var(--font-sans);
+}
+.forecastDate > span {
+  color: var(--accent-text);
+  text-transform: none;
+  font-size: 12px;
+}
+.forecastValues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.forecastValue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.forecastValue > span:first-child {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.forecastValue[data-cycle='physical'] > span:first-child {
+  background: var(--bio-physical);
+}
+.forecastValue[data-cycle='emotional'] > span:first-child {
+  background: var(--bio-emotional);
+}
+.forecastValue[data-cycle='intellectual'] > span:first-child {
+  background: var(--bio-intellectual);
+}
+.forecastPhase {
+  font: 400 13px / 18px var(--font-sans);
+}
+.warning {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  color: var(--status-warning);
+  font: 400 12px / 18px var(--font-sans);
+}
+.warning > svg {
+  flex-shrink: 0;
+}
+.criticalBanner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px var(--space-16);
+  border: 1px solid var(--status-danger);
+  border-radius: var(--radius-md);
+  background: var(--status-danger-soft);
+}
+.criticalBanner > svg {
+  flex-shrink: 0;
+  color: var(--status-danger);
+}
+.criticalBanner > div {
+  flex: 1;
+  min-width: 0;
+}
+.criticalBanner p {
+  margin-top: var(--space-4);
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
+.criticalBanner > button {
+  flex-shrink: 0;
+}
+@media (max-width: 1200px) {
+  .forecastGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .page {
+    gap: var(--space-24);
+  }
+  .heading h1 {
+    font: 600 28px / 32px var(--font-sans);
+  }
+  .demo {
+    margin-bottom: var(--space-8);
+    font-size: 13px;
+  }
+  .heading header > div:last-child {
+    width: 100%;
+  }
+  .periodNavigation {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .periodNavigation .arrow {
+    width: 44px;
+    height: 44px;
+  }
+  .rangeLabel {
+    flex: 1;
+    max-width: none;
+  }
+  .periods {
+    width: 100%;
+  }
+  .periods > button {
+    flex: 1;
+    height: 40px;
+    padding-inline: var(--space-8);
+  }
+  .explanation {
+    flex-wrap: wrap;
+    gap: var(--space-12);
+    padding: var(--space-16);
+  }
+  .explanation > div {
+    flex-basis: calc(100% - 32px);
+  }
+  .methodButton {
+    min-height: 44px;
+    margin-left: 30px;
+    margin-block: -8px;
+  }
+  .forecastGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .forecastCard {
+    height: 100%;
+  }
+  .criticalBanner {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .criticalBanner > div {
+    flex-basis: calc(100% - 34px);
+  }
+  .criticalBanner > button {
+    margin-left: 34px;
+    min-height: 44px;
+  }
+}

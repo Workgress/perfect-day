@@ -73,12 +73,11 @@ function demoPoint(date: string, hour = 12): BiorhythmPoint {
   }
 }
 
-function demoSeries(
+export function createBiorhythmDemoPoints(
   start: string,
   end: string,
   step: BiorhythmStep = 'day',
-  period: BiorhythmPeriod | null = null,
-): BiorhythmSeries {
+): BiorhythmPoint[] {
   const points: BiorhythmPoint[] = []
   for (
     let instant = Date.parse(`${start}T00:00:00Z`);
@@ -89,7 +88,23 @@ function demoSeries(
     if (step === 'hour') for (let hour = 0; hour < 24; hour++) points.push(demoPoint(date, hour))
     else points.push(demoPoint(date))
   }
-  return { ...DEMO_CONTEXT, start, end, step, period, points }
+  return points
+}
+
+function demoSeries(
+  start: string,
+  end: string,
+  step: BiorhythmStep = 'day',
+  period: BiorhythmPeriod | null = null,
+): BiorhythmSeries {
+  return {
+    ...DEMO_CONTEXT,
+    start,
+    end,
+    step,
+    period,
+    points: createBiorhythmDemoPoints(start, end, step),
+  }
 }
 
 export const BIORHYTHM_FIXTURES = {
