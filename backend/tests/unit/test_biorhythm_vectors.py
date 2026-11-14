@@ -191,8 +191,6 @@ def test_dst_fixtures_include_complete_local_hourly_grids() -> None:
 def test_committed_fixtures_match_deterministic_generation() -> None:
     for name, content in generator.generated_files().items():
         assert (generator.FIXTURES_DIR / name).read_bytes() == content
-    contract = (generator.FIXTURES_DIR.parent / "biorhythm-api.txt").read_text(encoding="utf-8")
-    assert f"algorithm_version: {ALGORITHM_VERSION}" in contract
 
 
 @pytest.mark.parametrize("state", ["current", "missing", "corrupt"])

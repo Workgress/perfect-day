@@ -61,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(meta_router, prefix=settings.api_prefix)
     app.include_router(auth_router, prefix=settings.api_prefix)
     app.include_router(profile_router, prefix=settings.api_prefix)
+    app.include_router(onboarding_router, prefix=settings.api_prefix)
     app.include_router(biorhythm_router, prefix=settings.api_prefix)
     app.include_router(tasks_router, prefix=settings.api_prefix)
     return app

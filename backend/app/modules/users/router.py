@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.private_api import PrivateAPIRoute
 from app.core.security import get_current_user
+from app.modules.schedule.dependencies import get_profile_scheduler
 from app.modules.users.dependencies import get_profile_changed_handler, get_profile_service
 from app.modules.users.events import ProfileChangedHandler
 from app.modules.users.models import User
@@ -28,10 +29,11 @@ async def patch_profile(
     user: CurrentUser,
     service: Profiles,
     on_changed: Annotated[ProfileChangedHandler, Depends(get_profile_changed_handler)],
+    before_commit: Annotated[ProfileChangedHandler, Depends(get_profile_scheduler)],
 ) -> ProfileDocument:
     """Сохраняет только переданные поля и возвращает полный актуальный документ.
 
     Время — HH:mm:00, дата — YYYY-MM-DD, timezone — IANA. Не завершает онбординг.
     Обязательные данные завершённого профиля нельзя очистить (409 PROFILE_INCOMPLETE).
     """
-    return await service.patch_document(user.id, body, on_changed)
+    return await service.patch_document(user.id, body, on_changed, before_commit)

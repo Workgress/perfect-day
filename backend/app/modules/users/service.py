@@ -138,11 +138,19 @@ class ProfileService:
         return _document(user, await self.get_profile(user_id))
 
     async def patch_document(
-        self, user_id: UUID, patch: ProfilePatch, on_changed: ProfileChangedHandler
+        self,
+        user_id: UUID,
+        patch: ProfilePatch,
+        on_changed: ProfileChangedHandler,
+        before_commit: ProfileChangedHandler | None = None,
     ) -> ProfileDocument:
-        """Commit the HTTP update before notifying the future scheduling module."""
+        """Replan atomically through before_commit, then dispatch post-commit notifications."""
         async with self.session.begin():
             result = await self.update_profile(user_id, patch)
+            if result.changed_fields and before_commit is not None:
+                await before_commit(
+                    ProfileChanged(user_id, result.changed_fields, to_utc(self.clock.now()))
+                )
         if result.changed_fields:
             await on_changed(
                 ProfileChanged(user_id, result.changed_fields, to_utc(self.clock.now()))
