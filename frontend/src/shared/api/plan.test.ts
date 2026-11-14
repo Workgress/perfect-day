@@ -1,5 +1,11 @@
+/// <reference types="node" />
+
 import { previewPlan } from './plan'
 import { HttpError } from './http'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { PlanPreview, PlanPreviewRequest } from '@/shared/model/plan'
 
 const body = {
   planned_date: '2026-11-06',
@@ -15,6 +21,25 @@ const response = {
 }
 
 describe('plan preview API', () => {
+  const fixtureJson = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../contracts/fixtures/planner_cases.json',
+    ),
+    'utf8',
+  )
+  const fixtures = JSON.parse(fixtureJson) as {
+    http_preview_cases: { id: string; request: PlanPreviewRequest; expected: PlanPreview }[]
+  }
+
+  it.each(fixtures.http_preview_cases)('accepts the backend fixture $id', async (testCase) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(testCase.expected)),
+    )
+    expect(await previewPlan(testCase.request)).toEqual(testCase.expected)
+  })
+
   it('posts the draft without completing onboarding and accepts server explanations', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => Response.json(response))
     vi.stubGlobal('fetch', fetchMock)

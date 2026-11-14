@@ -65,7 +65,7 @@ class Schedule(UUIDPkMixin, Base):
     generated_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())
     critical_level: Mapped[int] = mapped_column(SmallInteger, default=0, server_default=text("0"))
     load_factor: Mapped[Decimal] = mapped_column(
-        Numeric(3, 2),
+        Numeric(4, 3),
         default=Decimal("1.00"),
         server_default=text("1.00"),
     )
@@ -107,3 +107,17 @@ class ScheduleSlot(UUIDPkMixin, Base):
     explanation: Mapped[str | None]
 
     schedule: Mapped[Schedule] = relationship(back_populates="slots")
+
+
+class OnboardingCompletion(Base):
+    """Permanent successful operation receipt, scoped to its authenticated owner."""
+
+    __tablename__ = "onboarding_completions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    request_body: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    response_body: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())

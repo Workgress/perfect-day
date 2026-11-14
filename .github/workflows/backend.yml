@@ -46,10 +46,14 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen
       - run: uv run python -m scripts.generate_biorhythm_vectors --check
+      - run: uv run python -m scripts.generate_planner_cases --check
+      - run: uv run python -m scripts.benchmark_planner --samples 20 --enforce
+      - run: uv run pytest tests/performance -q -s -W error -p no:cacheprovider
       - run: >-
           uv run pytest -ra
-          --cov=app.modules.biorhythm.engine --cov-branch
+          --cov=app.modules.biorhythm.engine --cov=app.modules.planner --cov=app.modules.schedule --cov-branch
           --cov-report=term-missing --cov-fail-under=95
+      - run: uv run coverage report --include="app/modules/planner/*" --fail-under=95
 
   docker:
     runs-on: ubuntu-latest

@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "contracts/fixtures/planner_cases.json"
       - ".github/workflows/frontend.yml"
   pull_request:
     paths:
       - "frontend/**"
+      - "contracts/fixtures/planner_cases.json"
       - ".github/workflows/frontend.yml"
 
 concurrency:
