@@ -169,22 +169,71 @@ async def test_registration_confirmation_creates_one_session_and_hashed_refresh(
     assert "set-cookie" not in replay.headers
 
 
-async def test_duplicate_registration_does_not_overwrite_account(auth_api: AuthAPI) -> None:
+@pytest.mark.parametrize(
+    ("state", "variant"),
+    [
+        ("unverified", "same"),
+        ("unverified", "upper"),
+        ("unverified", "spaces"),
+        ("verified", "upper"),
+        ("inactive", "same"),
+        ("deleted", "same"),
+    ],
+)
+async def test_duplicate_registration_does_not_overwrite_account(
+    auth_api: AuthAPI,
+    state: str,
+    variant: str,
+) -> None:
     first = await auth_api.register()
-    async with auth_api.engine.connect() as connection:
-        original = await connection.scalar(
-            select(User.password_hash).where(User.email == auth_api.email)
-        )
-    second = await auth_api.register(auth_api.email.upper(), password="Different123")
+    assert first.status_code == 202
+    if state == "verified":
+        assert (await auth_api.verify(auth_api.publisher.messages[0][1])).status_code == 200
+    elif state in ("inactive", "deleted"):
+        values = {"is_active": False} if state == "inactive" else {"deleted_at": datetime.now(UTC)}
+        async with auth_api.engine.begin() as connection:
+            await connection.execute(
+                update(User).where(User.email == auth_api.email).values(**values)
+            )
 
-    assert first.status_code == second.status_code == 202
-    assert first.json() == second.json()
-    assert len(auth_api.publisher.messages) == 1
-    async with auth_api.engine.connect() as connection:
-        assert (
-            await connection.scalar(select(User.password_hash).where(User.email == auth_api.email))
-            == original
-        )
+    async def snapshot() -> tuple[object, ...]:
+        async with auth_api.engine.connect() as connection:
+            user = (
+                await connection.execute(select(User.__table__).where(User.email == auth_api.email))
+            ).one()
+            tokens = (
+                await connection.execute(
+                    select(EmailToken.__table__)
+                    .where(EmailToken.user_id == user.id)
+                    .order_by(EmailToken.id)
+                )
+            ).all()
+            sessions = await connection.scalar(
+                select(func.count()).select_from(AuthSession).where(AuthSession.user_id == user.id)
+            )
+            profiles = await connection.scalar(
+                select(func.count()).select_from(UserProfile).where(UserProfile.user_id == user.id)
+            )
+            return tuple(user), tuple(tokens), sessions, profiles
+
+    before = await snapshot()
+    email = {
+        "same": auth_api.email,
+        "upper": auth_api.email.upper(),
+        "spaces": f"  {auth_api.email}  ",
+    }[variant]
+    second = await auth_api.register(email, password="Different123")
+    assert second.status_code == 409
+    assert second.json() == {
+        "error": {
+            "code": "EMAIL_ALREADY_EXISTS",
+            "message": "Аккаунт с этой почтой уже существует",
+            "details": {},
+        }
+    }
+    assert "set-cookie" not in second.headers
+    assert len(auth_api.publisher.messages) == len(auth_api.publisher.attempts) == 1
+    assert await snapshot() == before
 
 
 async def test_resend_before_cooldown_does_not_invalidate_sent_token(auth_api: AuthAPI) -> None:
@@ -311,10 +360,24 @@ async def test_concurrent_confirmation_creates_exactly_one_session(auth_api: Aut
 
 
 async def test_concurrent_registration_sends_one_email(auth_api: AuthAPI) -> None:
-    responses = await asyncio.gather(auth_api.register(), auth_api.register())
+    responses = await asyncio.gather(
+        auth_api.register(password="FirstPassword123"),
+        auth_api.register(auth_api.email.upper(), password="SecondPassword123"),
+    )
 
-    assert [response.status_code for response in responses] == [202, 202]
+    assert sorted(response.status_code for response in responses) == [202, 409]
+    conflict = next(response for response in responses if response.status_code == 409)
+    assert conflict.json()["error"]["code"] == "EMAIL_ALREADY_EXISTS"
     assert len(auth_api.publisher.messages) == 1
+    async with auth_api.engine.connect() as connection:
+        assert await connection.scalar(select(func.count()).select_from(User)) == 1
+        assert await connection.scalar(select(func.count()).select_from(EmailToken)) == 1
+        assert await connection.scalar(select(func.count()).select_from(AuthSession)) == 0
+        password_hash = await connection.scalar(
+            select(User.password_hash).where(User.email == auth_api.email)
+        )
+    winner_password = "FirstPassword123" if responses[0].status_code == 202 else "SecondPassword123"
+    assert await verify_password(winner_password, password_hash)
 
 
 async def test_concurrent_resends_send_one_replacement(auth_api: AuthAPI) -> None:
