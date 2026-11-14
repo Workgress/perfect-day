@@ -12,6 +12,12 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
         path: paths.kit,
         lazy: async () => ({ Component: (await import('@/pages/kit/KitPage')).KitPage }),
       },
+      {
+        path: paths.editTaskPreview,
+        lazy: async () => ({
+          Component: (await import('@/pages/today/EditTaskPreviewPage')).EditTaskPreviewPage,
+        }),
+      },
     ]
   : []
 

@@ -9,6 +9,7 @@ import { OnboardingShell } from '@/shared/ui/onboarding/OnboardingShell'
 import { useSessionStore } from '@/stores/session'
 import { restoreSession, startSessionSync } from './session'
 import { LogoutButton } from './LogoutButton'
+import { paths } from './router/paths'
 
 export function SessionGate({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
@@ -55,7 +56,12 @@ export function SessionGate({ children }: { children: ReactNode }) {
     })
   }, [client])
 
-  if (verification || pathname === '/dev/kit') return children
+  if (
+    verification ||
+    pathname === paths.kit ||
+    (import.meta.env.DEV && pathname === paths.editTaskPreview)
+  )
+    return children
   const waiting = status === 'restoring' || (status === 'authenticated' && !user)
   if (!waiting) return children
   const active = status === 'restoring' ? bootstrap : profile

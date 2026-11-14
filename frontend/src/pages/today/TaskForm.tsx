@@ -51,6 +51,7 @@ export type TaskTimeSuggestion = {
 }
 
 type TaskFormProps = {
+  mode?: 'create' | 'edit'
   context: TaskFormContext
   initialValues?: TaskFormValues
   onCancel: () => void
@@ -171,6 +172,7 @@ function mobileSnapshot() {
 }
 
 export function TaskForm({
+  mode = 'create',
   context,
   initialValues,
   onCancel,
@@ -202,6 +204,10 @@ export function TaskForm({
   const previewRef = useRef<HTMLElement>(null)
   const dirtyFields = useRef(new Set<keyof TaskFormValues>())
   const id = useId()
+  const changed =
+    !initialValues ||
+    JSON.stringify(values) !== JSON.stringify(initialValues) ||
+    JSON.stringify(settings) !== JSON.stringify(initialSettings ?? emptyTaskSettings())
   const errors = { ...prepareTaskForm(values, { ...context, now: clock }).errors, ...nativeErrors }
   const today = localDate(clock, context.timezone)
   const updateSetting = <K extends keyof TaskFormSettings>(
@@ -288,7 +294,14 @@ export function TaskForm({
         ).find((field) => !field.closest('[hidden]'))
         const control = invalidField?.matches('input, textarea, select, button')
           ? invalidField
-          : invalidField?.querySelector<HTMLElement>('input, textarea, select, button')
+          : (invalidField
+              ?.closest('fieldset')
+              ?.querySelector<HTMLElement>(
+                'input[aria-invalid="true"], select[aria-invalid="true"]',
+              ) ??
+            invalidField?.querySelector<HTMLElement>(
+              '[role="radio"][aria-checked="true"], input, textarea, select, button',
+            ))
         control?.focus()
         control?.scrollIntoView?.({ block: 'nearest' })
       })
@@ -645,18 +658,20 @@ export function TaskForm({
       </SelectField>
       {hasPreferredTime || error('plannedDate') || error('preferredStart') ? (
         <div className={styles.preferredFields}>
-          <TextField
-            label="День задачи"
-            name="plannedDate"
-            data-field="plannedDate"
-            type="date"
-            required
-            min={today}
-            value={values.plannedDate}
-            error={error('plannedDate')}
-            onChange={(event) => update('plannedDate', event.target.value)}
-            onBlur={() => touch('plannedDate')}
-          />
+          {mode === 'create' ? (
+            <TextField
+              label="День задачи"
+              name="plannedDate"
+              data-field="plannedDate"
+              type="date"
+              required
+              min={today}
+              value={values.plannedDate}
+              error={error('plannedDate')}
+              onChange={(event) => update('plannedDate', event.target.value)}
+              onBlur={() => touch('plannedDate')}
+            />
+          ) : null}
           <TextField
             label="Время начала"
             name="preferredStart"
@@ -697,13 +712,26 @@ export function TaskForm({
       className={styles.form}
       noValidate
       onSubmit={submit}
-      aria-label="Создание задачи"
+      aria-label={mode === 'edit' ? 'Редактирование задачи' : 'Создание задачи'}
     >
       <div className={styles.body}>
         {titleField}
         {mobile ? typeField : descriptionField}
         {durationField}
         {mobile ? null : typeField}
+        {mode === 'edit' ? (
+          <TextField
+            label="День задачи"
+            name="plannedDate"
+            data-field="plannedDate"
+            type="date"
+            required
+            value={values.plannedDate}
+            error={error('plannedDate')}
+            onChange={(event) => update('plannedDate', event.target.value)}
+            onBlur={() => touch('plannedDate')}
+          />
+        ) : null}
         {deadlineField}
         {!mobile ? (
           <>
@@ -744,51 +772,53 @@ export function TaskForm({
             {mobile ? descriptionField : null}
           </div>
         </div>
-        <section
-          className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
-          aria-label="Предложенное время"
-        >
-          <SparklesIcon size={16} />
-          <div>
-            {suggestion ? (
-              <>
-                <p className="text-label">
-                  Предложим {formatMoment(suggestion.startsAt)}–
-                  {new Intl.DateTimeFormat('ru-RU', {
-                    timeZone: context.timezone,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }).format(new Date(suggestion.endsAt))}
-                </p>
-                <p className={styles.suggestionText}>{suggestion.explanation}</p>
-                <button
-                  type="button"
-                  className={styles.chooseTime}
-                  onClick={() => {
-                    setExpanded(true)
-                    setHasPreferredTime(true)
-                    requestAnimationFrame(() =>
-                      formRef.current
-                        ?.querySelector<HTMLInputElement>('[name="preferredStart"]')
-                        ?.focus(),
-                    )
-                  }}
-                >
-                  Выбрать другое время <ChevronRightIcon size={14} />
-                </button>
-              </>
-            ) : (
-              <>
-                {!mobile ? <p className="text-label">Подберём лучшее окно</p> : null}
-                <p className={styles.suggestionText}>
-                  {values.title.trim() && values.type && values.durationMin
-                    ? 'Время ещё не рассчитано. Подберём окно по вашим биоритмам и хронотипу и покажем изменения перед применением.'
-                    : 'Укажите название, тип и длительность — подберём лучшее окно по вашим биоритмам и хронотипу.'}
-                </p>
-              </>
-            )}
-          </div>
-        </section>
+        {mode === 'create' ? (
+          <section
+            className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
+            aria-label="Предложенное время"
+          >
+            <SparklesIcon size={16} />
+            <div>
+              {suggestion ? (
+                <>
+                  <p className="text-label">
+                    Предложим {formatMoment(suggestion.startsAt)}–
+                    {new Intl.DateTimeFormat('ru-RU', {
+                      timeZone: context.timezone,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }).format(new Date(suggestion.endsAt))}
+                  </p>
+                  <p className={styles.suggestionText}>{suggestion.explanation}</p>
+                  <button
+                    type="button"
+                    className={styles.chooseTime}
+                    onClick={() => {
+                      setExpanded(true)
+                      setHasPreferredTime(true)
+                      requestAnimationFrame(() =>
+                        formRef.current
+                          ?.querySelector<HTMLInputElement>('[name="preferredStart"]')
+                          ?.focus(),
+                      )
+                    }}
+                  >
+                    Выбрать другое время <ChevronRightIcon size={14} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {!mobile ? <p className="text-label">Подберём лучшее окно</p> : null}
+                  <p className={styles.suggestionText}>
+                    {values.title.trim() && values.type && values.durationMin
+                      ? 'Время ещё не рассчитано. Подберём окно по вашим биоритмам и хронотипу и покажем изменения перед применением.'
+                      : 'Укажите название, тип и длительность — подберём лучшее окно по вашим биоритмам и хронотипу.'}
+                  </p>
+                </>
+              )}
+            </div>
+          </section>
+        ) : null}
         {preview ? (
           <section
             ref={previewRef}
@@ -799,7 +829,9 @@ export function TaskForm({
           >
             <CheckIcon size={18} />
             <div>
-              <p className="text-label">Данные задачи проверены</p>
+              <p className="text-label">
+                {mode === 'edit' ? 'Изменения проверены' : 'Данные задачи проверены'}
+              </p>
               <p className={styles.previewTitle}>{preview.title}</p>
               <p className={styles.hint}>
                 {TASK_TYPES[preview.type]} · {preview.duration_min} мин ·{' '}
@@ -838,7 +870,11 @@ export function TaskForm({
                   }
                 </p>
               ) : null}
-              <p className={styles.hint}>Задача ещё не добавлена в план.</p>
+              <p className={styles.hint}>
+                {mode === 'edit'
+                  ? 'Изменения ещё не сохранены в плане.'
+                  : 'Задача ещё не добавлена в план.'}
+              </p>
             </div>
           </section>
         ) : null}
@@ -850,12 +886,23 @@ export function TaskForm({
         <Button
           type="submit"
           className={styles.submit}
-          disabled={!values.title.trim() || !values.type || values.durationMin === ''}
+          disabled={
+            !values.title.trim() ||
+            !values.type ||
+            values.durationMin === '' ||
+            (mode === 'edit' && !changed)
+          }
         >
-          {mobile ? <SparklesIcon size={18} /> : <PlusIcon size={18} />}
-          Добавить и распределить
+          {mode === 'edit' ? (
+            <CheckIcon size={18} />
+          ) : mobile ? (
+            <SparklesIcon size={18} />
+          ) : (
+            <PlusIcon size={18} />
+          )}
+          {mode === 'edit' ? 'Сохранить изменения' : 'Добавить и распределить'}
         </Button>
-        {mobile ? (
+        {mobile && mode === 'create' ? (
           <p className={styles.actionHint}>Перед применением покажем, что изменится в плане.</p>
         ) : null}
       </footer>

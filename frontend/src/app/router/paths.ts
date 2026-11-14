@@ -14,4 +14,5 @@ export const paths = {
   biorhythms: '/biorhythms',
   settings: '/settings',
   kit: '/dev/kit',
+  editTaskPreview: '/dev/tasks/edit',
 } as const

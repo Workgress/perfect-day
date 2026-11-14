@@ -23,6 +23,22 @@ function renderAt(path: string, visitor: Visitor, profile: Partial<SessionUser> 
 }
 
 describe('routes', () => {
+  it('opens the task editing preview when the backend is unavailable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Offline')
+      }),
+    )
+    const router = createMemoryRouter(routes, { initialEntries: ['/dev/tasks/edit'] })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(await screen.findByRole('dialog', { name: 'Редактировать задачу' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Название' })).toHaveValue('Подготовка к экзамену')
+    expect(
+      screen.queryByRole('heading', { name: 'Не удалось загрузить данные' }),
+    ).not.toBeInTheDocument()
+  })
+
   it.each([
     ['/login', 'guest', 1],
     ['/register', 'guest', 1],

@@ -43,6 +43,33 @@ export function emptyTaskSettings(): TaskFormSettings {
   return { repeat: 'none', repeatInterval: 1, repeatDays: [], repeatUntil: '', reminder: '5' }
 }
 
+export function taskOptionsToSettings(
+  options: TaskFormOptions,
+  plannedDate: string,
+): TaskFormSettings {
+  const recurrence = options.recurrence
+  const weekday = new Date(`${plannedDate}T00:00:00Z`).getUTCDay() || 7
+  const weekly =
+    recurrence?.frequency === 'weekly' &&
+    recurrence.interval === 1 &&
+    recurrence.weekdays.length === 1 &&
+    recurrence.weekdays[0] === weekday &&
+    !recurrence.until
+  return {
+    repeat: !recurrence
+      ? 'none'
+      : recurrence.frequency === 'daily'
+        ? 'daily'
+        : weekly
+          ? 'weekly'
+          : 'custom',
+    repeatInterval: recurrence?.interval ?? 1,
+    repeatDays: [...(recurrence?.weekdays ?? [])],
+    repeatUntil: recurrence?.until ?? '',
+    reminder: options.reminderMinutes === null ? '' : String(options.reminderMinutes),
+  }
+}
+
 export function prepareTaskSettings(values: TaskFormSettings, plannedDate: string) {
   const errors: TaskSettingsErrors = {}
   if (!REPEAT_OPTIONS.some((option) => option.value === values.repeat))
