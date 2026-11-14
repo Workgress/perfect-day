@@ -1,6 +1,11 @@
-/** Daily-series proposal. Personal calculations belong to the backend. */
 export type BiorhythmCycle = 'physical' | 'emotional' | 'intellectual'
-export type BiorhythmPhase = 'rising' | 'peak' | 'falling' | 'low'
+export type BiorhythmPhase = 'rising' | 'peak' | 'declining' | 'minimum'
+export type BiorhythmTrend = 'up' | 'down'
+export type BiorhythmStep = 'hour' | 'day'
+export type BiorhythmPeriod = 'day' | 'week' | 'month'
+export type BiorhythmCriticalKind = 'none' | 'single' | 'double' | 'triple'
+
+export const MAX_BIORHYTHM_RANGE_DAYS = 62
 
 export const BIORHYTHM_CYCLES: Record<BiorhythmCycle, { label: string; periodDays: number }> = {
   physical: { label: 'Физический', periodDays: 23 },
@@ -11,35 +16,71 @@ export const BIORHYTHM_CYCLES: Record<BiorhythmCycle, { label: string; periodDay
 export const BIORHYTHM_PHASES: Record<BiorhythmPhase, string> = {
   rising: 'Подъём',
   peak: 'Пик',
-  falling: 'Спад',
-  low: 'Минимум',
+  declining: 'Спад',
+  minimum: 'Минимум',
 }
 
 export type BiorhythmReading = {
-  /** Percentage from -100 to +100; no extra multiplication by 100 in the UI. */
   value: number
+  percent: number
   phase: BiorhythmPhase
-  day_in_cycle: number
+  trend: BiorhythmTrend
+}
+
+export type BiorhythmCrossing = {
+  cycle: BiorhythmCycle
+  at: string
+}
+
+export type BiorhythmCriticalInfo = {
+  level: 0 | 1 | 2 | 3
+  kind: BiorhythmCriticalKind
+  crossings: BiorhythmCrossing[]
 }
 
 export type BiorhythmPoint = {
-  date: string
-  /** Sample timestamp, proposed as local noon in the profile timezone. */
   at: string
+  date: string
   cycles: Record<BiorhythmCycle, BiorhythmReading>
-  /** Cycles crossing zero during the whole local day, independent of the noon value. */
-  critical_cycles: BiorhythmCycle[]
-  recommendation: string | null
+  critical: BiorhythmCriticalInfo
 }
 
-export type BiorhythmRequest = {
-  /** Inclusive local dates YYYY-MM-DD, proposed maximum 93 days. */
+export type BiorhythmRangeRequest = {
   from: string
   to: string
 }
 
-export type BiorhythmSeries = BiorhythmRequest & {
+export type BiorhythmRequest = BiorhythmRangeRequest & { step?: BiorhythmStep }
+export type BiorhythmSnapshotRequest = { at?: string }
+export type BiorhythmForecastRequest = { period: BiorhythmPeriod }
+
+export type BiorhythmContext = {
   timezone: string
   algorithm_version: string
+}
+
+export type BiorhythmSnapshot = BiorhythmContext & BiorhythmPoint
+
+export type BiorhythmSeries = BiorhythmContext & {
+  start: string
+  end: string
+  step: BiorhythmStep
   points: BiorhythmPoint[]
+  period: BiorhythmPeriod | null
+}
+
+export type BiorhythmCriticalDay = BiorhythmCriticalInfo & { date: string }
+
+export type BiorhythmCriticalDays = BiorhythmContext & {
+  start: string
+  end: string
+  days: BiorhythmCriticalDay[]
+}
+
+export type BiorhythmChartPoint = {
+  timestamp: number
+  date: string
+  physical: number
+  emotional: number
+  intellectual: number
 }

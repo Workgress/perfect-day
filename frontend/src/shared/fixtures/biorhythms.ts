@@ -1,74 +1,114 @@
 import {
   BIORHYTHM_CYCLES,
   type BiorhythmCycle,
+  type BiorhythmCriticalInfo,
   type BiorhythmPhase,
   type BiorhythmPoint,
   type BiorhythmReading,
   type BiorhythmSeries,
+  type BiorhythmSnapshot,
+  type BiorhythmCriticalDays,
+  type BiorhythmPeriod,
+  type BiorhythmStep,
 } from '@/shared/model/biorhythm'
 import { PLANNING_FIXTURE_CONTEXT } from './planning'
 
-// Synthetic phases for layout, unrelated to any user's birth data.
 const DEMO_OFFSETS: Record<BiorhythmCycle, number> = {
   physical: 6,
   emotional: 19,
   intellectual: 8,
 }
+const CYCLES = Object.keys(BIORHYTHM_CYCLES) as BiorhythmCycle[]
+const CRITICAL_KINDS = ['none', 'single', 'double', 'triple'] as const
 const DAY_MS = 86_400_000
-const REFERENCE_DAY = Date.parse('2026-11-11T00:00:00Z')
-
-function reading(day: number, period: number): BiorhythmReading {
-  const angle = (2 * Math.PI * day) / period
-  const value = Math.round(Math.sin(angle) * 100)
-  const phase: BiorhythmPhase =
-    value >= 85 ? 'peak' : value <= -85 ? 'low' : Math.cos(angle) >= 0 ? 'rising' : 'falling'
-  return { value, phase, day_in_cycle: (((day % period) + period) % period) + 1 }
+const REFERENCE_NOON = Date.parse('2026-11-11T12:00:00+05:00')
+const DEMO_CONTEXT = {
+  timezone: PLANNING_FIXTURE_CONTEXT.timezone,
+  algorithm_version: 'demo-layout-v2',
 }
 
-function point(date: string): BiorhythmPoint {
-  // UTC here is only for arithmetic on fixed fixture dates, not user time conversion.
-  const offset = (Date.parse(`${date}T00:00:00Z`) - REFERENCE_DAY) / DAY_MS
-  const cycles = Object.keys(BIORHYTHM_CYCLES) as BiorhythmCycle[]
-  const criticalCycles = cycles.filter((cycle) => {
-    const day = offset + DEMO_OFFSETS[cycle]
+function demoReading(day: number, period: number): BiorhythmReading {
+  const angle = (2 * Math.PI * day) / period
+  const raw = Math.sin(angle)
+  const value = Math.abs(raw) < 1e-12 ? 0 : raw
+  const phase: BiorhythmPhase =
+    value >= 0.5 ? 'peak' : value >= 0 ? 'rising' : value > -0.5 ? 'declining' : 'minimum'
+  return {
+    value,
+    percent: Math.round(value * 1000) / 10 || 0,
+    phase,
+    trend: Math.cos(angle) >= 0 ? 'up' : 'down',
+  }
+}
+
+function demoCritical(date: string): BiorhythmCriticalInfo {
+  const offset = (Date.parse(`${date}T12:00:00+05:00`) - REFERENCE_NOON) / DAY_MS
+  const crossings = CYCLES.flatMap((cycle) => {
     const halfPeriod = BIORHYTHM_CYCLES[cycle].periodDays / 2
-    return Math.floor((day - 0.5) / halfPeriod) !== Math.floor((day + 0.5) / halfPeriod)
-  })
+    const index = Math.ceil((offset + DEMO_OFFSETS[cycle] - 0.5) / halfPeriod)
+    const crossingDay = index * halfPeriod - DEMO_OFFSETS[cycle]
+    return crossingDay < offset + 0.5
+      ? [{ cycle, at: new Date(REFERENCE_NOON + crossingDay * DAY_MS).toISOString() }]
+      : []
+  }).sort(
+    (a, b) =>
+      Date.parse(a.at) - Date.parse(b.at) || CYCLES.indexOf(a.cycle) - CYCLES.indexOf(b.cycle),
+  )
+  const level = crossings.length as BiorhythmCriticalInfo['level']
+  return { level, kind: CRITICAL_KINDS[level], crossings }
+}
+
+function demoPoint(date: string, hour = 12): BiorhythmPoint {
+  const at = new Date(`${date}T${String(hour).padStart(2, '0')}:00:00+05:00`).toISOString()
+  const offset = (Date.parse(at) - REFERENCE_NOON) / DAY_MS
   return {
     date,
-    at: new Date(`${date}T12:00:00+05:00`).toISOString(),
+    at,
     cycles: {
-      physical: reading(offset + DEMO_OFFSETS.physical, 23),
-      emotional: reading(offset + DEMO_OFFSETS.emotional, 28),
-      intellectual: reading(offset + DEMO_OFFSETS.intellectual, 33),
+      physical: demoReading(offset + DEMO_OFFSETS.physical, 23),
+      emotional: demoReading(offset + DEMO_OFFSETS.emotional, 28),
+      intellectual: demoReading(offset + DEMO_OFFSETS.intellectual, 33),
     },
-    critical_cycles: criticalCycles,
-    recommendation: criticalCycles.length
-      ? 'Демонстрация: снизить нагрузку и оставить время на отдых.'
-      : 'Демонстрация: выбрать подходящие задачи по фазам циклов.',
+    critical: demoCritical(date),
   }
 }
 
-function series(from: string, to: string): BiorhythmSeries {
+function demoSeries(
+  start: string,
+  end: string,
+  step: BiorhythmStep = 'day',
+  period: BiorhythmPeriod | null = null,
+): BiorhythmSeries {
   const points: BiorhythmPoint[] = []
   for (
-    let instant = Date.parse(`${from}T00:00:00Z`);
-    instant <= Date.parse(`${to}T00:00:00Z`);
+    let instant = Date.parse(`${start}T00:00:00Z`);
+    instant <= Date.parse(`${end}T00:00:00Z`);
     instant += DAY_MS
   ) {
-    points.push(point(new Date(instant).toISOString().slice(0, 10)))
+    const date = new Date(instant).toISOString().slice(0, 10)
+    if (step === 'hour') for (let hour = 0; hour < 24; hour++) points.push(demoPoint(date, hour))
+    else points.push(demoPoint(date))
   }
-  return {
-    from,
-    to,
-    timezone: PLANNING_FIXTURE_CONTEXT.timezone,
-    algorithm_version: 'demo-layout-v1',
-    points,
-  }
+  return { ...DEMO_CONTEXT, start, end, step, period, points }
 }
 
 export const BIORHYTHM_FIXTURES = {
-  week: series('2026-11-11', '2026-11-17'),
-  month: series('2026-11-01', '2026-11-30'),
-  threeMonths: series('2026-11-01', '2027-01-31'),
+  day: demoSeries('2026-11-11', '2026-11-11', 'hour', 'day'),
+  week: demoSeries('2026-11-11', '2026-11-17', 'day', 'week'),
+  month: demoSeries('2026-11-11', '2026-12-10', 'day', 'month'),
+  range: demoSeries('2026-11-01', '2027-01-01'),
 } satisfies Record<string, BiorhythmSeries>
+
+export const BIORHYTHM_SNAPSHOT_FIXTURE: BiorhythmSnapshot = {
+  ...DEMO_CONTEXT,
+  ...demoPoint(PLANNING_FIXTURE_CONTEXT.date),
+}
+
+export const BIORHYTHM_CRITICAL_DAYS_FIXTURE: BiorhythmCriticalDays = {
+  ...DEMO_CONTEXT,
+  start: BIORHYTHM_FIXTURES.week.start,
+  end: BIORHYTHM_FIXTURES.week.end,
+  days: BIORHYTHM_FIXTURES.week.points
+    .filter((point) => point.critical.level > 0)
+    .map((point) => ({ date: point.date, ...point.critical })),
+}
