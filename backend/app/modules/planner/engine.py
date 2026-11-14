@@ -1,6 +1,6 @@
 """Deterministic greedy scheduling over immutable task and profile snapshots."""
 
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time
 
 from app.modules.planner.config import (
@@ -10,11 +10,12 @@ from app.modules.planner.config import (
     TASK_CYCLES,
     TASK_INTENSITY,
 )
-from app.modules.planner.constraints import PreparedDay, check_placement, summarize_day
+from app.modules.planner.constraints import PreparedDay, placement_checker, summarize_day
 from app.modules.planner.contracts import (
     FutureDay,
     Interval,
     PlanContext,
+    PlanProfile,
     PlanResult,
     PlanSlot,
     PlanTask,
@@ -27,7 +28,7 @@ from app.modules.planner.contracts import (
 )
 from app.modules.planner.energy import IntervalScore, score_interval
 from app.modules.planner.explanations import explain_move, explain_slots
-from app.modules.planner.policy import day_policy, prepare_policy_day
+from app.modules.planner.policy import DayPolicy, day_policy, prepare_policy_day
 from app.modules.planner.recommendations import (
     critical_move_unavailable,
     day_recommendations,
@@ -39,6 +40,28 @@ from app.modules.planner.time_grid import TimeGrid as TimeGrid
 from app.modules.planner.time_grid import candidate_intervals as candidate_intervals
 from app.modules.planner.time_grid import deadline_boundary as deadline_boundary
 from app.modules.planner.time_grid import make_time_grid as make_time_grid
+
+
+@dataclass
+class _CalculationCache:
+    """Scratch data for one calculation only; never shared across requests or users."""
+
+    ratings: dict[tuple[PlanProfile, TaskKind, int, time | None, Interval], IntervalScore] = field(
+        default_factory=dict
+    )
+    policies: dict[tuple[PlanProfile, date], DayPolicy] = field(default_factory=dict)
+
+    def policy(self, profile: PlanProfile, day: date) -> DayPolicy:
+        key = (profile, day)
+        if key not in self.policies:
+            self.policies[key] = day_policy(profile, day)
+        return self.policies[key]
+
+    def rating(self, profile: PlanProfile, task: PlanTask, interval: Interval) -> IntervalScore:
+        key = (profile, task.kind, task.duration_min, task.preferred_start, interval)
+        if key not in self.ratings:
+            self.ratings[key] = score_interval(profile, task, interval)
+        return self.ratings[key]
 
 
 def _task_order(task: PlanTask) -> tuple[int, int, int, datetime, int, int]:
@@ -95,6 +118,7 @@ def _repetition_penalty(
 
 def _build_day(
     prepared: PreparedDay,
+    cache: _CalculationCache,
     *,
     critical_level: int,
     excluded: frozenset[TaskRef] = frozenset(),
@@ -111,7 +135,8 @@ def _build_day(
     placed: tuple[PlanSlot, ...] = ()
     breaks = prepared.required_breaks
     unscheduled = []
-    ratings: dict[tuple[TaskKind, int, time | None, Interval], IntervalScore] = {}
+    intervals: dict[int, tuple[Interval, ...]] = {}
+    check_interval = placement_checker(prepared)
     for task in sort_tasks(pending):
         if rest_shortfall:
             unscheduled.append(UnscheduledTask(task.ref, ("CRITICAL_REST_UNAVAILABLE",)))
@@ -119,16 +144,15 @@ def _build_day(
         best: PlanSlot | None = None
         best_breaks: tuple[PlanSlot, ...] = ()
         failures: set[str] = set()
-        candidates = candidate_intervals(prepared.grid, task.duration_min)
+        if task.duration_min not in intervals:
+            intervals[task.duration_min] = candidate_intervals(prepared.grid, task.duration_min)
+        candidates = intervals[task.duration_min]
         for interval in candidates:
-            check = check_placement(prepared, task, interval, placed_slots=placed)
+            check = check_interval(task, interval)
             if not check.allowed:
                 failures.update(check.reasons)
                 continue
-            key = (task.kind, task.duration_min, task.preferred_start, interval)
-            if key not in ratings:
-                ratings[key] = score_interval(context.profile, task, interval)
-            rating = ratings[key]
+            rating = cache.rating(context.profile, task, interval)
             penalty = _repetition_penalty(task, interval, prepared.reserved_slots + placed, tasks)
             score = rating.total - penalty
             if best is None or best.score is None or score > best.score:
@@ -152,6 +176,7 @@ def _build_day(
         else:
             placed = (*placed, best)
             breaks = best_breaks
+            check_interval = placement_checker(prepared, placed_slots=placed)
     slots = tuple(
         sorted((*prepared.reserved_slots, *placed, *breaks), key=lambda slot: slot.interval.start)
     )
@@ -180,6 +205,7 @@ def _find_target(
     context: PlanContext,
     task: PlanTask,
     days: dict[date, FutureDay],
+    cache: _CalculationCache,
     *,
     prefer_peak: bool = False,
 ) -> tuple[FutureDay, PlanResult] | None:
@@ -190,7 +216,7 @@ def _find_target(
             continue
         if task.deadline is not None and day > task.deadline:
             continue
-        policy = day_policy(context.profile, day)
+        policy = cache.policy(context.profile, day)
         cycle = TASK_CYCLES.get(task.kind)
         value = policy.value(cycle) if cycle is not None else 0.0
         if policy.critical.level or value < 0:
@@ -210,7 +236,7 @@ def _find_target(
             "replan",
             proposed.fixed_slots,
         )
-        result = build_schedule(probe)
+        result = _build_schedule(probe, cache)
         if not result.unscheduled and any(slot.task == task.ref for slot in result.slots):
             return proposed, result
     return None
@@ -230,7 +256,19 @@ def build_schedule(
     updates and concurrency checks remain the caller's responsibility (integration stage 8).
     An explicit load_factor is a budget override; it never disables mandatory critical rest.
     """
-    policy = day_policy(context.profile, context.day)
+    return _build_schedule(
+        context, _CalculationCache(), load_factor=load_factor, rest_intervals=rest_intervals
+    )
+
+
+def _build_schedule(
+    context: PlanContext,
+    cache: _CalculationCache,
+    *,
+    load_factor: float | None = None,
+    rest_intervals: tuple[Interval, ...] = (),
+) -> PlanResult:
+    policy = cache.policy(context.profile, context.day)
     prepared, shortfall = prepare_policy_day(
         context, policy, load_factor=load_factor, rest_intervals=rest_intervals
     )
@@ -249,7 +287,7 @@ def build_schedule(
                 or (task.priority != "high" and task.duration_min < 60)
             ):
                 continue
-            found = _find_target(context, task, days)
+            found = _find_target(context, task, days, cache)
             if found is None:
                 unavailable.append(critical_move_unavailable(task.ref))
                 continue
@@ -259,7 +297,11 @@ def build_schedule(
             moves.append(TaskMove(task.ref, context.day, snapshot.day, "MOVED_FROM_CRITICAL_DAY"))
     moved = frozenset(move.task for move in moves)
     result = _build_day(
-        prepared, critical_level=policy.critical.level, excluded=moved, rest_shortfall=shortfall
+        prepared,
+        cache,
+        critical_level=policy.critical.level,
+        excluded=moved,
+        rest_shortfall=shortfall,
     )
     result = replace(
         result,
@@ -274,7 +316,7 @@ def build_schedule(
     for move in moves:
         target = target_plans[move.to_date]
         message = move_recommendation(
-            tasks[move.task], target, day_policy(context.profile, target.day), automatic=True
+            tasks[move.task], target, cache.policy(context.profile, target.day), automatic=True
         )
         warnings.append(
             PlanWarning(move.reason_code, task=move.task, target_date=move.to_date, message=message)
@@ -308,7 +350,7 @@ def build_schedule(
                 or not (task.ref in unplaced or (overloaded(result) and task.priority == "low"))
             ):
                 continue
-            found = _find_target(context, task, advice_days, prefer_peak=True)
+            found = _find_target(context, task, advice_days, cache, prefer_peak=True)
             if found is not None:
                 snapshot, target = found
                 advice_days[snapshot.day] = snapshot
@@ -318,7 +360,7 @@ def build_schedule(
                         task=task.ref,
                         target_date=target.day,
                         message=move_recommendation(
-                            task, target, day_policy(context.profile, target.day), automatic=False
+                            task, target, cache.policy(context.profile, target.day), automatic=False
                         ),
                         level="warning",
                     )

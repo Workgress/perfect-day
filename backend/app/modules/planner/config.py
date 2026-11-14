@@ -4,7 +4,7 @@ from typing import Final
 
 from app.modules.biorhythm.types import Cycle
 
-ALGORITHM_VERSION: Final = "planner-1.0.0"
+ALGORITHM_VERSION: Final = "planner-1.0.1"
 GRID_STEP_MINUTES: Final = 15
 MIN_TASK_DURATION_MINUTES: Final = 5
 MAX_TASK_DURATION_MINUTES: Final = 480

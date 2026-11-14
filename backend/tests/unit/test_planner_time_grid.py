@@ -42,7 +42,7 @@ def context(
 
 
 def test_planner_configuration_does_not_change_biorhythm_version() -> None:
-    assert ALGORITHM_VERSION == "planner-1.0.0"
+    assert ALGORITHM_VERSION == "planner-1.0.1"
     assert BIO_VERSION == "1.0.0"
     assert GRID_STEP_MINUTES == 15
 
@@ -197,13 +197,14 @@ def test_preview_excludes_ambiguous_starts_and_ends_without_discarding_the_whole
     start = datetime(2026, 10, 25, 1, 45, tzinfo=tz).astimezone(UTC)
     assert any(item.start == start for item in candidate_intervals(replan, 15))
     assert not any(item.start == start for item in candidate_intervals(preview, 15))
-    # Both endpoints are unique, although the elapsed time crosses the rollback.
-    assert any(item.start == start for item in candidate_intervals(preview, 150))
+    # Even unique endpoints cannot encode a different wall-clock duration in preview.
+    assert any(item.start == start for item in candidate_intervals(replan, 150))
+    assert not any(item.start == start for item in candidate_intervals(preview, 150))
 
 
-def test_preview_interval_crosses_spring_gap_using_elapsed_duration() -> None:
+def test_only_persisted_intervals_may_cross_a_spring_gap_in_elapsed_time() -> None:
     ctx = context(
-        day=date(2026, 3, 29), zone="Europe/Berlin", start=time.min, end=time(4), mode="preview"
+        day=date(2026, 3, 29), zone="Europe/Berlin", start=time.min, end=time(4), mode="replan"
     )
     tz = ZoneInfo("Europe/Berlin")
     start = datetime(2026, 3, 29, 1, 45, tzinfo=tz).astimezone(UTC)
@@ -212,6 +213,14 @@ def test_preview_interval_crosses_spring_gap_using_elapsed_duration() -> None:
     )
     assert interval.end.astimezone(tz).time() == time(3)
     assert interval.end - interval.start == timedelta(minutes=15)
+    preview = candidate_intervals(make_time_grid(replace(ctx, mode="preview")), 15)
+    assert not any(item.start == start for item in preview)
+    assert all(
+        item.end.astimezone(tz).replace(tzinfo=None)
+        - item.start.astimezone(tz).replace(tzinfo=None)
+        == timedelta(minutes=15)
+        for item in preview
+    )
 
 
 @pytest.mark.parametrize(

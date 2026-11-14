@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header
 
 from app.core.private_api import PrivateAPIRoute
 from app.core.security import get_current_user
+from app.modules.planner.documentation import DESCRIPTION, PREVIEW_EXAMPLE
 from app.modules.schedule.dependencies import get_schedule_service
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview
 from app.modules.schedule.service import ScheduleService
@@ -16,7 +17,14 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 Scheduler = Annotated[ScheduleService, Depends(get_schedule_service)]
 
 
-@router.post("/preview", response_model=PlanPreview, summary="Предпросмотр плана без сохранения")
+@router.post(
+    "/preview",
+    response_model=PlanPreview,
+    summary="Предпросмотр плана без сохранения",
+    description=DESCRIPTION
+    + "\nОшибки: PROFILE_INCOMPLETE, PLANNED_DATE_CHANGED, VALIDATION_ERROR, PLANNER_UNAVAILABLE.",
+    responses={200: {"content": {"application/json": {"example": PREVIEW_EXAMPLE}}}},
+)
 async def preview(body: OnboardingRequest, user: CurrentUser, service: Scheduler) -> PlanPreview:
     """Только расчёт: задачи и план не сохраняются. Частичный результат допустим.
 
@@ -28,7 +36,18 @@ async def preview(body: OnboardingRequest, user: CurrentUser, service: Scheduler
         return await service.preview(user.id, body)
 
 
-@router.post("/complete", response_model=ProfileDocument, summary="Атомарное завершение настройки")
+@router.post(
+    "/complete",
+    response_model=ProfileDocument,
+    summary="Атомарное завершение настройки",
+    description=DESCRIPTION
+    + "\nIdempotency-Key: UUID обязателен. Задачи, план, completed_at и постоянная запись "
+    "повтора сохраняются одной транзакцией. Повтор ключа и исходного тела "
+    "возвращает исходный ответ, "
+    "даже после смены даты/профиля. Новое тело с тем же ключом: IDEMPOTENCY_CONFLICT. "
+    "Новый ключ после завершения: ONBOARDING_ALREADY_COMPLETED. "
+    "Техническая ошибка: 503 PLANNER_UNAVAILABLE.",
+)
 async def complete(
     body: OnboardingRequest,
     user: CurrentUser,

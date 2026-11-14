@@ -14,6 +14,7 @@ from pydantic import (
     field_validator,
 )
 
+from app.modules.planner.documentation import REQUEST_EXAMPLE
 from app.modules.tasks.models import TaskType
 from app.modules.users.schemas import MinuteTime
 
@@ -45,7 +46,7 @@ class FirstTask(BaseModel):
 
 
 class OnboardingRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [REQUEST_EXAMPLE]})
 
     planned_date: Annotated[date, BeforeValidator(_calendar_date)]
     tasks: Annotated[list[FirstTask], Field(min_length=1, max_length=100)]

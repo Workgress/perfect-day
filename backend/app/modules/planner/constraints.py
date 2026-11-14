@@ -1,5 +1,6 @@
 """Hard placement constraints. No task selection, storage or public CRUD errors."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -347,11 +348,35 @@ def check_placement(
     placed_slots: tuple[PlanSlot, ...] = (),
 ) -> PlacementCheck:
     """placed_slots holds accepted tasks; returned required_breaks replaces prior derived breaks."""
-    context = prepared.context
-    if task not in context.tasks:
-        raise ConstraintError("TASK_CONTEXT_MISMATCH", "Задача не принадлежит контексту", task.ref)
+    return placement_checker(prepared, placed_slots=placed_slots)(task, interval)
+
+
+def placement_checker(
+    prepared: PreparedDay, *, placed_slots: tuple[PlanSlot, ...] = ()
+) -> Callable[[PlanTask, Interval], PlacementCheck]:
+    """Validate one immutable accepted snapshot once, then evaluate many candidates.
+
+    Rebuild the checker after accepting a task. Public check_placement still validates every
+    externally supplied snapshot, and summarize_day independently validates the final result.
+    """
     occupied = prepared.reserved_slots + placed_slots
-    _validate_slots(context, prepared.grid, occupied)
+    _validate_slots(prepared.context, prepared.grid, occupied)
+    tasks = {task.ref: task for task in prepared.context.tasks}
+
+    def check(task: PlanTask, interval: Interval) -> PlacementCheck:
+        if tasks.get(task.ref) != task:
+            raise ConstraintError(
+                "TASK_CONTEXT_MISMATCH", "Задача не принадлежит контексту", task.ref
+            )
+        return _check_candidate(prepared, task, interval, occupied)
+
+    return check
+
+
+def _check_candidate(
+    prepared: PreparedDay, task: PlanTask, interval: Interval, occupied: tuple[PlanSlot, ...]
+) -> PlacementCheck:
+    context = prepared.context
     reasons = []
     inactive = task.status in {"done", "skipped"}
     already_reserved = any(slot.task == task.ref for slot in occupied)
@@ -395,10 +420,11 @@ def feasible_intervals(
 ) -> tuple[Interval, ...]:
     if task not in prepared.context.tasks:
         raise ConstraintError("TASK_CONTEXT_MISMATCH", "Задача не принадлежит контексту", task.ref)
+    check = placement_checker(prepared, placed_slots=placed_slots)
     return tuple(
         interval
         for interval in candidate_intervals(prepared.grid, task.duration_min)
-        if check_placement(prepared, task, interval, placed_slots=placed_slots).allowed
+        if check(task, interval).allowed
     )
 
 

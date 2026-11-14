@@ -83,7 +83,7 @@ def assert_invariants(ctx: PlanContext, result: PlanResult) -> None:
 def test_empty_context_returns_a_valid_day_without_inventing_tasks() -> None:
     ctx = context()
     result = build_schedule(ctx)
-    assert result.algorithm_version == "planner-1.0.0"
+    assert result.algorithm_version == "planner-1.0.1"
     assert result.metrics.planned_min == result.metrics.requested_min == 0
     assert result.metrics.capacity_min == 540
     assert [slot.kind for slot in result.slots] == ["lunch"]

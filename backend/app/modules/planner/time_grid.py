@@ -116,7 +116,10 @@ def candidate_intervals(grid: TimeGrid, duration_min: int) -> tuple[Interval, ..
         if end > grid.work_window.end:
             break
         if grid.mode == "preview" and (
-            not _preview_boundary(start, tz) or not _preview_boundary(end, tz)
+            not _preview_boundary(start, tz)
+            or not _preview_boundary(end, tz)
+            or end.astimezone(tz).replace(tzinfo=None) - start.astimezone(tz).replace(tzinfo=None)
+            != duration
         ):
             continue
         intervals.append(Interval(start, end))
