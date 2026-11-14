@@ -59,7 +59,8 @@ export function SessionGate({ children }: { children: ReactNode }) {
   if (
     verification ||
     pathname === paths.kit ||
-    (import.meta.env.DEV && pathname === paths.editTaskPreview)
+    (import.meta.env.DEV &&
+      (pathname === paths.editTaskPreview || pathname === paths.timelinePreview))
   )
     return children
   const waiting = status === 'restoring' || (status === 'authenticated' && !user)

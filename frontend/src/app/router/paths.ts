@@ -15,4 +15,5 @@ export const paths = {
   settings: '/settings',
   kit: '/dev/kit',
   editTaskPreview: '/dev/tasks/edit',
+  timelinePreview: '/dev/timeline',
 } as const

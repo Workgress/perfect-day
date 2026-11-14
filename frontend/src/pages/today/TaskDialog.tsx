@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { useTaskDialog } from './useTaskDialog'
 import { Button } from '@/shared/ui/button/Button'
 import { XIcon } from '@/shared/ui/icon/icons'
 import styles from './NewTaskPage.module.css'
@@ -20,47 +21,7 @@ export function TaskDialog({
 }: TaskDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const previousFocus = document.activeElement as HTMLElement | null
-    const previousOverflow = document.body.style.overflow
-    if (typeof dialog.showModal === 'function') dialog.showModal()
-    else dialog.setAttribute('open', '')
-    document.body.style.overflow = 'hidden'
-    dialog.querySelector<HTMLInputElement>('[name="title"]')?.focus()
-    return () => {
-      if (typeof dialog.close === 'function') dialog.close()
-      document.body.style.overflow = previousOverflow
-      if (previousFocus?.isConnected && previousFocus !== document.body) previousFocus.focus()
-      else document.querySelector<HTMLElement>(returnFocusSelector)?.focus()
-    }
-  }, [returnFocusSelector])
-
-  const keyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
-    if (event.key === 'Escape' && typeof event.currentTarget.showModal !== 'function') {
-      event.preventDefault()
-      close()
-    }
-    if (event.key !== 'Tab') return
-    const controls = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>(
-        ':is(button, input, select, textarea, [tabindex]):not(:disabled):not([tabindex="-1"])',
-      ),
-    ).filter(
-      (control) => !control.closest('[hidden]') && getComputedStyle(control).display !== 'none',
-    )
-    const first = controls[0]
-    const last = controls.at(-1)
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last?.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first?.focus()
-    }
-  }
+  const { dialogRef, onKeyDown } = useTaskDialog(close, returnFocusSelector)
 
   return (
     <dialog
@@ -69,7 +30,7 @@ export function TaskDialog({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       className={styles.dialog}
-      onKeyDown={keyDown}
+      onKeyDown={onKeyDown}
       onCancel={(event) => {
         event.preventDefault()
         close()

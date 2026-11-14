@@ -23,6 +23,19 @@ function renderAt(path: string, visitor: Visitor, profile: Partial<SessionUser> 
 }
 
 describe('routes', () => {
+  it('opens the timeline preview without a backend connection', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Offline')
+      }),
+    )
+    const router = createMemoryRouter(routes, { initialEntries: ['/dev/timeline'] })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(await screen.findByRole('heading', { name: 'Суточный таймлайн' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'План на день' })).toBeInTheDocument()
+  })
+
   it('opens the task editing preview when the backend is unavailable', async () => {
     vi.stubGlobal(
       'fetch',
