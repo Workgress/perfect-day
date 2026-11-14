@@ -5,7 +5,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import pytest
-from sqlalchemy import Date, DateTime
+from sqlalchemy import DateTime
 
 from app.modules.planner.contracts import (
     Chronotype,
@@ -64,8 +64,8 @@ def test_contract_literals_match_existing_database_enums() -> None:
         (Chronotype, StoredChronotype),
     ):
         assert set(get_args(alias.__value__)) == {value.value for value in stored}
-    assert isinstance(Task.__table__.c.deadline.type, Date)
-    assert not isinstance(Task.__table__.c.deadline.type, DateTime)
+    assert isinstance(Task.__table__.c.deadline.type, DateTime)
+    assert Task.__table__.c.deadline.type.timezone
 
 
 @pytest.mark.parametrize(
