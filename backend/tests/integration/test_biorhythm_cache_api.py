@@ -17,7 +17,7 @@ from app.modules.biorhythm import engine as bio_engine
 from app.modules.biorhythm.cache import BiorhythmCache
 from app.modules.users.dependencies import get_clock
 from app.modules.users.models import User, UserProfile
-from tests.integration.test_profile_biorhythm_api import BIO_PATHS, NOW, ProfileAPI
+from tests.integration.test_profile_biorhythm_api import BIO_PATHS, ProfileAPI
 from tests.integration.test_profile_biorhythm_api import alembic_config as alembic_config
 from tests.integration.test_profile_biorhythm_api import auth_api as auth_api
 from tests.integration.test_profile_biorhythm_api import engine as engine
