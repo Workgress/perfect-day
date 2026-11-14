@@ -78,6 +78,34 @@ export type SelectFieldProps = Omit<ComponentProps<'select'>, 'className' | 'mul
     leadingIcon?: ReactNode
   }
 
+export type TextAreaFieldProps = Omit<ComponentProps<'textarea'>, 'className'> & FieldProps
+
+export function TextAreaField({
+  label,
+  hint,
+  error,
+  className,
+  id,
+  'aria-describedby': describedBy,
+  'aria-invalid': invalid,
+  ...props
+}: TextAreaFieldProps) {
+  const generatedId = useId()
+  const fieldId = id ?? generatedId
+
+  return (
+    <Field id={fieldId} label={label} hint={hint} error={error} className={className}>
+      <textarea
+        {...props}
+        id={fieldId}
+        className={cx(styles.control, styles.textarea)}
+        aria-describedby={descriptionIds(fieldId, hint, error, describedBy)}
+        aria-invalid={error ? true : invalid}
+      />
+    </Field>
+  )
+}
+
 export function SelectField({
   label,
   hint,

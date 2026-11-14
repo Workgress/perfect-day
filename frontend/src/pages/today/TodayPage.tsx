@@ -11,7 +11,7 @@ export function TodayPage() {
     <>
       <title>Сегодня · Идеальный день</title>
       <PageHeader title="Сегодня" description="Энергетический профиль и план на день.">
-        <Button onClick={() => navigate(paths.newTask)}>
+        <Button data-new-task-trigger onClick={() => navigate(paths.newTask)}>
           <PlusIcon />
           Добавить задачу
         </Button>
