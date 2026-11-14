@@ -46,7 +46,10 @@ def _validate_previous(slots: tuple[PlanSlot, ...], grid: TimeGrid) -> None:
             raise ConstraintError("INTERVAL_OCCUPIED", "Прежние интервалы пересекаются", right.task)
 
 
-def _preserved(context: PlanContext, previous: tuple[PlanSlot, ...]) -> tuple[PlanSlot, ...]:
+def preserve_reservations(
+    context: PlanContext, previous: tuple[PlanSlot, ...]
+) -> tuple[PlanSlot, ...]:
+    """Select current hard reservations from a previous snapshot, without creating new systems."""
     tasks = {task.ref: task for task in context.tasks}
     selected = list(context.fixed_slots)
     for slot in previous:
@@ -211,7 +214,7 @@ def replan_remaining_day(
     grid = make_time_grid(context)
     _validate_previous(previous, grid)
     _validate_pin_history(context, previous)
-    preserved = _with_lunch(context, grid, _preserved(context, previous))
+    preserved = _with_lunch(context, grid, preserve_reservations(context, previous))
     prepared = replace(context, fixed_slots=preserved, include_profile_lunch=False)
     plan = build_schedule(prepared)
     return ReplanResult(plan, _changes(context, previous, plan))

@@ -322,10 +322,12 @@ async def test_http_cache_hit_ttl_and_key_change_after_patch(profile_api: Profil
         assert len(keys) == 1
         assert 86390 <= await profile_api.api.redis.ttl(keys[0]) <= 86400
         assert (await profile_api.patch({"birth_date": "2000-01-02"})).status_code == 200
+        # PATCH also calculates schedules now; measure the cache endpoint separately.
+        calculate.reset_mock()
         changed = await profile_api.get("/biorhythms/now")
         assert changed.status_code == 200
         assert changed.json()["cycles"] != first.json()["cycles"]
-        assert calculate.call_count == 2
+        assert calculate.call_count == 1
     keys = [
         key async for key in profile_api.api.redis.scan_iter(f"{profile_api.cache.prefix}:bio:*")
     ]
