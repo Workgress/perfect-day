@@ -1,0 +1,6 @@
+from typing import Final
+
+ALGORITHM_VERSION: Final = "planner-1.0.0"
+GRID_STEP_MINUTES: Final = 15
+MIN_TASK_DURATION_MINUTES: Final = 5
+MAX_TASK_DURATION_MINUTES: Final = 480

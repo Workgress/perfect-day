@@ -7,6 +7,7 @@ from typing import Literal, Protocol, get_args
 from uuid import UUID
 
 from app.core.time import parse_timezone, to_utc
+from app.modules.planner.config import MAX_TASK_DURATION_MINUTES, MIN_TASK_DURATION_MINUTES
 
 type TaskKind = Literal["intellectual", "physical", "creative", "routine"]
 type Priority = Literal["high", "medium", "low"]
@@ -119,7 +120,9 @@ class PlanTask:
         ):
             if getattr(self, field) not in values:
                 raise ValueError(f"Unknown {field}")
-        if type(self.duration_min) is not int or not 5 <= self.duration_min <= 480:
+        if type(self.duration_min) is not int or not (
+            MIN_TASK_DURATION_MINUTES <= self.duration_min <= MAX_TASK_DURATION_MINUTES
+        ):
             raise ValueError("duration_min must be an integer from 5 to 480")
         if type(self.is_pinned) is not bool:
             raise ValueError("is_pinned must be a boolean")
