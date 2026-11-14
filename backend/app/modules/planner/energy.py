@@ -19,7 +19,7 @@ from app.modules.planner.config import (
     TASK_CYCLES,
 )
 from app.modules.planner.contracts import Chronotype, Interval, PlanProfile, PlanTask
-from app.modules.planner.engine import PlannerTimeError
+from app.modules.planner.time_grid import PlannerTimeError
 
 
 @dataclass(frozen=True, slots=True)

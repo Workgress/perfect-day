@@ -102,3 +102,9 @@ SHORT_BREAK_MINUTES: Final = 15
 LONG_BREAK_MINUTES: Final = 30
 CONTINUOUS_SHORT_LIMIT_MINUTES: Final = 90
 CONTINUOUS_LONG_LIMIT_MINUTES: Final = 120
+
+PRIORITY_ORDER: Final[Mapping[str, int]] = MappingProxyType({"high": 0, "medium": 1, "low": 2})
+TASK_INTENSITY: Final[Mapping[str, int]] = MappingProxyType(
+    {"intellectual": 2, "physical": 2, "creative": 1, "routine": 0}
+)
+SAME_KIND_PENALTY: Final = 0.15

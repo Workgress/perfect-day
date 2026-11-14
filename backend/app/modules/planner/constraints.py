@@ -16,8 +16,15 @@ from app.modules.planner.config import (
     LONG_BREAK_MINUTES,
     SHORT_BREAK_MINUTES,
 )
-from app.modules.planner.contracts import Interval, PlanContext, PlanSlot, PlanTask, TaskRef
-from app.modules.planner.engine import (
+from app.modules.planner.contracts import (
+    Interval,
+    PlanContext,
+    PlanMetrics,
+    PlanSlot,
+    PlanTask,
+    TaskRef,
+)
+from app.modules.planner.time_grid import (
     PlannerTimeError,
     TimeGrid,
     candidate_intervals,
@@ -380,4 +387,30 @@ def feasible_intervals(
         interval
         for interval in candidate_intervals(prepared.grid, task.duration_min)
         if check_placement(prepared, task, interval, placed_slots=placed_slots).allowed
+    )
+
+
+def summarize_day(
+    prepared: PreparedDay,
+    *,
+    placed_slots: tuple[PlanSlot, ...] = (),
+    required_breaks: tuple[PlanSlot, ...] | None = None,
+    critical_level: int = 0,
+) -> PlanMetrics:
+    """Validate the final slot snapshot and measure its actual duration budgets."""
+    if type(critical_level) is not int or not 0 <= critical_level <= 3:
+        raise ValueError("critical_level must be an integer from 0 to 3")
+    breaks = prepared.required_breaks if required_breaks is None else required_breaks
+    slots = (*prepared.reserved_slots, *placed_slots, *breaks)
+    _validate_slots(prepared.context, prepared.grid, slots)
+    planned, intense = _totals(prepared.context, slots)
+    return PlanMetrics(
+        requested_min=sum(
+            task.duration_min for task in prepared.context.tasks if task.status != "skipped"
+        ),
+        planned_min=planned,
+        capacity_min=_capacity(prepared.grid.work_window, slots, prepared.load_factor),
+        high_intensity_min=intense,
+        critical_level=critical_level,
+        load_factor=prepared.load_factor,
     )
