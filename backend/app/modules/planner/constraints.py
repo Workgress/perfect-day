@@ -1,5 +1,3 @@
-"""Hard placement constraints. No task selection, storage or public CRUD errors."""
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -113,8 +111,20 @@ def _uncovered(interval: Interval, covered: tuple[PlanSlot, ...]) -> tuple[Inter
 
 def _capacity(work: Interval, slots: tuple[PlanSlot, ...], factor: float) -> int:
     # Subtract the union, including partially overlapping system slots, exactly once.
-    systems = tuple(slot for slot in slots if slot.kind != "task")
-    usable_us = sum((item.end - item.start) // MICROSECOND for item in _uncovered(work, systems))
+    cursor = work.start
+    usable_us = 0
+    systems = sorted(
+        (slot for slot in slots if slot.kind != "task"), key=lambda slot: slot.interval.start
+    )
+    for slot in systems:
+        start, end = max(work.start, slot.interval.start), min(work.end, slot.interval.end)
+        if start >= end or end <= cursor:
+            continue
+        if cursor < start:
+            usable_us += (start - cursor) // MICROSECOND
+        cursor = end
+    if cursor < work.end:
+        usable_us += (work.end - cursor) // MICROSECOND
     return int(Decimal(usable_us) * Decimal(str(factor)) / Decimal(60_000_000))
 
 
@@ -229,9 +239,13 @@ def required_break_minutes(left: PlanTask, right: PlanTask, continuous_min: int)
 
 
 def _breaks(
-    context: PlanContext, slots: tuple[PlanSlot, ...], work_window: Interval
+    context: PlanContext,
+    slots: tuple[PlanSlot, ...],
+    work_window: Interval,
+    tasks: dict[TaskRef, PlanTask] | None = None,
 ) -> tuple[PlanSlot, ...]:
-    tasks = {task.ref: task for task in context.tasks}
+    if tasks is None:
+        tasks = {task.ref: task for task in context.tasks}
     work = sorted(
         (slot for slot in slots if slot.task is not None and tasks[slot.task].status != "skipped"),
         key=lambda slot: slot.interval.start,
@@ -362,24 +376,32 @@ def placement_checker(
     occupied = prepared.reserved_slots + placed_slots
     _validate_slots(prepared.context, prepared.grid, occupied)
     tasks = {task.ref: task for task in prepared.context.tasks}
+    reserved = {slot.task for slot in occupied if slot.task is not None}
+    totals = _totals(prepared.context, occupied)
 
     def check(task: PlanTask, interval: Interval) -> PlacementCheck:
         if tasks.get(task.ref) != task:
             raise ConstraintError(
                 "TASK_CONTEXT_MISMATCH", "Задача не принадлежит контексту", task.ref
             )
-        return _check_candidate(prepared, task, interval, occupied)
+        return _check_candidate(prepared, task, interval, occupied, tasks, reserved, totals)
 
     return check
 
 
 def _check_candidate(
-    prepared: PreparedDay, task: PlanTask, interval: Interval, occupied: tuple[PlanSlot, ...]
+    prepared: PreparedDay,
+    task: PlanTask,
+    interval: Interval,
+    occupied: tuple[PlanSlot, ...],
+    tasks: dict[TaskRef, PlanTask],
+    reserved: set[TaskRef],
+    totals: tuple[int, int],
 ) -> PlacementCheck:
     context = prepared.context
     reasons = []
     inactive = task.status in {"done", "skipped"}
-    already_reserved = any(slot.task == task.ref for slot in occupied)
+    already_reserved = task.ref in reserved
     if inactive:
         reasons.append("TASK_INACTIVE")
     if already_reserved:
@@ -403,11 +425,12 @@ def _check_candidate(
         return PlacementCheck(tuple(reasons))
     prospective = (*occupied, PlanSlot("task", interval, task=task.ref))
     try:
-        breaks = _breaks(context, prospective, prepared.grid.work_window)
+        breaks = _breaks(context, prospective, prepared.grid.work_window, tasks)
     except ConstraintError as exc:
         return PlacementCheck((exc.code,))
     capacity = _capacity(prepared.grid.work_window, prospective + breaks, prepared.load_factor)
-    total, intense = _totals(context, prospective)
+    total = totals[0] + task.duration_min
+    intense = totals[1] + (task.duration_min if task.kind in HIGH_INTENSITY_KINDS else 0)
     if total > capacity:
         reasons.append("DAY_CAPACITY_EXCEEDED")
     if task.kind in HIGH_INTENSITY_KINDS and intense > prepared.high_intensity_cap_min:

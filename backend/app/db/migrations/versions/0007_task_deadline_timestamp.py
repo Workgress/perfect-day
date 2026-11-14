@@ -1,11 +1,3 @@
-"""Task deadlines after the planner revision, including either historical 0006 schema.
-
-0006 remains the original, unchanged planner revision. The task branch also shipped a
-revision named 0006: its stamp alone cannot identify which DDL was applied. Inspect the
-schema to fill missing planner DDL and convert DATE only once. Never restamp a live DB or
-repeat the end-of-day conversion on an already precise timestamp.
-"""
-
 from collections.abc import Sequence
 from importlib import import_module
 
