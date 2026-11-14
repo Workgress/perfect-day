@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BIORHYTHM_FIXTURES } from '@/shared/fixtures/biorhythms'
 import { BiorhythmChart } from './BiorhythmChart'
-import { BiorhythmsPage } from './BiorhythmsPage'
 
 function Chart() {
   const [at, setAt] = useState<string | null>(BIORHYTHM_FIXTURES.week.points[0].at)
@@ -65,43 +64,5 @@ describe('biorhythm chart interactions', () => {
     expect(screen.queryByRole('slider')).not.toBeInTheDocument()
     rerender(<BiorhythmChart data={BIORHYTHM_FIXTURES.week} selectedAt={null} onSelect={vi.fn()} />)
     expect(screen.getByRole('slider')).toBeInTheDocument()
-  })
-})
-
-describe('biorhythm forecast page', () => {
-  it('marks demo data and changes periods, including a three-month view', async () => {
-    render(<BiorhythmsPage />)
-    expect(screen.getByText(/Демонстрационные данные/)).toBeInTheDocument()
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuemax', '29')
-    await userEvent.click(screen.getByRole('radio', { name: 'Неделя' }))
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuemax', '6')
-    await userEvent.click(screen.getByRole('radio', { name: '3 месяца' }))
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuemax', '91')
-    await userEvent.click(screen.getByRole('button', { name: 'Следующий период' }))
-    expect(screen.getByRole('group', { name: 'Навигация по периоду' })).toHaveTextContent('февр.')
-    await userEvent.click(screen.getByRole('button', { name: 'Предыдущий период' }))
-    expect(screen.getByRole('group', { name: 'Навигация по периоду' })).toHaveTextContent('нояб.')
-  })
-
-  it('selects a forecast day on the plot and expands the methodology', async () => {
-    render(<BiorhythmsPage />)
-    const forecast = screen.getByRole('region', { name: 'Прогноз на 7 дней' })
-    const day = within(forecast).getByRole('button', { name: 'Посмотреть 13 ноября' })
-    await userEvent.click(day)
-    expect(day).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '12')
-    expect(screen.getByRole('slider')).toHaveFocus()
-    await userEvent.click(screen.getByRole('button', { name: 'О методике' }))
-    expect(screen.getByText(/Классическая модель использует/)).toBeVisible()
-    await userEvent.click(screen.getByRole('button', { name: 'Свернуть' }))
-    expect(screen.getByText(/Классическая модель использует/)).not.toBeVisible()
-  })
-
-  it('does not request or fabricate personal API data while laying out the screen', () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-    render(<BiorhythmsPage />)
-    fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' })
-    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

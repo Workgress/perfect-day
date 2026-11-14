@@ -304,7 +304,7 @@ export function BiorhythmChart({ data, selectedAt, onSelect, referenceDate }: Bi
                   >
                     <rect className={styles.referenceBadge} width={128} height={24} rx={6} />
                     <text className={styles.referenceLabel} x={64} y={16} textAnchor="middle">
-                      Демо · {formatDate(reference.date, { day: 'numeric', month: 'short' })}
+                      Сегодня, {formatDate(reference.date, { day: 'numeric', month: 'short' })}
                     </text>
                   </g>
                 )}
