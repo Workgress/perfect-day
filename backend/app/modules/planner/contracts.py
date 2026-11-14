@@ -17,6 +17,7 @@ type Chronotype = Literal["lark", "dove", "owl"]
 type SlotKind = Literal["task", "break", "lunch", "rest"]
 type PlanMode = Literal["preview", "initial", "replan"]
 type Preservation = Literal["pinned", "done", "started", "past", "system"]
+type PlacementChangeKind = Literal["added", "moved", "removed", "updated"]
 
 
 def _day(value: date, field: str) -> None:
@@ -199,6 +200,9 @@ class PlanContext:
     mode: PlanMode
     fixed_slots: tuple[PlanSlot, ...] = ()
     future_days: tuple[FutureDay, ...] = ()
+    # False when the remaining-day adapter supplies authoritative lunch/history slots.
+    # Future-day probes construct their own context and keep the default profile lunch.
+    include_profile_lunch: bool = True
 
     def __post_init__(self) -> None:
         _day(self.day, "day")
@@ -208,6 +212,8 @@ class PlanContext:
         object.__setattr__(self, "future_days", tuple(self.future_days))
         if self.mode not in get_args(PlanMode.__value__):
             raise ValueError("Unknown planning mode")
+        if type(self.include_profile_lunch) is not bool:
+            raise ValueError("include_profile_lunch must be a boolean")
         refs = {task.ref for task in self.tasks}
         if len(refs) != len(self.tasks):
             raise ValueError("Each task reference must be unique")
@@ -280,6 +286,8 @@ class PlanWarning:
 
 @dataclass(frozen=True, slots=True)
 class PlanMetrics:
+    """Whole-day budgets; skipped history remains visible but consumes no work budget."""
+
     requested_min: int
     planned_min: int
     capacity_min: int
@@ -302,6 +310,43 @@ class PlanResult:
     warnings: tuple[PlanWarning, ...] = ()
     # Only accepted automatic moves have target plans. Advisory probes are never persisted.
     future_plans: tuple["PlanResult", ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementChange:
+    """Internal task-placement diff, not a public CRUD response contract."""
+
+    task: TaskRef
+    kind: PlacementChangeKind
+    before: PlanSlot | None
+    after: PlanSlot | None
+    reason_codes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.task.task_id is None:
+            raise ValueError("Placement changes require a persisted task ID")
+        if self.before is None and self.after is None:
+            raise ValueError("A placement change needs a before or after slot")
+        if any(slot.task != self.task for slot in (self.before, self.after) if slot is not None):
+            raise ValueError("Changed slots must reference the changed task")
+        expected = (
+            "added"
+            if self.before is None
+            else "removed"
+            if self.after is None
+            else "moved"
+            if self.before.interval != self.after.interval
+            else "updated"
+        )
+        if self.kind != expected or self.before == self.after:
+            raise ValueError("Placement change kind must describe an actual change")
+        object.__setattr__(self, "reason_codes", tuple(self.reason_codes))
+
+
+@dataclass(frozen=True, slots=True)
+class ReplanResult:
+    plan: PlanResult
+    changes: tuple[PlacementChange, ...]
 
 
 class ScheduleBuilder(Protocol):

@@ -63,9 +63,10 @@ def day_recommendations(
     tasks = {task.ref: task for task in context.tasks}
     consecutive = 0
     for slot in result.slots:
-        if slot.task is None:
+        if slot.task is None or tasks[slot.task].status == "skipped":
             continue
-        consecutive = consecutive + 1 if tasks[slot.task].kind == "intellectual" else 0
+        task = tasks[slot.task]
+        consecutive = consecutive + 1 if task.kind == "intellectual" else 0
         if consecutive == 4:
             warnings.append(
                 PlanWarning(

@@ -69,7 +69,9 @@ def sort_tasks(tasks: tuple[PlanTask, ...]) -> tuple[PlanTask, ...]:
 def _repetition_penalty(
     task: PlanTask, interval: Interval, slots: tuple[PlanSlot, ...], tasks: dict[TaskRef, PlanTask]
 ) -> float:
-    work = [slot for slot in slots if slot.task is not None]
+    work = [
+        slot for slot in slots if slot.task is not None and tasks[slot.task].status != "skipped"
+    ]
     left = max(
         (slot for slot in work if slot.interval.end <= interval.start),
         key=lambda slot: slot.interval.end,

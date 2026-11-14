@@ -123,6 +123,8 @@ def _totals(context: PlanContext, slots: tuple[PlanSlot, ...]) -> tuple[int, int
     for slot in slots:
         if slot.task is not None:
             task = tasks[slot.task]
+            if task.status == "skipped":
+                continue
             total += task.duration_min
             if task.kind in HIGH_INTENSITY_KINDS:
                 intense += task.duration_min
@@ -143,14 +145,16 @@ def _validate_slots(context: PlanContext, grid: TimeGrid, slots: tuple[PlanSlot,
         if slot.task not in tasks:
             raise ConstraintError("TASK_CONTEXT_MISMATCH", "Неизвестная задача", slot.task)
         task = tasks[slot.task]
+        historical = slot.preservation in {"done", "started", "past"} or (
+            slot.preservation == "pinned" and slot.interval.start <= context.now
+        )
         if slot.preservation == "system":
             raise ConstraintError(
                 "FIXED_TASK_MISMATCH", "Задача не является системным интервалом", slot.task
             )
         if (
-            task.status == "skipped"
-            or slot.interval.end - slot.interval.start != task.duration_min * MINUTE
-        ):
+            task.status == "skipped" and not historical
+        ) or slot.interval.end - slot.interval.start != task.duration_min * MINUTE:
             raise ConstraintError("FIXED_TASK_MISMATCH", "Слот не соответствует задаче", slot.task)
         if slot.is_pinned != task.is_pinned or (
             task.is_pinned and slot.interval.start != task.pinned_start
@@ -158,9 +162,6 @@ def _validate_slots(context: PlanContext, grid: TimeGrid, slots: tuple[PlanSlot,
             raise ConstraintError(
                 "FIXED_TASK_MISMATCH", "Закреплённое начало не совпадает", slot.task
             )
-        historical = slot.preservation in {"done", "started", "past"} or (
-            slot.preservation == "pinned" and slot.interval.start <= context.now
-        )
         if slot.preservation is None and slot.interval.start < context.now:
             raise ConstraintError("PAST_START", "Новое размещение находится в прошлом", slot.task)
         if slot.preservation == "pinned" and not task.is_pinned:
@@ -193,7 +194,8 @@ def _validate_slots(context: PlanContext, grid: TimeGrid, slots: tuple[PlanSlot,
             )
 
 
-def _lunch(context: PlanContext, grid: TimeGrid) -> PlanSlot | None:
+def profile_lunch(context: PlanContext, grid: TimeGrid) -> PlanSlot | None:
+    """Profile lunch clipped to work; the remaining-day adapter decides what is historical."""
     profile = context.profile
     if profile.lunch_duration_min == 0:
         return None
@@ -230,7 +232,8 @@ def _breaks(
 ) -> tuple[PlanSlot, ...]:
     tasks = {task.ref: task for task in context.tasks}
     work = sorted(
-        (slot for slot in slots if slot.task is not None), key=lambda slot: slot.interval.start
+        (slot for slot in slots if slot.task is not None and tasks[slot.task].status != "skipped"),
+        key=lambda slot: slot.interval.start,
     )
     if not work:
         return ()
@@ -305,7 +308,7 @@ def prepare_day(
                     preservation="pinned",
                 )
             )
-    lunch = _lunch(context, grid)
+    lunch = profile_lunch(context, grid) if context.include_profile_lunch else None
     if lunch is not None and not any(
         slot.kind == "lunch" and slot.interval == lunch.interval for slot in slots
     ):

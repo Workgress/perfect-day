@@ -222,7 +222,6 @@ def test_started_task_is_preserved_and_blocks_candidates_until_its_end() -> None
         ("pending", "started", interval(10, 11), at(9)),
         ("pending", "past", interval(10, 11), at(10)),
         ("pending", "pinned", interval(8, 9), at(0)),
-        ("skipped", "past", interval(8, 9), at(10)),
     ],
 )
 def test_inconsistent_saved_state_is_reported(
