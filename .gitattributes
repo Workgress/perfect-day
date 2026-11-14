@@ -1,0 +1,2 @@
+# Keep canonical generated fixtures identical on Windows and Linux.
+/contracts/fixtures/biorhythm*.json text eol=lf

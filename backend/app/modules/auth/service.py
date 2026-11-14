@@ -86,7 +86,7 @@ class AuthService:
         async with self.session.begin():
             user = await self.repository.create_user(email, password_hash)
             if user is None:
-                return
+                raise AppError(409, "EMAIL_ALREADY_EXISTS", "Аккаунт с этой почтой уже существует")
             lease = await self.limiter.start_verification_cooldown(email, initial=True)
             now = datetime.now(UTC)
             expires_at = now + timedelta(hours=self.settings.email_verification_ttl_hours)

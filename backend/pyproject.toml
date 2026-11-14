@@ -9,6 +9,7 @@ dependencies = [
     "gunicorn>=23.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
+    "tzdata>=2024.2",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",
     "alembic>=1.14",
@@ -16,6 +17,7 @@ dependencies = [
     "fastapi-cache2>=0.2.2",
     "jinja2>=3.1",
     "celery[redis]>=5.4",
+    "numpy>=2.0,<3",
     "pyjwt>=2.10,<3",
     "pwdlib[argon2]>=0.3,<1",
     "fastapi-mail>=1.5,<2",
@@ -32,6 +34,8 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "pre-commit>=4.0",
+    "hypothesis>=6.0",
+    "pytest-cov>=6.0",
 ]
 
 [tool.uv]
@@ -67,5 +71,5 @@ disallow_untyped_decorators = false
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-markers = ["docker: tests that start PostgreSQL or Redis in Docker via testcontainers"]
+markers = ["docker: tests that start PostgreSQL or Redis in Docker via testcontainers", "performance: uninstrumented timing checks"]
 testpaths = ["tests"]

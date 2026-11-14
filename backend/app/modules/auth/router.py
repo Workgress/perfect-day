@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
 from app.core.csrf import require_trusted_origin
-from app.core.errors import AppError
+from app.core.errors import AppError, ErrorResponse
 from app.core.security import AuthContext, get_auth_context
 from app.modules.auth.cookies import REFRESH_COOKIE_NAME, clear_refresh_cookie, set_refresh_cookie
 from app.modules.auth.dependencies import (
@@ -48,11 +48,15 @@ NEUTRAL_MESSAGE = "Если действие доступно для указа�
     "/register",
     status_code=202,
     response_model=MessageResponse,
+    responses={
+        409: {"model": ErrorResponse, "description": "Аккаунт с этой почтой уже существует"}
+    },
     dependencies=[Depends(require_trusted_origin), Depends(limit_registration)],
     summary="Регистрация с подтверждением email",
     description=(
         "Создаёт учётную запись и ставит письмо в очередь. "
-        "Ответ не раскрывает наличие адреса. Требуется доверенный Origin или Referer."
+        "Занятый email возвращает 409 EMAIL_ALREADY_EXISTS. "
+        "Требуется доверенный Origin или Referer."
     ),
 )
 async def register(

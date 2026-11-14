@@ -64,7 +64,7 @@ class Task(UUIDPkMixin, TimestampMixin, Base):
     duration_min: Mapped[int]
     planned_date: Mapped[date]
     preferred_start: Mapped[time | None]
-    deadline: Mapped[date | None]
+    deadline: Mapped[datetime | None]
     is_pinned: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     pinned_start: Mapped[datetime | None]
     status: Mapped[TaskStatus] = mapped_column(
