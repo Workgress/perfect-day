@@ -257,7 +257,16 @@ def _breaks(
             end = min(left_slot.interval.end + required * MINUTE, work_window.end)
             if start < end:
                 for interval in _uncovered(Interval(start, end), systems):
-                    result.append(PlanSlot("break", interval, preservation="system"))
+                    reason = (
+                        "BETWEEN_INTELLECTUAL_TASKS"
+                        if left.kind == right.kind == "intellectual"
+                        else "BREAK_AFTER_LONG_WORK"
+                        if continuous > CONTINUOUS_SHORT_LIMIT_MINUTES
+                        else "BETWEEN_INTENSIVE_TASKS"
+                    )
+                    result.append(
+                        PlanSlot("break", interval, preservation="system", reason_codes=(reason,))
+                    )
         continuous = (
             right.duration_min
             if gap >= SHORT_BREAK_MINUTES * MINUTE

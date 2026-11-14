@@ -164,6 +164,33 @@ class PlanSlot:
 
 
 @dataclass(frozen=True, slots=True)
+class FutureDay:
+    """Explicit occupancy snapshot; an omitted day is unknown, never presumed empty."""
+
+    day: date
+    tasks: tuple[PlanTask, ...] = ()
+    fixed_slots: tuple[PlanSlot, ...] = ()
+
+    def __post_init__(self) -> None:
+        _day(self.day, "day")
+        object.__setattr__(self, "tasks", tuple(self.tasks))
+        object.__setattr__(self, "fixed_slots", tuple(self.fixed_slots))
+        refs = {task.ref for task in self.tasks}
+        if len(refs) != len(self.tasks):
+            raise ValueError("Future task references must be unique")
+        if any(task.planned_date != self.day or task.ref.task_id is None for task in self.tasks):
+            raise ValueError("Future tasks need persisted IDs and must belong to their day")
+        fixed_refs = [slot.task for slot in self.fixed_slots if slot.task is not None]
+        if len(set(fixed_refs)) != len(fixed_refs) or any(
+            slot.preservation is None or (slot.task is not None and slot.task not in refs)
+            for slot in self.fixed_slots
+        ):
+            raise ValueError(
+                "Future reservations must be preserved and reference unique known tasks"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class PlanContext:
     profile: PlanProfile
     day: date
@@ -171,12 +198,14 @@ class PlanContext:
     tasks: tuple[PlanTask, ...]
     mode: PlanMode
     fixed_slots: tuple[PlanSlot, ...] = ()
+    future_days: tuple[FutureDay, ...] = ()
 
     def __post_init__(self) -> None:
         _day(self.day, "day")
         object.__setattr__(self, "now", to_utc(self.now))
         object.__setattr__(self, "tasks", tuple(self.tasks))
         object.__setattr__(self, "fixed_slots", tuple(self.fixed_slots))
+        object.__setattr__(self, "future_days", tuple(self.future_days))
         if self.mode not in get_args(PlanMode.__value__):
             raise ValueError("Unknown planning mode")
         refs = {task.ref for task in self.tasks}
@@ -201,6 +230,15 @@ class PlanContext:
                 raise ValueError("Every fixed slot needs a preservation reason")
             if slot.task is not None and slot.task not in refs:
                 raise ValueError("A fixed task slot must reference an input task")
+        days = set()
+        for future in self.future_days:
+            if not 1 <= (future.day - self.day).days <= 7 or future.day in days:
+                raise ValueError("Future days must be unique and within the next seven days")
+            days.add(future.day)
+            for task in future.tasks:
+                if task.ref in refs:
+                    raise ValueError("A task must not occur on multiple days")
+                refs.add(task.ref)
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,6 +274,8 @@ class PlanWarning:
     code: str
     task: TaskRef | None = None
     target_date: date | None = None
+    message: str = ""
+    level: Literal["info", "warning", "critical"] = "info"
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +286,7 @@ class PlanMetrics:
     high_intensity_min: int
     critical_level: int
     load_factor: float
+    moved_min: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +300,8 @@ class PlanResult:
     moves: tuple[TaskMove, ...] = ()
     status_changes: tuple[TaskStatusChange, ...] = ()
     warnings: tuple[PlanWarning, ...] = ()
+    # Only accepted automatic moves have target plans. Advisory probes are never persisted.
+    future_plans: tuple["PlanResult", ...] = ()
 
 
 class ScheduleBuilder(Protocol):

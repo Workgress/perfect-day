@@ -40,7 +40,13 @@ def context(
     *tasks: PlanTask, fixed: tuple[PlanSlot, ...] = (), mode: PlanMode = "replan"
 ) -> PlanContext:
     profile = PlanProfile(
-        datetime(2000, 1, 1, 12, tzinfo=UTC), "UTC", "dove", time(8), time(18), time(23)
+        # Neutral, positive cycles isolate placement from the stage-6 critical-day policy.
+        datetime(2026, 11, 12, 12, tzinfo=UTC),
+        "UTC",
+        "dove",
+        time(8),
+        time(18),
+        time(23),
     )
     return PlanContext(profile, DAY, BEFORE_DAY, tasks, mode, fixed)
 
@@ -249,7 +255,10 @@ def test_done_only_retains_derived_breaks_without_any_new_placement() -> None:
     second = task(1, 60, "intellectual", is_pinned=True, pinned_start=at(9, 30))
     ctx = context(first, second)
     result = build_schedule(ctx)
-    assert result.slots == prepare_day(ctx).slots
+    assert [(slot.kind, slot.interval, slot.task) for slot in result.slots] == [
+        (slot.kind, slot.interval, slot.task) for slot in prepare_day(ctx).slots
+    ]
+    assert all(slot.explanation for slot in result.slots)
     assert any(slot.kind == "break" for slot in result.slots)
     assert result.metrics.capacity_min == 510
 
