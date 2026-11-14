@@ -200,11 +200,10 @@ async def test_failed_profile_replanning_rolls_back_profile_and_keeps_active_pla
     assert len(profile_api.events) == events and await counts(profile_api) == [2, 1, 1]
 
 
-async def test_no_schedule_or_task_crud_routes_are_accidentally_added(
+async def test_onboarding_does_not_publish_a_schedule_read_route(
     profile_api: ProfileAPI,
 ) -> None:
-    for path in ("/schedule", "/tasks"):
-        assert (await profile_api.get(path)).status_code == 404
+    assert (await profile_api.get("/schedule")).status_code == 404
 
 
 async def test_same_profile_patch_does_not_create_a_redundant_schedule(

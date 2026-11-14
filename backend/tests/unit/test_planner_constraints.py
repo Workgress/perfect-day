@@ -9,6 +9,7 @@ from hypothesis import strategies as st
 
 from app.modules.planner.constraints import (
     ConstraintError,
+    _capacity,
     check_placement,
     feasible_intervals,
     overlaps,
@@ -540,6 +541,23 @@ def test_capacity_rounds_only_after_subtracting_fractional_minutes_and_scaling()
     rest = PlanSlot("rest", Interval(at(8), at(8) + timedelta(seconds=6)), preservation="system")
     day = prepare_day(replace(ctx, fixed_slots=(rest,)), load_factor=0.8)
     assert day.capacity_min == 1  # (120 - 6) seconds / 60 * .8 = 1.52 minutes.
+
+
+@pytest.mark.parametrize(("factor", "expected"), [(1.0, 120), (0.65, 78), (0.585, 70)])
+def test_capacity_union_clips_edges_and_counts_nested_rest_only_once(
+    factor: float, expected: int
+) -> None:
+    systems = (
+        PlanSlot("lunch", interval(9, 10)),
+        PlanSlot("rest", Interval(at(9, 30), at(10, 30))),
+        PlanSlot("rest", Interval(at(9, 45), at(10))),
+        PlanSlot("rest", Interval(at(7, 30), at(8, 15))),
+        PlanSlot("rest", Interval(at(11, 45), at(12, 30))),
+        PlanSlot("rest", interval(6, 7)),
+        PlanSlot("rest", interval(13, 14)),
+    )
+    assert _capacity(interval(8, 12), systems, factor) == expected
+    assert _capacity(interval(8, 12), systems[::-1], factor) == expected
 
 
 def test_historical_deadline_is_not_reinterpreted_to_reject_completed_work() -> None:
