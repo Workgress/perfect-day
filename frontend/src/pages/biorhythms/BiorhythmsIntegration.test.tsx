@@ -158,6 +158,61 @@ describe('personal biorhythm integration', () => {
     expect(await screen.findByRole('slider')).toBeInTheDocument()
   })
 
+  it.each(['offline', 'invalid'] as const)(
+    'hides chart values after an %s response and restores them on retry',
+    async (failure) => {
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => serve(input))
+      vi.stubGlobal('fetch', fetchMock)
+      mount()
+      await screen.findByRole('slider')
+      fetchMock.mockImplementation(async () => {
+        if (failure === 'offline') throw new TypeError('Failed to fetch')
+        return Response.json({ points: [] })
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Следующий период' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        failure === 'offline' ? 'Нет связи с сервером' : 'некорректные данные',
+      )
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Прогноз на 7 дней' })).not.toBeInTheDocument()
+      fetchMock.mockImplementation(async (input: RequestInfo | URL) => serve(input))
+      await userEvent.click(screen.getByRole('button', { name: 'Повторить запрос' }))
+      expect(await screen.findByRole('slider')).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Прогноз на 7 дней' })).toBeInTheDocument()
+    },
+  )
+
+  it('refreshes the forecast and age in days at profile midnight across a month boundary', async () => {
+    vi.setSystemTime(new Date('2026-11-30T18:59:00Z'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (!new URL(String(input)).pathname.endsWith('/forecast')) return serve(input)
+        return new Date().getTime() < Date.parse('2026-11-30T19:00:00Z')
+          ? response('2026-11-30', '2026-12-06', 'week')
+          : response('2026-12-01', '2026-12-07', 'week')
+      }),
+    )
+    mount()
+    expect(await screen.findByRole('slider')).toHaveAttribute('aria-valuenow', '29')
+    const context = screen.getByText(/дата рождения/)
+    const age = (date: string) =>
+      new Intl.NumberFormat('ru-RU')
+        .format((Date.parse(date) - Date.parse('2000-01-01')) / 86_400_000)
+        .replace(/\s/g, ' ')
+    expect(context).toHaveTextContent(`день ${age('2026-11-30')}`)
+    act(() => {
+      vi.setSystemTime(new Date('2026-11-30T19:01:00Z'))
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument())
+    const forecast = screen.getByRole('region', { name: 'Прогноз на 7 дней' })
+    expect(
+      within(forecast).getByRole('button', { name: 'Посмотреть 1 декабря' }),
+    ).toHaveTextContent('сегодня')
+    expect(context).toHaveTextContent(`день ${age('2026-12-01')}`)
+  })
+
   it('hides previous values while the next period loads and aborts obsolete requests', async () => {
     let pendingSignal: AbortSignal | null | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
