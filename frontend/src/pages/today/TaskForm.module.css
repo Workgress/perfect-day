@@ -1,0 +1,403 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 28px var(--space-24);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.description textarea {
+  min-height: 44px;
+  padding-block: 10px;
+}
+.body > * {
+  flex-shrink: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.label {
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-8);
+  color: var(--text-secondary);
+  font: 500 13px / 18px var(--font-sans);
+}
+.label span {
+  margin-left: var(--space-4);
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.chips {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.chips .chip,
+.chips .typeChip {
+  min-height: 36px;
+  height: auto;
+  padding: 7px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font: 500 14px / 20px var(--font-sans);
+}
+.chips .chip[aria-checked='true'] {
+  border-color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.typeChip[data-type='intellectual'] {
+  --chip-color: var(--type-intellectual);
+  --chip-bg: var(--type-intellectual-soft);
+}
+.typeChip[data-type='creative'] {
+  --chip-color: var(--type-creative);
+  --chip-bg: var(--type-creative-soft);
+}
+.typeChip[data-type='physical'] {
+  --chip-color: var(--type-physical);
+  --chip-bg: var(--type-physical-soft);
+}
+.typeChip[data-type='routine'] {
+  --chip-color: var(--type-routine);
+  --chip-bg: var(--type-routine-soft);
+}
+.chips .typeChip {
+  gap: 6px;
+  background: linear-gradient(var(--chip-bg), var(--chip-bg)), var(--bg-base);
+}
+.chips .typeChip[aria-checked='true'] {
+  border-color: var(--chip-color);
+  box-shadow: inset 0 0 0 0.5px var(--chip-color);
+  color: var(--text-primary);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--chip-color);
+}
+.hint,
+.error {
+  font: 400 13px / 18px var(--font-sans);
+  overflow-wrap: anywhere;
+}
+.hint {
+  color: var(--text-tertiary);
+}
+.error {
+  color: var(--status-danger);
+}
+.dates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+.dateTime {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-8);
+}
+.dateTime label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.dateTime:has(.clearDate) {
+  padding-right: 38px;
+}
+.dateTime .clearDate {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  width: 32px;
+  padding: 0;
+}
+.pinning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding-block: var(--space-16);
+  border-block: 1px solid var(--border-subtle);
+}
+.pinRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.pinRow > svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.pinRow > div {
+  flex: 1;
+  min-width: 0;
+}
+.pinRow .hint {
+  margin-top: var(--space-2);
+}
+.additional {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+.disclosure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 32px;
+  width: 100%;
+  color: var(--text-secondary);
+  text-align: left;
+  font: 500 14px / 20px var(--font-sans);
+}
+.disclosure > svg {
+  flex-shrink: 0;
+}
+.disclosure[aria-expanded='true'] > svg {
+  transform: rotate(180deg);
+}
+.disclosureHint {
+  margin-left: var(--space-8);
+  color: var(--text-tertiary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.additionalFields:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+.repeatOptions {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+.repeatOptions > button {
+  min-height: 36px;
+  padding-inline: var(--space-12);
+}
+.customSchedule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  margin-top: var(--space-8);
+}
+.weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.weekday {
+  position: relative;
+  cursor: pointer;
+}
+.weekday input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.weekday span {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font: 500 13px / 18px var(--font-sans);
+}
+.weekday input:checked + span {
+  background: var(--bg-elevated);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+.weekday input:focus-visible + span {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.preferredFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+.suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.suggestion > svg {
+  flex-shrink: 0;
+  margin-top: var(--space-2);
+  color: var(--text-tertiary);
+}
+.suggestion > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.suggestionText {
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
+.hasSuggestion {
+  border-style: solid;
+  border-color: var(--border-subtle);
+  background: var(--bg-elevated);
+}
+.hasSuggestion > svg {
+  color: var(--accent-text);
+}
+.chooseTime {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  min-height: 32px;
+  margin-top: var(--space-4);
+  color: var(--accent-text);
+  text-align: left;
+  font: 500 13px / 18px var(--font-sans);
+}
+.actionHint {
+  width: 100%;
+  color: var(--text-secondary);
+  text-align: center;
+  font: 400 13px / 18px var(--font-sans);
+}
+.priorities {
+  display: flex;
+  width: 100%;
+}
+.priorities > button {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+}
+.preview {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+.preview > svg {
+  flex-shrink: 0;
+  color: var(--status-success);
+}
+.preview > div {
+  min-width: 0;
+}
+.previewTitle {
+  margin-block: var(--space-8) var(--space-4);
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-16) 28px 28px;
+  background: var(--bg-surface);
+}
+
+@media (max-width: 768px) {
+  .form {
+    flex: 1;
+  }
+  .body {
+    flex: 1;
+    padding: var(--space-24) var(--space-16);
+    scrollbar-gutter: auto;
+  }
+
+  .body input,
+  .body select,
+  .body textarea {
+    font-size: 16px;
+  }
+  .chips {
+    gap: var(--space-8);
+  }
+  .chips .chip,
+  .chips .typeChip {
+    min-height: 44px;
+    font: 500 14px / 20px var(--font-sans);
+  }
+  .label {
+    color: var(--text-primary);
+    font: 500 14px / 20px var(--font-sans);
+  }
+  .hint {
+    color: var(--text-secondary);
+  }
+  .disclosure {
+    min-height: 44px;
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    padding-block: var(--space-12);
+    border-block: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+  }
+  .disclosureHint {
+    display: block;
+    margin-left: 0;
+  }
+  .actions {
+    flex-wrap: wrap;
+    padding: var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border-subtle);
+  }
+  .actions .submit {
+    flex: 1;
+    min-height: 44px;
+  }
+  .cancel {
+    display: none;
+  }
+  .priorities > button {
+    min-height: 44px;
+    padding-inline: var(--space-8);
+  }
+  .pinning {
+    border: 0;
+    padding: 0;
+  }
+  .weekday span {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .chooseTime {
+    min-height: 44px;
+  }
+}
