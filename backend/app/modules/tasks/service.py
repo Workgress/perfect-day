@@ -101,7 +101,6 @@ class TaskService:
             now = to_utc(self.clock.now())
             task = Task(user_id=user_id, **body.model_dump(), created_at=now, updated_at=now)
             await self.repository.save(task)
-            result = TaskResponse.model_validate(task)
             event = TaskChanged(
                 user_id,
                 task.id,
@@ -113,7 +112,7 @@ class TaskService:
                 now,
             )
         await self.on_changed(event)
-        return result
+        return await self.get(user_id, event.task_id)
 
     async def patch(self, user_id: UUID, task_id: UUID, body: TaskPatch) -> TaskResponse:
         return await self._change(
@@ -194,7 +193,7 @@ class TaskService:
                 now,
             )
         await self.on_changed(event)
-        return result
+        return result if operation == "deleted" else await self.get(user_id, task_id)
 
     @staticmethod
     def _status_values(task: Task, operation: TaskOperation, now: datetime) -> dict[str, Any]:

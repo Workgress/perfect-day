@@ -41,6 +41,8 @@ from app.modules.schedule.adapters import (
 from app.modules.schedule.models import OnboardingCompletion, Schedule, ScheduleTrigger
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview, PreviewSlot
+from app.modules.schedule.task_policy import task_replan_scope
+from app.modules.tasks.events import TaskChanged
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.users.events import ProfileChanged
 from app.modules.users.models import UserProfile
@@ -356,6 +358,17 @@ class ScheduleService:
                 by_id[task_id].version += 1
             await self.session.flush()
             return ReplanResult(plan, tuple(changes))
+
+    async def task_changed(self, event: TaskChanged) -> None:
+        scope = task_replan_scope(event)
+        if scope is None:
+            return
+        async with self.session.begin(), self.mutation(event.user_id):
+            state = await self.profiles.get_profile(event.user_id)
+            if state is None or state.onboarding_completed_at is None:
+                return
+            for day in scope.days:
+                await self.replan(event.user_id, day, scope.trigger)
 
     async def profile_changed(self, event: ProfileChanged) -> None:
         state = await self.profiles.get_profile(event.user_id)

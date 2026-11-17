@@ -27,6 +27,7 @@ class TaskReplanScope:
 
 
 def task_replan_scope(event: TaskChanged) -> TaskReplanScope | None:
+    dates: tuple[date | None, ...]
     if event.operation == "created":
         dates = (event.new_planned_date,)
         trigger = ScheduleTrigger.TASK_CREATED
