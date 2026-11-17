@@ -28,6 +28,7 @@ EXPECTED_TABLES = {
     "refresh_tokens",
     "email_tokens",
     "onboarding_completions",
+    "task_replan_receipts",
 }
 
 
@@ -213,7 +214,7 @@ async def test_upgrade_from_either_historical_0006_preserves_existing_data(
         await asyncio.to_thread(command.upgrade, alembic_config, "head")
         async with engine.connect() as connection:
             assert (
-                await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+                await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
             )
             assert await connection.run_sync(_diff) == []
             assert (

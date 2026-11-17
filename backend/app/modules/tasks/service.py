@@ -8,7 +8,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.errors import AppError
 from app.core.time import Clock, parse_timezone, to_utc
-from app.modules.tasks.events import TaskChanged, TaskChangedHandler, TaskOperation, task_changed
+from app.modules.tasks.events import (
+    TaskChangeCoordinator,
+    TaskChanged,
+    TaskChangedHandler,
+    TaskOperation,
+    task_changed,
+)
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.tasks.repository import TaskRepository
 from app.modules.tasks.schemas import TaskCreate, TaskList, TaskListQuery, TaskPatch, TaskResponse
@@ -61,10 +67,13 @@ class TaskService:
         session: AsyncSession,
         clock: Clock,
         on_changed: TaskChangedHandler = task_changed,
+        *,
+        coordinator: TaskChangeCoordinator | None = None,
     ) -> None:
         self.session = session
         self.clock = clock
         self.on_changed = on_changed
+        self.coordinator = coordinator
         self.repository = TaskRepository(session)
         self.profiles = ProfileRepository(session)
 
@@ -96,6 +105,8 @@ class TaskService:
 
     async def create(self, user_id: UUID, body: TaskCreate) -> TaskResponse:
         async with self.session.begin():
+            if self.coordinator is not None:
+                await self.coordinator.lock_user(user_id)
             tz = await self._timezone(user_id)
             _validate_deadline(body.planned_date, body.deadline, tz)
             now = to_utc(self.clock.now())
@@ -111,8 +122,12 @@ class TaskService:
                 task.version,
                 now,
             )
+            if self.coordinator is not None:
+                await self.coordinator.task_changed(event)
+                await self.session.refresh(task)
+            result = TaskResponse.model_validate(task)
         await self.on_changed(event)
-        return await self.get(user_id, event.task_id)
+        return result
 
     async def patch(self, user_id: UUID, task_id: UUID, body: TaskPatch) -> TaskResponse:
         return await self._change(
@@ -144,6 +159,8 @@ class TaskService:
         values: dict[str, Any] | None = None,
     ) -> TaskResponse:
         async with self.session.begin():
+            if self.coordinator is not None:
+                await self.coordinator.lock_user(user_id)
             task = await self.repository.get(user_id, task_id, for_update=True)
             if task is None:
                 raise TaskNotFoundError()
@@ -181,7 +198,6 @@ class TaskService:
             task.updated_at = now
             flag_modified(task, "updated_at")
             await self.repository.save(task)
-            result = TaskResponse.model_validate(task)
             event = TaskChanged(
                 user_id,
                 task.id,
@@ -192,8 +208,12 @@ class TaskService:
                 task.version,
                 now,
             )
+            if self.coordinator is not None:
+                await self.coordinator.task_changed(event)
+                await self.session.refresh(task)
+            result = TaskResponse.model_validate(task)
         await self.on_changed(event)
-        return result if operation == "deleted" else await self.get(user_id, task_id)
+        return result
 
     @staticmethod
     def _status_values(task: Task, operation: TaskOperation, now: datetime) -> dict[str, Any]:

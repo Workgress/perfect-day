@@ -22,5 +22,11 @@ class TaskChangedHandler(Protocol):
     async def __call__(self, event: TaskChanged) -> None: ...
 
 
+class TaskChangeCoordinator(Protocol):
+    async def lock_user(self, user_id: UUID) -> None: ...
+
+    async def task_changed(self, event: TaskChanged) -> None: ...
+
+
 async def task_changed(event: TaskChanged) -> None:
     pass

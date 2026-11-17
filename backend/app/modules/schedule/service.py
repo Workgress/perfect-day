@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -38,7 +39,12 @@ from app.modules.schedule.adapters import (
     stored_summary,
     task_snapshot,
 )
-from app.modules.schedule.models import OnboardingCompletion, Schedule, ScheduleTrigger
+from app.modules.schedule.models import (
+    OnboardingCompletion,
+    Schedule,
+    ScheduleTrigger,
+    TaskReplanReceipt,
+)
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview, PreviewSlot
 from app.modules.schedule.task_policy import task_replan_scope
@@ -363,12 +369,28 @@ class ScheduleService:
         scope = task_replan_scope(event)
         if scope is None:
             return
-        async with self.session.begin(), self.mutation(event.user_id):
-            state = await self.profiles.get_profile(event.user_id)
-            if state is None or state.onboarding_completed_at is None:
+        transaction = (
+            self.session.begin_nested() if self.session.in_transaction() else self.session.begin()
+        )
+        async with transaction, self.mutation(event.user_id):
+            key = (event.user_id, event.task_id, event.version)
+            if await self.session.get(TaskReplanReceipt, key) is not None:
                 return
-            for day in scope.days:
-                await self.replan(event.user_id, day, scope.trigger)
+            current = await self.session.scalar(
+                select(Task.version).where(Task.id == event.task_id, Task.user_id == event.user_id)
+            )
+            if current != event.version:
+                return
+            state = await self.profiles.get_profile(event.user_id)
+            if state is not None and state.onboarding_completed_at is not None:
+                for day in scope.days:
+                    await self.replan(event.user_id, day, scope.trigger)
+            self.session.add(
+                TaskReplanReceipt(
+                    user_id=event.user_id, task_id=event.task_id, version=event.version
+                )
+            )
+            await self.session.flush()
 
     async def profile_changed(self, event: ProfileChanged) -> None:
         state = await self.profiles.get_profile(event.user_id)
