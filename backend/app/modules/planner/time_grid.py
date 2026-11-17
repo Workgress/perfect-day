@@ -12,6 +12,7 @@ from app.core.time import (
     local_time_candidates,
     local_to_utc,
     parse_timezone,
+    to_utc,
 )
 from app.modules.planner.config import (
     GRID_STEP_MINUTES,
@@ -126,10 +127,14 @@ def candidate_intervals(grid: TimeGrid, duration_min: int) -> tuple[Interval, ..
     return tuple(intervals)
 
 
-def deadline_boundary(deadline: date | None, timezone: str) -> datetime | None:
-    """Inclusive calendar deadline -> exclusive next local midnight, without guessing 24h."""
+def deadline_boundary(deadline: date | datetime | None, timezone: str) -> datetime | None:
     if deadline is None:
         return None
+    if isinstance(deadline, datetime):
+        try:
+            return to_utc(deadline)
+        except ValueError as exc:
+            raise PlannerTimeError("deadline", "INVALID_TIMESTAMP", str(exc)) from exc
     if not isinstance(deadline, date) or isinstance(deadline, datetime):
         raise PlannerTimeError("deadline", "INVALID_DATE", "Укажите календарную дату")
     try:

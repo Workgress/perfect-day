@@ -39,7 +39,14 @@ async def test_default_http_handler_saves_schedule_and_returns_usable_version(
     )
     assert completed.status_code == 200, completed.text
     response = await tasks_api.request(
-        "POST", body=BODY | {"planned_date": "2026-11-13", "type": "routine", "duration_min": 15}
+        "POST",
+        body=BODY
+        | {
+            "planned_date": "2026-11-13",
+            "type": "routine",
+            "duration_min": 15,
+            "deadline": "2026-11-13T18:00:00+05:00",
+        },
     )
     assert response.status_code == 201, response.text
     created = response.json()

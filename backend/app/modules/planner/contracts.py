@@ -105,14 +105,16 @@ class PlanTask:
     priority: Priority = "medium"
     status: TaskState = "pending"
     preferred_start: time | None = None
-    deadline: date | None = None
+    deadline: date | datetime | None = None
     is_pinned: bool = False
     pinned_start: datetime | None = None
     created_at: datetime | None = None
 
     def __post_init__(self) -> None:
         _day(self.planned_date, "planned_date")
-        if self.deadline is not None:
+        if isinstance(self.deadline, datetime):
+            object.__setattr__(self, "deadline", to_utc(self.deadline))
+        elif self.deadline is not None:
             _day(self.deadline, "deadline")
         for field, values in (
             ("kind", get_args(TaskKind.__value__)),

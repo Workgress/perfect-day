@@ -273,7 +273,7 @@ def test_date_deadline_ends_at_next_local_midnight(
 @pytest.mark.parametrize(
     ("deadline", "zone", "field", "code"),
     [
-        (datetime(2026, 11, 14, tzinfo=UTC), "UTC", "deadline", "INVALID_DATE"),
+        (datetime(2026, 11, 14), "UTC", "deadline", "INVALID_TIMESTAMP"),
         (date.max, "UTC", "deadline", "DATE_RANGE_UNSUPPORTED"),
         (date(2011, 12, 30), "Pacific/Apia", "deadline", "LOCAL_DATE_NONEXISTENT"),
         (DAY, "Missing/Zone", "timezone", "TIMEZONE_INVALID"),
@@ -285,6 +285,22 @@ def test_invalid_date_deadline_is_not_guessed(
     with pytest.raises(PlannerTimeError) as error:
         deadline_boundary(deadline, zone)
     assert (error.value.field, error.value.code) == (field, code)
+
+
+@pytest.mark.parametrize(
+    ("stamp", "expected"),
+    [
+        ("2026-10-25T02:30:00+02:00", "2026-10-25T00:30:00+00:00"),
+        ("2026-10-25T02:30:00+01:00", "2026-10-25T01:30:00+00:00"),
+        ("2026-11-15T08:30:12.123456+05:00", "2026-11-15T03:30:12.123456+00:00"),
+    ],
+)
+def test_precise_deadline_preserves_offset_fold_and_subminute_precision(
+    stamp: str, expected: str
+) -> None:
+    assert deadline_boundary(datetime.fromisoformat(stamp), "Europe/Berlin") == (
+        datetime.fromisoformat(expected)
+    )
 
 
 @given(duration=st.integers(5, 480), offset_us=st.integers(-1_000_000, 600 * 60 * 1_000_000))
