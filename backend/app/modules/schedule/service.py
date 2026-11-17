@@ -246,7 +246,9 @@ class ScheduleService:
             await self.session.flush()
             return document
 
-    async def _save_plan(self, user_id: UUID, plan: PlanResult, trigger: ScheduleTrigger) -> None:
+    async def _save_plan(
+        self, user_id: UUID, plan: PlanResult, trigger: ScheduleTrigger
+    ) -> Schedule:
         version = await self.repository.next_version(user_id, plan.day)
         old = (await self.repository.active(user_id, (plan.day,))).get(plan.day)
         if old is not None:
@@ -267,6 +269,7 @@ class ScheduleService:
         await self.session.flush()
         self.session.add_all(slot_row(row, item) for item in plan.slots)
         await self.session.flush()
+        return row
 
     async def replan(self, user_id: UUID, day: date, trigger: ScheduleTrigger) -> ReplanResult:
         async with self.mutation(user_id):
@@ -352,6 +355,7 @@ class ScheduleService:
                 row.moved_from_date = move.from_date
                 row.planned_date = move.to_date
                 changed_tasks.add(row.id)
+            saved = []
             for target in (plan, *plan.future_plans):
                 for change in target.status_changes:
                     assert change.task.task_id is not None
@@ -359,7 +363,11 @@ class ScheduleService:
                     if row.deleted_at is None:
                         row.status = TaskStatus(change.next)
                         changed_tasks.add(row.id)
-                await self._save_plan(user_id, target, trigger)
+                saved.append(await self._save_plan(user_id, target, trigger))
+            saved[0].summary = {
+                **saved[0].summary,
+                "future_schedule_ids": [str(row.id) for row in saved[1:]],
+            }
             for task_id in changed_tasks:
                 by_id[task_id].version += 1
             await self.session.flush()

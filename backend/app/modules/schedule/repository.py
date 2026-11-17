@@ -7,6 +7,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.errors import AppError
+from app.modules.planner.contracts import PlanResult
+from app.modules.schedule.adapters import restore_plan
 from app.modules.schedule.models import OnboardingCompletion, Schedule
 from app.modules.tasks.models import Task
 from app.modules.users.repository import ProfileRepository
@@ -15,6 +18,39 @@ from app.modules.users.repository import ProfileRepository
 class ScheduleRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def result(self, user_id: UUID, schedule_id: UUID) -> PlanResult | None:
+        row = await self.session.scalar(
+            select(Schedule)
+            .where(Schedule.id == schedule_id, Schedule.user_id == user_id)
+            .options(selectinload(Schedule.slots))
+            .execution_options(populate_existing=True)
+        )
+        if row is None:
+            return None
+        try:
+            ids = tuple(UUID(value) for value in row.summary.get("future_schedule_ids", []))
+            if len(ids) != len(set(ids)) or schedule_id in ids:
+                raise ValueError("Invalid future schedule references")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise AppError(
+                409, "SCHEDULE_RESULT_INCOMPLETE", "Сохранённый результат расписания неполон"
+            ) from exc
+        future: tuple[PlanResult, ...] = ()
+        if ids:
+            targets = await self.session.scalars(
+                select(Schedule)
+                .where(Schedule.id.in_(ids), Schedule.user_id == user_id)
+                .options(selectinload(Schedule.slots))
+                .execution_options(populate_existing=True)
+            )
+            by_id = {target.id: target for target in targets}
+            if len(by_id) != len(ids):
+                raise AppError(
+                    409, "SCHEDULE_RESULT_INCOMPLETE", "Сохранённый результат расписания неполон"
+                )
+            future = tuple(restore_plan(by_id[value]) for value in ids)
+        return restore_plan(row, future)
 
     async def lock_user(self, user_id: UUID) -> bool:
         # A parent row also serializes first schedules (there may be no schedule to lock).
