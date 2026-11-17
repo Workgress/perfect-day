@@ -1,11 +1,12 @@
-from datetime import date
-from uuid import uuid4
+from datetime import date, timedelta
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.schedule.models import Schedule, ScheduleTrigger
+from app.modules.schedule.reader import ScheduleReader
 from app.modules.tasks.dependencies import get_task_changed_handler
 from tests.integration.test_tasks_api import BODY, TasksAPI
 from tests.integration.test_tasks_api import alembic_config as alembic_config
@@ -67,3 +68,9 @@ async def test_default_http_handler_saves_schedule_and_returns_usable_version(
         )
         assert plan is not None and plan.version == 2
         assert plan.trigger == ScheduleTrigger.TASK_UPDATED
+        document = await ScheduleReader(session).get(tasks_api.user_id, plan.date)
+        assert document is not None and document.id == plan.id and document.version == 2
+        slot = next(slot for slot in document.slots if slot.task_id == UUID(created["id"]))
+        assert slot.end_at - slot.start_at == timedelta(minutes=20)
+        assert document.metrics.planned_min == 20
+        assert not document.unscheduled

@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.schedule.read_models import ScheduleReadSlot
+from scripts.generate_schedule_read_schema import SCHEMA_PATH, content
 
 
 def slot(**changes: object) -> ScheduleReadSlot:
@@ -52,3 +53,7 @@ def test_read_slot_is_immutable() -> None:
     value = slot()
     with pytest.raises(ValidationError):
         value.is_pinned = True
+
+
+def test_handoff_schema_matches_the_serialized_read_model() -> None:
+    assert SCHEMA_PATH.read_bytes() == content()

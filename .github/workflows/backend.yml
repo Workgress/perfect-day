@@ -47,6 +47,7 @@ jobs:
       - run: uv sync --frozen
       - run: uv run python -m scripts.generate_biorhythm_vectors --check
       - run: uv run python -m scripts.generate_planner_cases --check
+      - run: uv run python -m scripts.generate_schedule_read_schema --check
       - run: uv run python -m scripts.benchmark_planner --samples 20 --enforce
       - run: uv run pytest tests/performance -q -s -W error -p no:cacheprovider
       - run: >-
