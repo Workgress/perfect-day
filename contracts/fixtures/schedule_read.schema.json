@@ -1,0 +1,314 @@
+{
+  "$defs": {
+    "ScheduleReadMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "requested_min": {
+          "title": "Requested Min",
+          "type": "integer"
+        },
+        "planned_min": {
+          "title": "Planned Min",
+          "type": "integer"
+        },
+        "capacity_min": {
+          "title": "Capacity Min",
+          "type": "integer"
+        },
+        "high_intensity_min": {
+          "title": "High Intensity Min",
+          "type": "integer"
+        },
+        "critical_level": {
+          "title": "Critical Level",
+          "type": "integer"
+        },
+        "load_factor": {
+          "title": "Load Factor",
+          "type": "number"
+        },
+        "moved_min": {
+          "title": "Moved Min",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "requested_min",
+        "planned_min",
+        "capacity_min",
+        "high_intensity_min",
+        "critical_level",
+        "load_factor",
+        "moved_min"
+      ],
+      "title": "ScheduleReadMetrics",
+      "type": "object"
+    },
+    "ScheduleReadMove": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "format": "uuid",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "from_date": {
+          "format": "date",
+          "title": "From Date",
+          "type": "string"
+        },
+        "to_date": {
+          "format": "date",
+          "title": "To Date",
+          "type": "string"
+        },
+        "reason_code": {
+          "title": "Reason Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "from_date",
+        "to_date",
+        "reason_code"
+      ],
+      "title": "ScheduleReadMove",
+      "type": "object"
+    },
+    "ScheduleReadSlot": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SlotKind"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Task Id"
+        },
+        "start_at": {
+          "format": "date-time",
+          "title": "Start At",
+          "type": "string"
+        },
+        "end_at": {
+          "format": "date-time",
+          "title": "End At",
+          "type": "string"
+        },
+        "is_pinned": {
+          "title": "Is Pinned",
+          "type": "boolean"
+        },
+        "reason_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Explanation"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "task_id",
+        "start_at",
+        "end_at",
+        "is_pinned",
+        "reason_codes",
+        "explanation"
+      ],
+      "title": "ScheduleReadSlot",
+      "type": "object"
+    },
+    "ScheduleReadUnscheduled": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "format": "uuid",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "reason_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "reason_codes"
+      ],
+      "title": "ScheduleReadUnscheduled",
+      "type": "object"
+    },
+    "ScheduleReadWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Task Id"
+        },
+        "target_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Date"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "level",
+        "task_id",
+        "target_date"
+      ],
+      "title": "ScheduleReadWarning",
+      "type": "object"
+    },
+    "SlotKind": {
+      "enum": [
+        "task",
+        "break",
+        "lunch",
+        "rest"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "planned_date": {
+      "format": "date",
+      "title": "Planned Date",
+      "type": "string"
+    },
+    "timezone": {
+      "title": "Timezone",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "algorithm_version": {
+      "minLength": 1,
+      "title": "Algorithm Version",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "slots": {
+      "items": {
+        "$ref": "#/$defs/ScheduleReadSlot"
+      },
+      "title": "Slots",
+      "type": "array"
+    },
+    "unscheduled": {
+      "items": {
+        "$ref": "#/$defs/ScheduleReadUnscheduled"
+      },
+      "title": "Unscheduled",
+      "type": "array"
+    },
+    "metrics": {
+      "$ref": "#/$defs/ScheduleReadMetrics"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/ScheduleReadWarning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "moves": {
+      "items": {
+        "$ref": "#/$defs/ScheduleReadMove"
+      },
+      "title": "Moves",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "planned_date",
+    "timezone",
+    "version",
+    "algorithm_version",
+    "generated_at",
+    "slots",
+    "unscheduled",
+    "metrics",
+    "warnings",
+    "moves"
+  ],
+  "title": "ScheduleReadResult",
+  "type": "object"
+}

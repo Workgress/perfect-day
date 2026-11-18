@@ -96,10 +96,11 @@ def test_invalid_duration_is_not_coerced(duration: Any) -> None:
         replace(task(), duration_min=duration)
 
 
-def test_date_deadline_is_preserved_and_datetime_is_not_silently_truncated() -> None:
+def test_date_and_timestamp_deadlines_are_preserved_without_truncation() -> None:
     assert replace(task(), deadline=DAY).deadline == DAY
-    with pytest.raises(ValueError, match="deadline"):
-        replace(task(), deadline=NOW)
+    assert replace(task(), deadline=NOW).deadline == NOW
+    with pytest.raises(ValueError):
+        replace(task(), deadline=NOW.replace(tzinfo=None))
     with pytest.raises(ValueError, match="planned_date"):
         replace(task(), planned_date=NOW)
 

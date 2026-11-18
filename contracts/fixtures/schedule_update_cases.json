@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "planner-1.0.1",
+  "defaults": {
+    "day": "2026-11-14",
+    "now": "2026-11-14T07:00:00Z",
+    "profile": {"timezone": "UTC", "chronotype": "dove", "birth_days_ago": 2, "work_start": "08:00", "work_end": "18:00", "lunch_duration_min": 60}
+  },
+  "cases": [
+    {
+      "id": "lark_content_change",
+      "profile": {"chronotype": "lark"},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30}, "expected": {"statuses": {"a": "scheduled"}, "slot_kinds": ["task", "lunch"]}},
+        {"operation": "patch", "task": "a", "body": {"title": "Renamed", "description": "Updated description"}, "expected": {"no_replan": true, "preserved": ["a"]}}
+      ]
+    },
+    {
+      "id": "dove_cross_day_move",
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30}, "expected": {"statuses": {"a": "scheduled"}}},
+        {"operation": "patch", "task": "a", "body": {"planned_date": "2026-11-15"}, "expected": {"dates": {"a": "2026-11-15"}, "schedule_dates": ["2026-11-14", "2026-11-15"], "unscheduled": []}}
+      ]
+    },
+    {
+      "id": "owl_status_lifecycle",
+      "profile": {"chronotype": "owl"},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30}, "expected": {"statuses": {"a": "scheduled"}}},
+        {"operation": "complete", "task": "a", "expected": {"statuses": {"a": "done"}, "preserved": ["a"]}},
+        {"operation": "reopen", "task": "a", "expected": {"statuses": {"a": "scheduled"}}},
+        {"operation": "skip", "task": "a", "expected": {"statuses": {"a": "skipped"}, "absent": ["a"]}},
+        {"operation": "reopen", "task": "a", "expected": {"statuses": {"a": "scheduled"}, "unscheduled": []}}
+      ]
+    },
+    {
+      "id": "critical_automatic_transfer",
+      "profile": {"birth_days_ago": 14},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "intellectual", "duration_min": 60}, "expected": {"statuses": {"a": "scheduled"}, "moved": ["a"], "critical_level": 1}}
+      ]
+    },
+    {
+      "id": "triple_critical_rest",
+      "profile": {"birth_days_ago": 644},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 5}, "expected": {"statuses": {"a": "scheduled"}, "critical_level": 3, "slot_kinds": ["task", "lunch", "rest"]}}
+      ]
+    },
+    {
+      "id": "pinned_tasks_and_breaks",
+      "seed_tasks": [
+        {"task": "a", "body": {"type": "intellectual", "duration_min": 30, "is_pinned": true, "pinned_start": "2026-11-14T08:00:00Z"}},
+        {"task": "b", "body": {"type": "intellectual", "duration_min": 30, "is_pinned": true, "pinned_start": "2026-11-14T09:00:00Z"}}
+      ],
+      "actions": [
+        {"operation": "create", "task": "c", "body": {"type": "routine", "duration_min": 15}, "expected": {"preserved": ["a", "b"], "statuses": {"a": "scheduled", "b": "scheduled", "c": "scheduled"}, "slot_kinds": ["task", "break", "lunch"]}}
+      ]
+    },
+    {
+      "id": "precise_deadline_update",
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30, "deadline": "2026-11-14T08:30:00Z"}, "expected": {"statuses": {"a": "scheduled"}, "within_deadline": ["a"]}},
+        {"operation": "patch", "task": "a", "body": {"deadline": "2026-11-14T08:29:00Z"}, "expected": {"statuses": {"a": "pending"}, "unscheduled": ["a"], "absent": ["a"]}},
+        {"operation": "patch", "task": "a", "body": {"deadline": "2026-11-14T08:45:00Z"}, "expected": {"statuses": {"a": "scheduled"}, "within_deadline": ["a"], "unscheduled": []}}
+      ]
+    },
+    {
+      "id": "overload_and_capacity_release",
+      "profile": {"work_end": "09:00", "lunch_duration_min": 0},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 60, "priority": "high"}, "expected": {"statuses": {"a": "scheduled"}}},
+        {"operation": "create", "task": "b", "body": {"type": "routine", "duration_min": 30, "priority": "low"}, "expected": {"statuses": {"b": "pending"}, "unscheduled": ["b"]}},
+        {"operation": "delete", "task": "a", "expected": {"statuses": {"b": "scheduled"}, "absent": ["a"], "unscheduled": []}}
+      ]
+    },
+    {
+      "id": "remaining_day_preserves_started_task",
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30}, "expected": {"statuses": {"a": "scheduled"}}},
+        {"operation": "advance_to_started", "task": "a", "expected": {"no_replan": true}},
+        {"operation": "create", "task": "b", "body": {"type": "routine", "duration_min": 15}, "expected": {"statuses": {"a": "scheduled", "b": "scheduled"}, "preserved": ["a"], "not_before_now": ["b"]}}
+      ]
+    },
+    {
+      "id": "berlin_dst_precise_deadline",
+      "day": "2026-10-25",
+      "now": "2026-10-25T00:30:00Z",
+      "profile": {"timezone": "Europe/Berlin"},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "routine", "duration_min": 30, "deadline": "2026-10-25T09:00:00+01:00"}, "expected": {"statuses": {"a": "scheduled"}, "within_deadline": ["a"], "unscheduled": []}}
+      ]
+    }
+  ]
+}

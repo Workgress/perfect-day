@@ -109,6 +109,20 @@ class ScheduleSlot(UUIDPkMixin, Base):
     schedule: Mapped[Schedule] = relationship(back_populates="slots")
 
 
+class TaskReplanReceipt(Base):
+    __tablename__ = "task_replan_receipts"
+    __table_args__ = (CheckConstraint("version >= 1", name="version_positive"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True
+    )
+    version: Mapped[int] = mapped_column(primary_key=True)
+    processed_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+
+
 class OnboardingCompletion(Base):
     """Permanent successful operation receipt, scoped to its authenticated owner."""
 

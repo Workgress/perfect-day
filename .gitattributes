@@ -1,3 +1,5 @@
 # Keep canonical generated fixtures identical on Windows and Linux.
 /contracts/fixtures/biorhythm*.json text eol=lf
 /contracts/fixtures/planner_cases.json text eol=lf
+/contracts/fixtures/schedule_update_cases.json text eol=lf
+/contracts/fixtures/schedule_read.schema.json text eol=lf

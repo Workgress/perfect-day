@@ -31,10 +31,12 @@ def test_migration_revision_ids_are_unique_before_alembic_loads_them() -> None:
 
 def test_canonical_graph_keeps_planner_0006_and_places_task_change_after_it() -> None:
     script = ScriptDirectory.from_config(Config(str(BACKEND / "alembic.ini")))
-    assert script.get_heads() == ["0007"]
+    assert script.get_heads() == ["0008"]
     planner = script.get_revision("0006")
     tasks = script.get_revision("0007")
     assert planner is not None and tasks is not None
     assert Path(planner.path).name == "0006_planner_integration.py"
     assert planner.down_revision == "0005" and tasks.down_revision == "0006"
-    assert len(list(script.walk_revisions())) == 7
+    receipts = script.get_revision("0008")
+    assert receipts is not None and receipts.down_revision == "0007"
+    assert len(list(script.walk_revisions())) == 8

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import Clock
 from app.db.session import get_session
+from app.modules.schedule.dependencies import get_schedule_service
+from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.events import TaskChangedHandler, task_changed
 from app.modules.tasks.schemas import TaskDeleteQuery, TaskListQuery
 from app.modules.tasks.service import TaskService
@@ -20,8 +22,9 @@ def get_task_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     clock: Annotated[Clock, Depends(get_clock)],
     handler: Annotated[TaskChangedHandler, Depends(get_task_changed_handler)],
+    scheduler: Annotated[ScheduleService, Depends(get_schedule_service)],
 ) -> TaskService:
-    return TaskService(session, clock, handler)
+    return TaskService(session, clock, handler, coordinator=scheduler)
 
 
 def _reject_duplicate_parameters(request: Request) -> None:

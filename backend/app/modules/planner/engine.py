@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, time
 
+from app.core.time import parse_timezone
 from app.modules.planner.config import (
     ALGORITHM_VERSION,
     PRIORITY_ORDER,
@@ -211,10 +212,12 @@ def _find_target(
 ) -> tuple[FutureDay, PlanResult] | None:
     """Probe supplied occupancy only. Never displace a resident task into unscheduled."""
     candidates = []
+    due = deadline_boundary(task.deadline, context.profile.timezone)
+    last_day = due.astimezone(parse_timezone(context.profile.timezone)).date() if due else None
     for day, snapshot in sorted(days.items()):
         if day.isoweekday() not in context.profile.work_days:
             continue
-        if task.deadline is not None and day > task.deadline:
+        if last_day is not None and day > last_day:
             continue
         policy = cache.policy(context.profile, day)
         cycle = TASK_CYCLES.get(task.kind)

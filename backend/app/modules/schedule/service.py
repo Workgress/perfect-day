@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -38,9 +39,16 @@ from app.modules.schedule.adapters import (
     stored_summary,
     task_snapshot,
 )
-from app.modules.schedule.models import OnboardingCompletion, Schedule, ScheduleTrigger
+from app.modules.schedule.models import (
+    OnboardingCompletion,
+    Schedule,
+    ScheduleTrigger,
+    TaskReplanReceipt,
+)
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview, PreviewSlot
+from app.modules.schedule.task_policy import task_replan_scope
+from app.modules.tasks.events import TaskChanged
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.users.events import ProfileChanged
 from app.modules.users.models import UserProfile
@@ -238,7 +246,9 @@ class ScheduleService:
             await self.session.flush()
             return document
 
-    async def _save_plan(self, user_id: UUID, plan: PlanResult, trigger: ScheduleTrigger) -> None:
+    async def _save_plan(
+        self, user_id: UUID, plan: PlanResult, trigger: ScheduleTrigger
+    ) -> Schedule:
         version = await self.repository.next_version(user_id, plan.day)
         old = (await self.repository.active(user_id, (plan.day,))).get(plan.day)
         if old is not None:
@@ -259,6 +269,7 @@ class ScheduleService:
         await self.session.flush()
         self.session.add_all(slot_row(row, item) for item in plan.slots)
         await self.session.flush()
+        return row
 
     async def replan(self, user_id: UUID, day: date, trigger: ScheduleTrigger) -> ReplanResult:
         async with self.mutation(user_id):
@@ -344,6 +355,7 @@ class ScheduleService:
                 row.moved_from_date = move.from_date
                 row.planned_date = move.to_date
                 changed_tasks.add(row.id)
+            saved = []
             for target in (plan, *plan.future_plans):
                 for change in target.status_changes:
                     assert change.task.task_id is not None
@@ -351,11 +363,42 @@ class ScheduleService:
                     if row.deleted_at is None:
                         row.status = TaskStatus(change.next)
                         changed_tasks.add(row.id)
-                await self._save_plan(user_id, target, trigger)
+                saved.append(await self._save_plan(user_id, target, trigger))
+            saved[0].summary = {
+                **saved[0].summary,
+                "future_schedule_ids": [str(row.id) for row in saved[1:]],
+            }
             for task_id in changed_tasks:
                 by_id[task_id].version += 1
             await self.session.flush()
             return ReplanResult(plan, tuple(changes))
+
+    async def task_changed(self, event: TaskChanged) -> None:
+        scope = task_replan_scope(event)
+        if scope is None:
+            return
+        transaction = (
+            self.session.begin_nested() if self.session.in_transaction() else self.session.begin()
+        )
+        async with transaction, self.mutation(event.user_id):
+            key = (event.user_id, event.task_id, event.version)
+            if await self.session.get(TaskReplanReceipt, key) is not None:
+                return
+            current = await self.session.scalar(
+                select(Task.version).where(Task.id == event.task_id, Task.user_id == event.user_id)
+            )
+            if current != event.version:
+                return
+            state = await self.profiles.get_profile(event.user_id)
+            if state is not None and state.onboarding_completed_at is not None:
+                for day in scope.days:
+                    await self.replan(event.user_id, day, scope.trigger)
+            self.session.add(
+                TaskReplanReceipt(
+                    user_id=event.user_id, task_id=event.task_id, version=event.version
+                )
+            )
+            await self.session.flush()
 
     async def profile_changed(self, event: ProfileChanged) -> None:
         state = await self.profiles.get_profile(event.user_id)
