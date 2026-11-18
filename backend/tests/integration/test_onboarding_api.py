@@ -200,10 +200,19 @@ async def test_failed_profile_replanning_rolls_back_profile_and_keeps_active_pla
     assert len(profile_api.events) == events and await counts(profile_api) == [2, 1, 1]
 
 
-async def test_onboarding_does_not_publish_a_schedule_read_route(
+async def test_schedule_read_is_separate_from_onboarding_and_requires_a_date(
     profile_api: ProfileAPI,
 ) -> None:
-    assert (await profile_api.get("/schedule")).status_code == 404
+    assert (await profile_api.get("/onboarding/schedule")).status_code == 404
+    response = await profile_api.get("/schedule")
+    assert response.status_code == 422
+    assert response.headers["cache-control"] == "no-store"
+    error = response.json()["error"]
+    assert error["code"] == "VALIDATION_ERROR"
+    assert any(field["field"] == "query.date" for field in error["details"]["fields"])
+    unfinished = await profile_api.get(f"/schedule?date={NOW.date().isoformat()}")
+    assert unfinished.status_code == 409
+    assert unfinished.json()["error"]["code"] == "ONBOARDING_REQUIRED"
 
 
 async def test_same_profile_patch_does_not_create_a_redundant_schedule(
