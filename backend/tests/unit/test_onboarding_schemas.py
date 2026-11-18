@@ -85,5 +85,15 @@ def test_openapi_exposes_only_approved_onboarding_operations_with_auth() -> None
         )
     parameters = schema["paths"]["/api/v1/onboarding/complete"]["post"]["parameters"]
     assert any(p["name"] == "Idempotency-Key" and p["required"] for p in parameters)
-    # The merged task module owns /tasks; onboarding must not publish a schedule read API.
-    assert "/api/v1/schedule" not in schema["paths"]
+    # Schedule reading is a separate API; onboarding still owns only these two operations.
+    onboarding_operations = {
+        (method, path)
+        for path, operations in schema["paths"].items()
+        for method, operation in operations.items()
+        if "onboarding" in operation.get("tags", [])
+    }
+    assert onboarding_operations == {
+        ("post", "/api/v1/onboarding/preview"),
+        ("post", "/api/v1/onboarding/complete"),
+    }
+    assert schema["paths"]["/api/v1/schedule"]["get"]["tags"] == ["schedule"]
