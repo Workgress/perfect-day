@@ -30,6 +30,13 @@
   opacity: 1;
 }
 
+.textarea {
+  min-height: 76px;
+  height: auto;
+  padding-block: var(--space-12);
+  resize: vertical;
+}
+
 .control[aria-invalid='true'] {
   border-color: var(--status-danger);
 }

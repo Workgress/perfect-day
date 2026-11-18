@@ -1,6 +1,9 @@
-export type Chronotype = 'lark' | 'owl' | 'dove'
+import type { TaskType } from './task'
 
-export type TaskType = 'intellectual' | 'physical' | 'creative' | 'routine'
+export type { TaskType } from './task'
+export { TASK_TYPES } from './task'
+
+export type Chronotype = 'lark' | 'owl' | 'dove'
 
 export type OnboardingTask = {
   id: string
@@ -33,11 +36,4 @@ export const EMPTY_ONBOARDING: OnboardingDraft = {
   workEnd: '18:00',
   sleepTime: '23:00',
   tasks: [],
-}
-
-export const TASK_TYPES: Record<TaskType, string> = {
-  intellectual: 'Интеллектуальная',
-  physical: 'Физическая',
-  creative: 'Творческая',
-  routine: 'Рутина',
 }

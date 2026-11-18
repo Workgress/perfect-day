@@ -1,43 +1,43 @@
-import { useEffect, useId } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { paths } from '@/app/router/paths'
-import { Button } from '@/shared/ui/button/Button'
-import { XIcon } from '@/shared/ui/icon/icons'
-import styles from './NewTaskPage.module.css'
+import type { TaskCreateRequest } from '@/shared/model/task'
+import { useSessionStore } from '@/stores/session'
+import { TaskDialog } from './TaskDialog'
+import { TaskForm } from './TaskForm'
+import type { TaskFormOptions } from './taskFormSettings'
 
 export function NewTaskPage() {
   const navigate = useNavigate()
-  const titleId = useId()
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') navigate(paths.today)
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [navigate])
+  const timezone = useSessionStore((state) => state.timezone)
+  const user = useSessionStore((state) => state.user)
+  const generation = useSessionStore((state) => state.generation)
+  const [preview, setPreview] = useState<{
+    generation: number
+    request: TaskCreateRequest
+    options: TaskFormOptions
+  } | null>(null)
+  const close = () => navigate(paths.today)
 
   return (
-    <div className={styles.scrim}>
-      <title>Новая задача · Идеальный день</title>
-      <section role="dialog" aria-modal="true" aria-labelledby={titleId} className={styles.panel}>
-        <header className={styles.header}>
-          <h2 id={titleId} className="text-heading">
-            Новая задача
-          </h2>
-          <Button
-            variant="ghost"
-            size="s"
-            aria-label="Закрыть"
-            onClick={() => navigate(paths.today)}
-          >
-            <XIcon />
-          </Button>
-        </header>
-        <p className={`text-body-s ${styles.description}`}>
-          Название, длительность, тип и приоритет — алгоритм подберёт лучшее время.
-        </p>
-      </section>
-    </div>
+    <TaskDialog
+      title="Новая задача"
+      description="Название, тип и длительность — обязательны."
+      onClose={close}
+    >
+      <TaskForm
+        key={generation}
+        context={{
+          timezone,
+          workStart: user?.workStart ?? '08:00',
+          workEnd: user?.workEnd ?? '18:00',
+        }}
+        onCancel={close}
+        onSubmit={(request, options) => setPreview({ generation, request, options })}
+        preview={preview?.generation === generation ? preview.request : null}
+        previewOptions={preview?.generation === generation ? preview.options : null}
+        onChange={() => setPreview(null)}
+      />
+    </TaskDialog>
   )
 }
