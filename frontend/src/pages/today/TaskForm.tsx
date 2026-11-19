@@ -3,7 +3,7 @@ import { cx } from '@/shared/lib/cx'
 import { localDate } from '@/shared/lib/dateTime'
 import {
   TASK_TYPES,
-  type TaskCreateRequest,
+  type TaskDraft,
   type TaskFormValues,
   type TaskPriority,
   type TaskType,
@@ -55,8 +55,8 @@ type TaskFormProps = {
   context: TaskFormContext
   initialValues?: TaskFormValues
   onCancel: () => void
-  onSubmit: (request: TaskCreateRequest, options: TaskFormOptions) => void
-  preview?: TaskCreateRequest | null
+  onSubmit: (request: TaskDraft, options: TaskFormOptions) => void
+  preview?: TaskDraft | null
   previewOptions?: TaskFormOptions | null
   initialSettings?: TaskFormSettings
   suggestion?: TaskTimeSuggestion | null

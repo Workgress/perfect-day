@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { paths } from '@/app/router/paths'
-import type { TaskCreateRequest } from '@/shared/model/task'
+import type { TaskDraft } from '@/shared/model/task'
 import { useSessionStore } from '@/stores/session'
 import { TaskDialog } from './TaskDialog'
 import { TaskForm } from './TaskForm'
@@ -14,7 +14,7 @@ export function NewTaskPage() {
   const generation = useSessionStore((state) => state.generation)
   const [preview, setPreview] = useState<{
     generation: number
-    request: TaskCreateRequest
+    request: TaskDraft
     options: TaskFormOptions
   } | null>(null)
   const close = () => navigate(paths.today)

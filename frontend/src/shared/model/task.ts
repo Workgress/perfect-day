@@ -1,4 +1,4 @@
-/** Planning API proposal; field formats still require agreement with the backend. */
+/** Public task enums from the backend task schemas. */
 export type TaskType = 'intellectual' | 'physical' | 'creative' | 'routine'
 
 export const TASK_TYPES: Record<TaskType, string> = {
@@ -29,16 +29,43 @@ export type TaskFields = {
 export type TaskPlacement =
   { is_pinned: false; pinned_start: null } | { is_pinned: true; pinned_start: string }
 
-export type TaskCreateRequest = TaskFields & TaskPlacement
+/** Form draft includes placement controls that the public write API does not support yet. */
+export type TaskDraft = TaskFields & TaskPlacement
+
+/** POST /tasks: placement, status and timestamps are read-only. */
+export type TaskCreateRequest = Pick<
+  TaskFields,
+  'title' | 'type' | 'duration_min' | 'planned_date'
+> &
+  Partial<Pick<TaskFields, 'description' | 'priority' | 'deadline'>>
 
 /** Omitted fields are unchanged; null clears a nullable field. */
 export type TaskUpdateRequest = Partial<TaskCreateRequest> & { version: number }
 
-export type Task = TaskCreateRequest & {
+/** Local preview callback; convert to TaskUpdateRequest before sending to the API. */
+export type TaskDraftUpdate = Partial<TaskDraft> & { version: number }
+
+export type TaskListQuery = {
+  date?: string
+  from?: string
+  to?: string
+  status?: TaskStatus
+  type?: TaskType
+  limit?: number
+  offset?: number
+}
+
+export type TaskList = { items: Task[]; total: number; limit: number; offset: number }
+
+export type Task = TaskFields & {
+  is_pinned: boolean
+  pinned_start: string | null
   id: string
   status: TaskStatus
   completed_at: string | null
   version: number
+  created_at: string
+  updated_at: string
 }
 
 /** UI values allow empty required controls until validation succeeds. */
