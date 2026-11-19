@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 .body {
   display: flex;
@@ -11,7 +13,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 28px var(--space-24);
-  scrollbar-gutter: stable;
+  min-width: 0;
+  margin: 0;
+  border: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
@@ -58,6 +62,9 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   font: 500 14px / 20px var(--font-sans);
+}
+.chips .typeChip {
+  padding-inline: 10px 12px;
 }
 .chips .chip[aria-checked='true'] {
   border-color: var(--text-primary);
@@ -139,7 +146,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  padding-block: var(--space-16);
+  padding-block: 14px;
   border-block: 1px solid var(--border-subtle);
 }
 .pinRow {
@@ -167,7 +174,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  min-height: 32px;
+  min-height: 20px;
   width: 100%;
   color: var(--text-secondary);
   text-align: left;
@@ -194,8 +201,11 @@
   flex-wrap: wrap;
 }
 .repeatOptions > button {
-  min-height: 36px;
+  min-height: 32px;
   padding-inline: var(--space-12);
+}
+.repeatOptions + .hint {
+  min-height: 36px;
 }
 .customSchedule {
   display: flex;
@@ -327,13 +337,16 @@
   justify-content: flex-end;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-16) 28px 28px;
+  padding: 0 28px 28px;
   background: var(--bg-surface);
 }
 
 @media (max-width: 768px) {
   .form {
     flex: 1;
+  }
+  .dates label {
+    font: 500 14px / 20px var(--font-sans);
   }
   .body {
     flex: 1;
@@ -369,13 +382,24 @@
     border-block: 1px solid var(--border-subtle);
     color: var(--text-primary);
   }
+  .suggestion {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .suggestion > svg {
+    margin-top: 0;
+  }
+  .actions .submit > svg {
+    display: none;
+  }
   .disclosureHint {
     display: block;
     margin-left: 0;
+    margin-top: var(--space-2);
   }
   .actions {
     flex-wrap: wrap;
-    padding: var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));
+    padding: var(--space-12) var(--space-16) max(var(--space-16), env(safe-area-inset-bottom));
     border-top: 1px solid var(--border-subtle);
   }
   .actions .submit {

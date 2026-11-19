@@ -1,8 +1,9 @@
 import { StrictMode } from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider, useNavigate } from 'react-router'
 import { NewTaskPage } from './NewTaskPage'
+import { renderWithProviders } from '@/test/renderWithProviders'
 
 function Today() {
   const navigate = useNavigate()
@@ -28,7 +29,7 @@ describe('new task dialog', () => {
       ],
       { initialEntries: ['/today'] },
     )
-    render(
+    renderWithProviders(
       <StrictMode>
         <RouterProvider router={router} />
       </StrictMode>,

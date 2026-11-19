@@ -10,6 +10,7 @@ type TaskDialogProps = {
   onClose: () => void
   children: ReactNode
   returnFocusSelector?: string
+  busy?: boolean
 }
 
 export function TaskDialog({
@@ -18,6 +19,7 @@ export function TaskDialog({
   onClose: close,
   children,
   returnFocusSelector = '[data-new-task-trigger]',
+  busy = false,
 }: TaskDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
@@ -33,7 +35,7 @@ export function TaskDialog({
       onKeyDown={onKeyDown}
       onCancel={(event) => {
         event.preventDefault()
-        close()
+        if (!busy) close()
       }}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return
@@ -44,13 +46,13 @@ export function TaskDialog({
           event.clientY < bounds.top ||
           event.clientY > bounds.bottom
         )
-          close()
+          if (!busy) close()
       }}
     >
       <title>{title} · Идеальный день</title>
       <div className={styles.panel}>
         <header className={styles.header}>
-          <Button variant="ghost" className={styles.mobileCancel} onClick={close}>
+          <Button variant="ghost" className={styles.mobileCancel} onClick={close} disabled={busy}>
             Отмена
           </Button>
           <div className={styles.heading}>
@@ -67,6 +69,7 @@ export function TaskDialog({
             aria-label="Закрыть"
             className={styles.close}
             onClick={close}
+            disabled={busy}
           >
             <XIcon />
           </Button>

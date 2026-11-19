@@ -1,0 +1,44 @@
+.notice {
+  position: fixed;
+  right: var(--space-24);
+  bottom: var(--space-24);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: min(420px, calc(100% - 32px));
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.notice > svg {
+  flex-shrink: 0;
+  color: var(--status-success);
+}
+
+.notice > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notice p + p {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.notice button {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .notice {
+    right: var(--space-16);
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
