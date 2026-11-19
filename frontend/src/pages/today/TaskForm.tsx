@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import { cx } from '@/shared/lib/cx'
 import { localDate } from '@/shared/lib/dateTime'
 import {
@@ -70,6 +78,9 @@ type TaskFormProps = {
   isSubmitting?: boolean
   submissionError?: string | null
   serverErrors?: TaskFormErrors
+  feedback?: ReactNode
+  saveDisabled?: boolean
+  submitLabel?: string
 }
 
 type DateTimeFieldProps = {
@@ -194,6 +205,9 @@ export function TaskForm({
   apiConnected = false,
   isSubmitting = false,
   submissionError,
+  feedback,
+  saveDisabled = false,
+  submitLabel,
   serverErrors,
 }: TaskFormProps) {
   const [values, setValues] = useState(
@@ -300,7 +314,7 @@ export function TaskForm({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (isSubmitting) return
+    if (isSubmitting || saveDisabled) return
     const currentClock = context.now ?? new Date()
     setClock(currentClock)
     const result = prepareTaskForm(values, { ...context, now: currentClock })
@@ -777,190 +791,193 @@ export function TaskForm({
       aria-busy={isSubmitting}
       aria-label={mode === 'edit' ? 'Редактирование задачи' : 'Создание задачи'}
     >
-      <fieldset className={styles.body} disabled={isSubmitting}>
-        {submissionError ? <FormMessage>{submissionError}</FormMessage> : null}
-        {titleField}
-        {mobile ? typeField : descriptionField}
-        {durationField}
-        {mobile ? null : typeField}
-        {mode === 'edit' ? (
-          <TextField
-            label="День задачи"
-            name="plannedDate"
-            data-field="plannedDate"
-            type="date"
-            required
-            value={values.plannedDate}
-            error={error('plannedDate')}
-            onChange={(event) => update('plannedDate', event.target.value)}
-            onBlur={() => touch('plannedDate')}
-          />
-        ) : null}
-        {deadlineField}
-        {!mobile ? (
-          <>
-            {repeatField}
-            {pinField}
-          </>
-        ) : null}
-        <div className={styles.additional}>
-          <button
-            type="button"
-            className={styles.disclosure}
-            aria-expanded={expanded}
-            aria-controls={`${id}-additional`}
-            onClick={() => setExpanded((current) => !current)}
-          >
-            <ChevronDownIcon size={mobile ? 18 : 16} />
-            <span>
-              {mobile
-                ? 'Дополнительно'
-                : `${expanded ? 'Свернуть' : 'Ещё'}: ${apiConnected ? 'приоритет, день задачи' : 'приоритет, время, напоминание'}`}
-              {mobile && !expanded ? (
-                <span className={styles.disclosureHint}>
-                  {apiConnected
-                    ? 'Приоритет, день задачи, описание'
-                    : 'Приоритет, желаемое время, повтор, закрепление'}
-                </span>
-              ) : null}
-            </span>
-          </button>
-          <div id={`${id}-additional`} className={styles.additionalFields} hidden={!expanded}>
-            {priorityField}
-            {apiConnected && mode === 'create' ? (
-              <TextField
-                label="День задачи"
-                name="plannedDate"
-                data-field="plannedDate"
-                type="date"
-                required
-                min={today}
-                value={values.plannedDate}
-                error={error('plannedDate')}
-                onChange={(event) => update('plannedDate', event.target.value)}
-                onBlur={() => touch('plannedDate')}
-              />
-            ) : null}
-            {preferredField}
-            {mobile ? (
-              <>
-                {repeatField}
-                {pinField}
-              </>
-            ) : null}
-            {reminderField}
-            {mobile ? descriptionField : null}
-          </div>
-        </div>
-        {mode === 'create' ? (
-          <section
-            className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
-            aria-label="Предложенное время"
-          >
-            <SparklesIcon size={16} />
-            <div>
-              {suggestion ? (
-                <>
-                  <p className="text-label">
-                    Предложим {formatMoment(suggestion.startsAt)}–
-                    {new Intl.DateTimeFormat('ru-RU', {
-                      timeZone: context.timezone,
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }).format(new Date(suggestion.endsAt))}
-                  </p>
-                  <p className={styles.suggestionText}>{suggestion.explanation}</p>
-                  <button
-                    type="button"
-                    className={styles.chooseTime}
-                    onClick={() => {
-                      setExpanded(true)
-                      setHasPreferredTime(true)
-                      requestAnimationFrame(() =>
-                        formRef.current
-                          ?.querySelector<HTMLInputElement>('[name="preferredStart"]')
-                          ?.focus(),
-                      )
-                    }}
-                  >
-                    Выбрать другое время <ChevronRightIcon size={14} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  {!mobile ? <p className="text-label">Подберём лучшее окно</p> : null}
-                  <p className={styles.suggestionText}>
+      <div className={styles.body}>
+        <fieldset className={styles.fields} disabled={isSubmitting}>
+          {feedback}
+          {submissionError ? <FormMessage>{submissionError}</FormMessage> : null}
+          {titleField}
+          {mobile ? typeField : descriptionField}
+          {durationField}
+          {mobile ? null : typeField}
+          {mode === 'edit' ? (
+            <TextField
+              label="День задачи"
+              name="plannedDate"
+              data-field="plannedDate"
+              type="date"
+              required
+              value={values.plannedDate}
+              error={error('plannedDate')}
+              onChange={(event) => update('plannedDate', event.target.value)}
+              onBlur={() => touch('plannedDate')}
+            />
+          ) : null}
+          {deadlineField}
+          {!mobile ? (
+            <>
+              {repeatField}
+              {pinField}
+            </>
+          ) : null}
+          <div className={styles.additional}>
+            <button
+              type="button"
+              className={styles.disclosure}
+              aria-expanded={expanded}
+              aria-controls={`${id}-additional`}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              <ChevronDownIcon size={mobile ? 18 : 16} />
+              <span>
+                {mobile
+                  ? 'Дополнительно'
+                  : `${expanded ? 'Свернуть' : 'Ещё'}: ${apiConnected ? 'приоритет, день задачи' : 'приоритет, время, напоминание'}`}
+                {mobile && !expanded ? (
+                  <span className={styles.disclosureHint}>
                     {apiConnected
-                      ? 'Укажите название, тип и длительность — подберём время с учётом биоритмов и свободных окон.'
-                      : values.title.trim() && values.type && values.durationMin
-                        ? 'Время ещё не рассчитано. Подберём окно по вашим биоритмам и хронотипу и покажем изменения перед применением.'
-                        : 'Укажите название, тип и длительность — подберём лучшее окно по вашим биоритмам и хронотипу.'}
-                  </p>
+                      ? 'Приоритет, день задачи, описание'
+                      : 'Приоритет, желаемое время, повтор, закрепление'}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+            <div id={`${id}-additional`} className={styles.additionalFields} hidden={!expanded}>
+              {priorityField}
+              {apiConnected && mode === 'create' ? (
+                <TextField
+                  label="День задачи"
+                  name="plannedDate"
+                  data-field="plannedDate"
+                  type="date"
+                  required
+                  min={today}
+                  value={values.plannedDate}
+                  error={error('plannedDate')}
+                  onChange={(event) => update('plannedDate', event.target.value)}
+                  onBlur={() => touch('plannedDate')}
+                />
+              ) : null}
+              {preferredField}
+              {mobile ? (
+                <>
+                  {repeatField}
+                  {pinField}
                 </>
-              )}
+              ) : null}
+              {reminderField}
+              {mobile ? descriptionField : null}
             </div>
-          </section>
-        ) : null}
-        {preview ? (
-          <section
-            ref={previewRef}
-            tabIndex={-1}
-            className={styles.preview}
-            aria-label="Проверка задачи"
-            role="status"
-          >
-            <CheckIcon size={18} />
-            <div>
-              <p className="text-label">
-                {mode === 'edit' ? 'Изменения проверены' : 'Данные задачи проверены'}
-              </p>
-              <p className={styles.previewTitle}>{preview.title}</p>
-              <p className={styles.hint}>
-                {TASK_TYPES[preview.type]} · {preview.duration_min} мин ·{' '}
-                {PRIORITIES.find((item) => item.value === preview.priority)?.label} приоритет
-              </p>
-              <p className={styles.hint}>
-                День задачи: {preview.planned_date.split('-').reverse().join('.')}
-              </p>
-              {preview.deadline ? (
-                <p className={styles.hint}>Дедлайн: {formatMoment(preview.deadline)}</p>
-              ) : null}
-              {preview.is_pinned ? (
-                <p className={styles.hint}>Закреплено: {formatMoment(preview.pinned_start)}</p>
-              ) : null}
-              {previewOptions?.recurrence ? (
-                <p className={styles.hint}>
-                  Повтор:{' '}
-                  {previewOptions.recurrence.frequency === 'daily'
-                    ? 'каждый день'
-                    : `каждые ${previewOptions.recurrence.interval} нед. · ${previewOptions.recurrence.weekdays.map((day) => WEEKDAYS[day - 1]).join(', ')}`}
-                  {previewOptions.recurrence.until
-                    ? ` · до ${previewOptions.recurrence.until.split('-').reverse().join('.')}`
-                    : ''}
+          </div>
+          {mode === 'create' ? (
+            <section
+              className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
+              aria-label="Предложенное время"
+            >
+              <SparklesIcon size={16} />
+              <div>
+                {suggestion ? (
+                  <>
+                    <p className="text-label">
+                      Предложим {formatMoment(suggestion.startsAt)}–
+                      {new Intl.DateTimeFormat('ru-RU', {
+                        timeZone: context.timezone,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }).format(new Date(suggestion.endsAt))}
+                    </p>
+                    <p className={styles.suggestionText}>{suggestion.explanation}</p>
+                    <button
+                      type="button"
+                      className={styles.chooseTime}
+                      onClick={() => {
+                        setExpanded(true)
+                        setHasPreferredTime(true)
+                        requestAnimationFrame(() =>
+                          formRef.current
+                            ?.querySelector<HTMLInputElement>('[name="preferredStart"]')
+                            ?.focus(),
+                        )
+                      }}
+                    >
+                      Выбрать другое время <ChevronRightIcon size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {!mobile ? <p className="text-label">Подберём лучшее окно</p> : null}
+                    <p className={styles.suggestionText}>
+                      {apiConnected
+                        ? 'Укажите название, тип и длительность — подберём время с учётом биоритмов и свободных окон.'
+                        : values.title.trim() && values.type && values.durationMin
+                          ? 'Время ещё не рассчитано. Подберём окно по вашим биоритмам и хронотипу и покажем изменения перед применением.'
+                          : 'Укажите название, тип и длительность — подберём лучшее окно по вашим биоритмам и хронотипу.'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </section>
+          ) : null}
+          {preview ? (
+            <section
+              ref={previewRef}
+              tabIndex={-1}
+              className={styles.preview}
+              aria-label="Проверка задачи"
+              role="status"
+            >
+              <CheckIcon size={18} />
+              <div>
+                <p className="text-label">
+                  {mode === 'edit' ? 'Изменения проверены' : 'Данные задачи проверены'}
                 </p>
-              ) : null}
-              {previewOptions ? (
+                <p className={styles.previewTitle}>{preview.title}</p>
                 <p className={styles.hint}>
-                  {
-                    REMINDER_OPTIONS.find(
-                      (item) =>
-                        item.value ===
-                        (previewOptions.reminderMinutes === null
-                          ? ''
-                          : String(previewOptions.reminderMinutes)),
-                    )?.label
-                  }
+                  {TASK_TYPES[preview.type]} · {preview.duration_min} мин ·{' '}
+                  {PRIORITIES.find((item) => item.value === preview.priority)?.label} приоритет
                 </p>
-              ) : null}
-              <p className={styles.hint}>
-                {mode === 'edit'
-                  ? 'Изменения ещё не сохранены в плане.'
-                  : 'Задача ещё не добавлена в план.'}
-              </p>
-            </div>
-          </section>
-        ) : null}
-      </fieldset>
+                <p className={styles.hint}>
+                  День задачи: {preview.planned_date.split('-').reverse().join('.')}
+                </p>
+                {preview.deadline ? (
+                  <p className={styles.hint}>Дедлайн: {formatMoment(preview.deadline)}</p>
+                ) : null}
+                {preview.is_pinned ? (
+                  <p className={styles.hint}>Закреплено: {formatMoment(preview.pinned_start)}</p>
+                ) : null}
+                {previewOptions?.recurrence ? (
+                  <p className={styles.hint}>
+                    Повтор:{' '}
+                    {previewOptions.recurrence.frequency === 'daily'
+                      ? 'каждый день'
+                      : `каждые ${previewOptions.recurrence.interval} нед. · ${previewOptions.recurrence.weekdays.map((day) => WEEKDAYS[day - 1]).join(', ')}`}
+                    {previewOptions.recurrence.until
+                      ? ` · до ${previewOptions.recurrence.until.split('-').reverse().join('.')}`
+                      : ''}
+                  </p>
+                ) : null}
+                {previewOptions ? (
+                  <p className={styles.hint}>
+                    {
+                      REMINDER_OPTIONS.find(
+                        (item) =>
+                          item.value ===
+                          (previewOptions.reminderMinutes === null
+                            ? ''
+                            : String(previewOptions.reminderMinutes)),
+                      )?.label
+                    }
+                  </p>
+                ) : null}
+                <p className={styles.hint}>
+                  {mode === 'edit'
+                    ? 'Изменения ещё не сохранены в плане.'
+                    : 'Задача ещё не добавлена в план.'}
+                </p>
+              </div>
+            </section>
+          ) : null}
+        </fieldset>
+      </div>
       <footer className={styles.actions}>
         <Button
           variant="ghost"
@@ -975,6 +992,7 @@ export function TaskForm({
           className={styles.submit}
           disabled={
             isSubmitting ||
+            saveDisabled ||
             !values.title.trim() ||
             !values.type ||
             values.durationMin === '' ||
@@ -989,9 +1007,11 @@ export function TaskForm({
             <PlusIcon size={18} />
           )}
           {isSubmitting ? (
-            <span role="status">Добавляем задачу…</span>
+            <span role="status">
+              {mode === 'edit' ? 'Сохраняем изменения…' : 'Добавляем задачу…'}
+            </span>
           ) : mode === 'edit' ? (
-            'Сохранить изменения'
+            (submitLabel ?? 'Сохранить изменения')
           ) : (
             'Добавить и распределить'
           )}

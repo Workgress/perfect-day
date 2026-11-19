@@ -12,7 +12,7 @@ const FIELDS = {
   deadline: 'deadlineLocal',
 } as const
 
-export function taskCreationError(error: unknown): { message: string; fields: TaskFormErrors } {
+export function taskWriteFields(error: unknown): TaskFormErrors {
   const fields: TaskFormErrors = {}
   const details = apiProblem(error)?.details.fields
   if (Array.isArray(details)) {
@@ -22,6 +22,11 @@ export function taskCreationError(error: unknown): { message: string; fields: Ta
       if (Object.hasOwn(FIELDS, field)) fields[FIELDS[field as keyof typeof FIELDS]] = item.message
     }
   }
+  return fields
+}
+
+export function taskCreationError(error: unknown): { message: string; fields: TaskFormErrors } {
+  const fields = taskWriteFields(error)
   const uncertain = !(error instanceof HttpError) || error.status >= 500
   return {
     fields,

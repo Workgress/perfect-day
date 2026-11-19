@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import { paths } from '@/app/router/paths'
+import { paths, taskPath } from '@/app/router/paths'
 import { Button } from '@/shared/ui/button/Button'
 import { CheckIcon, PlusIcon, XIcon } from '@/shared/ui/icon/icons'
 import { PageHeader } from '@/shared/ui/page-header/PageHeader'
@@ -13,6 +13,8 @@ export function TodayPage() {
   const generation = useSessionStore((state) => state.generation)
   const created = (location.state as { taskCreated?: { task: Task; generation: number } } | null)
     ?.taskCreated
+  const notice = (location.state as { taskNotice?: { generation: number; message: string } } | null)
+    ?.taskNotice
 
   return (
     <>
@@ -36,6 +38,14 @@ export function TodayPage() {
             ) : null}
           </div>
           <Button
+            className={styles.openTask}
+            variant="ghost"
+            size="s"
+            onClick={() => navigate(taskPath(created.task.id))}
+          >
+            Открыть
+          </Button>
+          <Button
             variant="ghost"
             size="s"
             aria-label="Закрыть уведомление"
@@ -46,6 +56,18 @@ export function TodayPage() {
         </div>
       ) : null}
       <Outlet />
+      {notice?.generation === generation ? (
+        <div className={styles.notice} role="status">
+          <p>{notice.message}</p>
+          <Button
+            variant="ghost"
+            aria-label="Закрыть уведомление"
+            onClick={() => navigate(location.pathname, { replace: true, state: null })}
+          >
+            <XIcon size={16} />
+          </Button>
+        </div>
+      ) : null}
     </>
   )
 }

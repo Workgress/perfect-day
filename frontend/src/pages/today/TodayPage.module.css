@@ -36,6 +36,11 @@
   padding: 0;
 }
 
+.notice .openTask {
+  width: auto;
+  padding-inline: 8px;
+}
+
 @media (max-width: 768px) {
   .notice {
     right: var(--space-16);

@@ -161,6 +161,15 @@
 .reasons li:nth-child(2) > span:first-child {
   background: var(--type-rest);
 }
+.reasons[data-example] li:first-child > span:first-child {
+  background: var(--type-intellectual);
+}
+.reasons[data-example] li:nth-child(2) > span:first-child {
+  background: var(--energy-high);
+}
+.reasons[data-example] li:nth-child(3) > span:first-child {
+  background: var(--type-rest);
+}
 .reasons li > span:last-child,
 .reasons > p,
 .description > p {
@@ -251,4 +260,23 @@
     padding-inline: var(--space-4);
     font-size: 13px;
   }
+}
+
+.deleteAction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.deleteAction .deleteButton {
+  width: 100%;
+  height: 44px;
+  color: var(--status-danger);
+}
+.deleteAction .deleteButton:hover:enabled {
+  background: var(--state-hover);
+  color: var(--status-danger);
+}
+.deleteAction .deleteButton:active:enabled {
+  background: var(--bg-overlay);
+  color: var(--status-danger);
 }
