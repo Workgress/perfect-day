@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { isCalendarDate } from '@/shared/lib/dateTime'
 import { apiError } from '@/shared/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { BIORHYTHM_CYCLES } from '@/shared/model/biorhythm'
@@ -30,7 +32,27 @@ const PERIODS = [
   { value: 'month', label: 'Месяц' },
   { value: 'quarter', label: '3 месяца' },
 ] as const
-export function BiorhythmsPage() {
+export function BiorhythmsRoute() {
+  const [params] = useSearchParams()
+  const period = params.get('period')
+  const date = params.get('date')
+  const initialPeriod = PERIODS.some((item) => item.value === period)
+    ? (period as ChartPeriod)
+    : undefined
+  const initialAnchor = date && date >= '0001-01-01' && isCalendarDate(date) ? date : undefined
+  return (
+    <BiorhythmsPage
+      key={`${initialPeriod}:${initialAnchor}`}
+      initialPeriod={initialPeriod}
+      initialAnchor={initialAnchor}
+    />
+  )
+}
+
+export function BiorhythmsPage({
+  initialPeriod,
+  initialAnchor,
+}: { initialPeriod?: ChartPeriod; initialAnchor?: string } = {}) {
   const generation = useSessionStore((state) => state.generation)
   const timezone = useSessionStore((state) => state.timezone)
   const owner = useSessionStore((state) => state.ownerId)
@@ -41,6 +63,8 @@ export function BiorhythmsPage() {
       key={`${generation}:${owner}:${timezone}:${birthDate}:${birthTime}`}
       timezone={timezone}
       birthDate={birthDate}
+      initialPeriod={initialPeriod}
+      initialAnchor={initialAnchor}
     />
   )
 }
@@ -48,16 +72,20 @@ export function BiorhythmsPage() {
 function BiorhythmsContent({
   timezone,
   birthDate,
+  initialPeriod,
+  initialAnchor,
 }: {
   timezone: string
   birthDate?: string | null
+  initialPeriod?: ChartPeriod
+  initialAnchor?: string
 }) {
   const today = useBiorhythmToday(timezone)
   const daysSinceBirth = birthDate
     ? Math.round((Date.parse(today) - Date.parse(birthDate)) / 86_400_000)
     : null
-  const [period, setPeriod] = useState<ChartPeriod>('month')
-  const [anchor, setAnchor] = useState(today)
+  const [period, setPeriod] = useState<ChartPeriod>(initialPeriod ?? 'month')
+  const [anchor, setAnchor] = useState(initialAnchor ?? today)
   const [selectedAt, setSelectedAt] = useState<string | null>(null)
   const [showMethod, setShowMethod] = useState(false)
   const chartRef = useRef<HTMLDivElement>(null)

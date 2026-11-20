@@ -1,0 +1,111 @@
+import { useMatch, useNavigate } from 'react-router'
+import { paths, taskPath } from '@/app/router/paths'
+import { apiError } from '@/shared/api/errors'
+import { Button } from '@/shared/ui/button/Button'
+import { useSessionStore } from '@/stores/session'
+import { DailyTimeline } from './DailyTimeline'
+import { TaskDayList } from './TaskDayList'
+import { useTodaySchedule } from './useTodaySchedule'
+import styles from './TodayPage.module.css'
+
+export function TodayTimeline({ date, search = '' }: { date: string; search?: string }) {
+  const generation = useSessionStore((state) => state.generation)
+  const timezone = useSessionStore((state) => state.timezone)
+  return (
+    <TodayTimelineContent
+      key={`${generation}:${date}:${timezone}`}
+      date={date}
+      generation={generation}
+      timezone={timezone}
+      search={search}
+    />
+  )
+}
+
+function TodayTimelineContent({
+  date,
+  generation,
+  timezone,
+  search,
+}: {
+  date: string
+  generation: number
+  timezone: string
+  search: string
+}) {
+  const navigate = useNavigate()
+  const user = useSessionStore((state) => state.user)
+  const selected = useMatch(`${paths.taskDetails}/*`)?.params.taskId
+  const state = useTodaySchedule(date, generation, {
+    timezone,
+    work_start: user?.workStart,
+    work_end: user?.workEnd,
+  })
+  const open = (task: { id: string }) => navigate(taskPath(task.id))
+  const create = () => navigate(paths.newTask)
+  const query = search.trim().toLocaleLowerCase('ru-RU')
+  const matches = (state.day?.tasks ?? state.tasks).filter((task) =>
+    `${task.title} ${task.description ?? ''}`.toLocaleLowerCase('ru-RU').includes(query),
+  )
+
+  return (
+    <div className={styles.plan}>
+      {state.loading ? (
+        <p className={styles.planState} role="status">
+          Загружаем план дня…
+        </p>
+      ) : state.error ? (
+        <section className={styles.planState} role="alert">
+          <h2 className="text-heading">Не удалось загрузить план дня</h2>
+          <p>{apiError(state.error)}</p>
+          <Button variant="secondary" onClick={() => void state.refresh()}>
+            Повторить загрузку плана
+          </Button>
+        </section>
+      ) : query ? (
+        <section aria-label="Результаты поиска задач">
+          <h2 className="text-heading">Поиск задач</h2>
+          <p className={styles.searchSummary} role="status">
+            {matches.length ? `Найдено: ${matches.length}` : 'На этот день ничего не найдено.'}
+          </p>
+          <TaskDayList
+            title="Задачи текущего дня"
+            tasks={matches}
+            onTaskSelect={open}
+            selectedTaskId={selected}
+          />
+        </section>
+      ) : state.absent ? (
+        <>
+          <section className={styles.planState} role="status">
+            <h2 className="text-heading">Расписание на этот день ещё не сохранено</h2>
+            <p>При добавлении или изменении задачи планировщик обновит расписание.</p>
+            {!state.tasks.length ? <p>Задач на этот день пока нет.</p> : null}
+          </section>
+          <TaskDayList
+            title="Задачи на этот день"
+            tasks={state.tasks}
+            onTaskSelect={open}
+            selectedTaskId={selected}
+          />
+        </>
+      ) : state.day ? (
+        <>
+          <DailyTimeline
+            day={state.day}
+            selectedTaskId={selected}
+            onTaskSelect={open}
+            onCreateTask={create}
+          />
+          {state.warnings.length ? (
+            <ul className={styles.warnings} aria-label="Сообщения о расписании">
+              {state.warnings.map((item, index) => (
+                <li key={`${item.code}:${index}`}>{item.message}</li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  )
+}

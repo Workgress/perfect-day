@@ -8,6 +8,27 @@ const now = new Date('2026-11-11T04:42:00Z')
 const normal = DAILY_SCHEDULE_FIXTURES.normal
 
 describe('daily timeline', () => {
+  it('shows the cycle legend and aligns each rail segment with its interval and task type', () => {
+    const { container } = render(<DailyTimeline day={normal} now={now} />)
+    expect(screen.getByText('окна по циклам')).toBeInTheDocument()
+    const rail = container.querySelector('[aria-hidden="true"][style*="height"]')!
+    const intervals = container.querySelectorAll<HTMLElement>('[data-slot-id]')
+    expect(rail.children).toHaveLength(intervals.length)
+    intervals.forEach((interval, index) => {
+      const segment = rail.children[index] as HTMLElement
+      expect(segment.dataset.type).toBe(interval.dataset.type)
+      expect(segment.style.top).toBe(interval.style.top)
+      expect(segment.style.height).toBe(interval.style.height)
+    })
+  })
+
+  it('counts completed tasks without slots in the summary', () => {
+    const day = structuredClone(normal)
+    day.slots = []
+    render(<DailyTimeline day={day} now={now} />)
+    expect(screen.getByText('2 задачи выполнены')).toBeInTheDocument()
+  })
+
   it('shows four distinct task types and separates breaks, lunch and rest', () => {
     const { container } = render(<DailyTimeline day={normal} now={now} />)
     for (const type of ['intellectual', 'creative', 'physical', 'routine']) {
@@ -39,7 +60,7 @@ describe('daily timeline', () => {
   it('expands completed tasks and collapses them without changing the remaining intervals', async () => {
     render(<DailyTimeline day={normal} now={now} />)
     expect(screen.queryByRole('article', { name: /^Разобрать почту/ })).not.toBeInTheDocument()
-    const completed = screen.getByRole('button', { name: /Выполнено: 2/ })
+    const completed = screen.getByRole('button', { name: /2 задачи выполнены · 08:00–09:30/ })
     await userEvent.click(completed)
     expect(completed).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('article', { name: /^Разобрать почту/ })).toHaveTextContent(

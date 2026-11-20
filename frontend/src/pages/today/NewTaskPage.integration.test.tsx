@@ -11,6 +11,9 @@ import { mockMatchMedia } from '@/test/matchMedia'
 import { NewTaskPage } from './NewTaskPage'
 import { TodayPage } from './TodayPage'
 
+vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
+vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
+
 const timezone = 'Asia/Yekaterinburg'
 const today = () => localDate(new Date(), timezone)
 const taskResponse = (body: Record<string, unknown>) => ({

@@ -11,6 +11,9 @@ import type { Task } from '@/shared/model/task'
 import { TaskPage, EditTaskPage } from './TaskPage'
 import { TodayPage } from './TodayPage'
 
+vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
+vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
+
 const task = (): Task => ({
   ...DAILY_SCHEDULE_FIXTURES.normal.tasks[3],
   planned_date: localDate(new Date(), 'Asia/Yekaterinburg'),

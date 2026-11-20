@@ -127,7 +127,8 @@ export const routes: RouteObject[] = [
                   {
                     path: paths.biorhythms,
                     lazy: async () => ({
-                      Component: (await import('@/pages/biorhythms/BiorhythmsPage')).BiorhythmsPage,
+                      Component: (await import('@/pages/biorhythms/BiorhythmsPage'))
+                        .BiorhythmsRoute,
                     }),
                   },
                   {

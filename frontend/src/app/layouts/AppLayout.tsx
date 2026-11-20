@@ -6,6 +6,7 @@ import type { IconProps } from '@/shared/ui/icon/createIcon'
 import { ActivityIcon, CalendarIcon, SlidersIcon, SunIcon } from '@/shared/ui/icon/icons'
 import { selectUserName, useSessionStore } from '@/stores/session'
 import { ThemeToggle } from '@/app/theme/ThemeToggle'
+import { Brand } from '@/shared/ui/brand/Brand'
 import { ServerStatus } from './ServerStatus'
 import { SidebarLink } from './SidebarLink'
 import styles from './AppLayout.module.css'
@@ -37,7 +38,7 @@ export function AppLayout() {
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <span className="text-heading">Идеальный день</span>
+          <Brand className={styles.brandIdentity} />
           <ThemeToggle />
         </div>
         <nav aria-label="Основная навигация" className={styles.nav}>

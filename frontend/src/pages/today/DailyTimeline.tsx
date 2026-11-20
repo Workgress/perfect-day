@@ -8,6 +8,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CoffeeIcon,
+  GripVerticalIcon,
   LinkIcon,
   LockIcon,
   MoonIcon,
@@ -16,6 +17,7 @@ import {
 } from '@/shared/ui/icon/icons'
 import { buildTimeline, SYSTEM_SLOT_LABELS, timelineClock, timelineDuration } from './timelineModel'
 import styles from './DailyTimeline.module.css'
+import { TaskDayList } from './TaskDayList'
 
 type DailyTimelineProps = {
   day: DailySchedule
@@ -80,10 +82,17 @@ function TimelineContent({
   const taskIds = new Set(
     day.slots.filter((slot) => slot.kind === 'task').map((slot) => slot.task_id),
   )
-  const completedCount = day.tasks.filter(
-    (task) => taskIds.has(task.id) && task.status === 'done',
-  ).length
+  const completedCount = day.tasks.filter((task) => task.status === 'done').length
+  const completedPlural = new Intl.PluralRules('ru-RU').select(completedCount)
+  const completedLabel = `${taskCount(completedCount)} ${completedPlural === 'one' ? 'выполнена' : completedPlural === 'few' ? 'выполнены' : 'выполнено'}`
   const empty = day.slots.length === 0
+  const withoutSlots = day.tasks.filter((task) => !taskIds.has(task.id))
+  const unplaced = withoutSlots.filter(
+    (task) => task.status !== 'done' && task.status !== 'skipped',
+  )
+  const finished = withoutSlots.filter(
+    (task) => task.status === 'done' || task.status === 'skipped',
+  )
   const firstCompleted = timeline.completed[0]
   const lastCompleted = timeline.completed.at(-1)
   const openTask = (task: Task) => onTaskSelect?.(task)
@@ -96,8 +105,8 @@ function TimelineContent({
             План на день
           </h2>
           <p className={styles.subtitle}>
-            {taskCount(taskIds.size)} · {timelineDuration(timeline.scheduledMinutes)} запланировано
-            {completedCount ? ` · выполнено: ${completedCount}` : ''}
+            {taskCount(day.tasks.length)} · {timelineDuration(timeline.scheduledMinutes)}{' '}
+            запланировано
           </p>
         </div>
         <div className={styles.legend} aria-label="Обозначения на шкале">
@@ -107,20 +116,16 @@ function TimelineContent({
           <span>
             <LockIcon size={14} /> закреплено
           </span>
+          <span>
+            <span className={styles.cycleKey} aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            окна по циклам
+          </span>
         </div>
       </header>
-      <ul className={styles.types} aria-label="Цвета типов задач">
-        {Object.entries(TASK_TYPES).map(([type, label]) => (
-          <li key={type} data-type={type}>
-            <span aria-hidden="true" />
-            {label}
-          </li>
-        ))}
-        <li data-type="rest">
-          <span aria-hidden="true" />
-          Перерывы и отдых
-        </li>
-      </ul>
       {firstCompleted && lastCompleted ? (
         <button
           className={styles.completed}
@@ -131,16 +136,32 @@ function TimelineContent({
         >
           <CheckIcon size={16} />
           <span>
-            Выполнено: {timeline.completed.length} ·{' '}
-            {range(firstCompleted.start, lastCompleted.end)}
+            {completedLabel}
+            {timeline.completed.length === completedCount
+              ? ` · ${range(firstCompleted.start, lastCompleted.end)}`
+              : ''}
           </span>
           <span className={styles.completedAction}>
             {showCompleted ? 'Скрыть' : 'Показать'} <ChevronDownIcon size={14} />
           </span>
         </button>
-      ) : null}
+      ) : (
+        <div className={styles.completed}>
+          <CheckIcon size={16} />
+          <span>{completedLabel}</span>
+        </div>
+      )}
       <div id={`${id}-scale`} className={styles.scale} style={{ height: timeline.height + 24 }}>
-        <div className={styles.rail} aria-hidden="true" style={{ height: timeline.height }} />
+        <div className={styles.rail} aria-hidden="true" style={{ height: timeline.height }}>
+          {timeline.rows.map(({ slot, task, top, height }) => (
+            <span
+              key={slot.id}
+              className={styles.railSegment}
+              data-type={task?.type ?? 'rest'}
+              style={{ top, height }}
+            />
+          ))}
+        </div>
         {timeline.ticks.map((tick) => (
           <div key={tick.at} className={styles.tick} style={{ top: tick.top }} aria-hidden="true">
             <span
@@ -244,6 +265,11 @@ function TimelineContent({
                   </span>
                 </div>
                 <Marker size={14} />
+                {task && task.status !== 'done' && task.status !== 'skipped' ? (
+                  <span className={styles.dragHint} aria-hidden="true">
+                    <GripVerticalIcon size={16} />
+                  </span>
+                ) : null}
               </>
             )
             return (
@@ -293,14 +319,18 @@ function TimelineContent({
           <div className={styles.empty} role="status">
             <CalendarIcon size={24} />
             <h3 className="text-heading">
-              {timeline.unscheduled.length
+              {unplaced.length
                 ? 'Задачи пока не распределены'
-                : 'На этот день задач нет'}
+                : finished.length
+                  ? 'Нет запланированных интервалов'
+                  : 'На этот день задач нет'}
             </h3>
             <p>
-              {timeline.unscheduled.length
+              {unplaced.length
                 ? 'Задачи без времени показаны под шкалой.'
-                : 'Добавьте задачу — подберём для неё подходящее время в течение дня.'}
+                : finished.length
+                  ? 'Выполненные и пропущенные задачи показаны под шкалой.'
+                  : 'Добавьте задачу — подберём для неё подходящее время в течение дня.'}
             </p>
             {onCreateTask ? (
               <Button className={styles.emptyAction} onClick={() => onCreateTask(day.date)}>
@@ -331,6 +361,18 @@ function TimelineContent({
         ) : null}
       </div>
       <p className={styles.timezone}>Время расписания: {day.timezone}</p>
+      <TaskDayList
+        title="Без времени"
+        tasks={unplaced}
+        onTaskSelect={onTaskSelect}
+        selectedTaskId={selectedTaskId}
+      />
+      <TaskDayList
+        title="Выполненные и пропущенные"
+        tasks={finished}
+        onTaskSelect={onTaskSelect}
+        selectedTaskId={selectedTaskId}
+      />
       {!empty ? (
         <details className={styles.list}>
           <summary>Все интервалы списком</summary>
