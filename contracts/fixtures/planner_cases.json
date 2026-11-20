@@ -652,7 +652,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -915,7 +916,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -1178,7 +1180,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -1441,7 +1444,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -1711,7 +1715,8 @@
           }
         ],
         "warnings": [],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -1974,7 +1979,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2238,7 +2244,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2383,7 +2390,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2521,7 +2529,8 @@
             "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2674,7 +2683,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2827,7 +2837,8 @@
             "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -2988,7 +2999,8 @@
             "level": "critical"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3133,7 +3145,8 @@
             "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3307,7 +3320,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3437,7 +3451,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3567,9 +3582,20 @@
             "target_date": null,
             "message": "Задача не помещается на 2026-11-14. Перенос даты запрещён: задача оставлена на выбранной дате без времени.",
             "level": "warning"
+          },
+          {
+            "code": "MOVE_RECOMMENDATION_UNAVAILABLE",
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "target_date": null,
+            "message": "Нет снимков занятости следующих семи дней для проверки даты переноса. Задача остаётся на исходной дате.",
+            "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3698,7 +3724,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -3886,7 +3913,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4074,7 +4102,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4262,7 +4291,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4450,7 +4480,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4564,7 +4595,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4685,7 +4717,8 @@
             "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4858,9 +4891,20 @@
             "target_date": null,
             "message": "Задача не помещается на 2026-11-14. Перенос даты запрещён: задача оставлена на выбранной дате без времени.",
             "level": "warning"
+          },
+          {
+            "code": "MOVE_RECOMMENDATION_UNAVAILABLE",
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "target_date": null,
+            "message": "Нет снимков занятости следующих семи дней для проверки даты переноса. Задача остаётся на исходной дате.",
+            "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -4943,7 +4987,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -5299,7 +5344,8 @@
               "level": "info"
             }
           ],
-          "future_plans": []
+          "future_plans": [],
+          "recommendations": []
         },
         "changes": [
           {
@@ -5483,7 +5529,8 @@
               "level": "info"
             }
           ],
-          "future_plans": []
+          "future_plans": [],
+          "recommendations": []
         },
         "changes": [
           {
@@ -5713,7 +5760,8 @@
               "level": "info"
             }
           ],
-          "future_plans": []
+          "future_plans": [],
+          "recommendations": []
         },
         "changes": [
           {
@@ -5850,7 +5898,8 @@
               "level": "info"
             }
           ],
-          "future_plans": []
+          "future_plans": [],
+          "recommendations": []
         },
         "changes": [
           {
@@ -6087,9 +6136,11 @@
                 "level": "warning"
               }
             ],
-            "future_plans": []
+            "future_plans": [],
+            "recommendations": []
           }
-        ]
+        ],
+        "recommendations": []
       }
     },
     {
@@ -6243,7 +6294,8 @@
             "level": "warning"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -6372,11 +6424,23 @@
                 "task_index": null
               },
               "target_date": "2026-11-15",
-              "message": "Рекомендуется перенос на 2026-11-15: задача 30 мин помещается целиком; нагрузка дня после размещения 30 из 540 доступных мин.",
+              "message": "На 2026-11-14 задача не помещается в доступные интервалы и лимиты нагрузки. Рекомендуется перенос на 2026-11-15: задача 30 мин помещается целиком; нагрузка дня после размещения 30 из 540 доступных мин.",
               "level": "warning"
             }
           ],
-          "future_plans": []
+          "future_plans": [],
+          "recommendations": [
+            {
+              "task": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "from_date": "2026-11-14",
+              "to_date": "2026-11-15",
+              "reason_code": "NO_FEASIBLE_INTERVAL",
+              "explanation": "На 2026-11-14 задача не помещается в доступные интервалы и лимиты нагрузки. Рекомендуется перенос на 2026-11-15: задача 30 мин помещается целиком; нагрузка дня после размещения 30 из 540 доступных мин."
+            }
+          ]
         },
         "changes": []
       }
@@ -6559,7 +6623,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -6666,7 +6731,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     },
     {
@@ -6847,7 +6913,8 @@
             "level": "info"
           }
         ],
-        "future_plans": []
+        "future_plans": [],
+        "recommendations": []
       }
     }
   ]

@@ -107,7 +107,7 @@ def quantized_plan(plan: PlanResult) -> PlanResult:
 
 def stored_summary(plan: PlanResult) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "slot_count": len(plan.slots),
         "timezone": plan.timezone,
         "metrics": asdict(plan.metrics),
@@ -134,6 +134,16 @@ def stored_summary(plan: PlanResult) -> dict[str, object]:
             }
             for item in plan.moves
         ],
+        "recommendations": [
+            {
+                "task_id": str(item.task.task_id),
+                "from_date": item.from_date.isoformat(),
+                "to_date": item.to_date.isoformat(),
+                "reason_code": item.reason_code,
+                "explanation": item.explanation,
+            }
+            for item in plan.recommendations
+        ],
         "status_changes": [
             {"task_id": str(item.task.task_id), "previous": item.previous, "next": item.next}
             for item in plan.status_changes
@@ -157,9 +167,9 @@ def restore_plan(schedule: Schedule, future_plans: tuple[PlanResult, ...] = ()) 
     try:
         summary = schedule.summary
         version = summary.get("schema_version", 1)
-        if version not in {1, 2}:
+        if version not in {1, 2, 3}:
             raise ValueError("Unsupported stored plan schema")
-        if version == 2:
+        if version >= 2:
             for field in (
                 "slot_count",
                 "status_changes",
@@ -170,6 +180,8 @@ def restore_plan(schedule: Schedule, future_plans: tuple[PlanResult, ...] = ()) 
                     raise ValueError("Incomplete stored plan")
             if summary["slot_count"] != len(schedule.slots):
                 raise ValueError("Stored plan slots are incomplete")
+        if version == 3 and "recommendations" not in summary:
+            raise ValueError("Stored plan recommendations are incomplete")
         preservations = {
             (
                 item["kind"],
@@ -215,6 +227,10 @@ def restore_plan(schedule: Schedule, future_plans: tuple[PlanResult, ...] = ()) 
                 ],
                 "moves": [
                     {**item, "task": {"task_id": item["task_id"]}} for item in summary["moves"]
+                ],
+                "recommendations": [
+                    {**item, "task": {"task_id": item["task_id"]}}
+                    for item in summary.get("recommendations", [])
                 ],
                 "status_changes": [
                     {**item, "task": {"task_id": item["task_id"]}}

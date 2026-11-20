@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.modules.planner.contracts import TaskRef
+from app.modules.schedule.planning_schemas import TaskMoveRecommendation
 from app.modules.schedule.read_models import (
     ScheduleReadMetrics,
     ScheduleReadMove,
@@ -29,6 +30,26 @@ class ScheduleReader:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repository = ScheduleRepository(session)
+
+    async def get_recommendations(
+        self, user_id: UUID, day: date
+    ) -> tuple[TaskMoveRecommendation, ...] | None:
+        row = (await self.repository.active(user_id, (day,))).get(day)
+        if row is None:
+            return None
+        plan = await self.repository.result(user_id, row.id)
+        if plan is None:
+            return None
+        return tuple(
+            TaskMoveRecommendation(
+                task_id=_task_id(item.task),
+                from_date=item.from_date,
+                to_date=item.to_date,
+                reason_code=item.reason_code,
+                explanation=item.explanation,
+            )
+            for item in plan.recommendations
+        )
 
     async def get(self, user_id: UUID, day: date) -> ScheduleReadResult | None:
         row = (await self.repository.active(user_id, (day,))).get(day)

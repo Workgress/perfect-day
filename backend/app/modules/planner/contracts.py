@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from math import isfinite
+from re import fullmatch
 from typing import Literal, Protocol, get_args
 from uuid import UUID
 
@@ -268,6 +269,25 @@ class TaskMove:
 
 
 @dataclass(frozen=True, slots=True)
+class MoveRecommendation:
+    task: TaskRef
+    from_date: date
+    to_date: date
+    reason_code: str
+    explanation: str
+
+    def __post_init__(self) -> None:
+        _day(self.from_date, "from_date")
+        _day(self.to_date, "to_date")
+        if self.task.task_id is None:
+            raise ValueError("Recommendations require a persisted task ID")
+        if not 1 <= (self.to_date - self.from_date).days <= 7:
+            raise ValueError("Recommended date must be within the next seven days")
+        if fullmatch(r"[A-Z][A-Z0-9_]*", self.reason_code) is None or not self.explanation.strip():
+            raise ValueError("Recommendations require a reason and explanation")
+
+
+@dataclass(frozen=True, slots=True)
 class TaskStatusChange:
     task: TaskRef
     previous: SchedulingState
@@ -316,6 +336,19 @@ class PlanResult:
     warnings: tuple[PlanWarning, ...] = ()
     # Only accepted automatic moves have target plans. Advisory probes are never persisted.
     future_plans: tuple["PlanResult", ...] = ()
+    recommendations: tuple[MoveRecommendation, ...] = ()
+
+    def __post_init__(self) -> None:
+        represented = {slot.task for slot in self.slots if slot.task is not None}
+        represented.update(item.task for item in self.unscheduled)
+        moved = {move.task for move in self.moves}
+        seen = set()
+        for item in self.recommendations:
+            if item.from_date != self.day or item.task not in represented:
+                raise ValueError("Recommendation must reference a task on the source day")
+            if item.task in seen or item.task in moved:
+                raise ValueError("Recommendations must be unique and separate from applied moves")
+            seen.add(item.task)
 
 
 @dataclass(frozen=True, slots=True)

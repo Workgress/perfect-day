@@ -35,6 +35,8 @@ from app.modules.planner.recommendations import (
     day_recommendations,
     move_recommendation,
     overloaded,
+    recommendation_unavailable,
+    task_move_recommendation,
 )
 from app.modules.planner.time_grid import PlannerTimeError as PlannerTimeError
 from app.modules.planner.time_grid import TimeGrid as TimeGrid
@@ -285,6 +287,7 @@ def _build_schedule(
             if (
                 task.status not in {"pending", "scheduled"}
                 or task.is_pinned
+                or task.actual_start is not None
                 or task.ref in fixed
                 or task.kind not in {"intellectual", "physical"}
                 or (task.priority != "high" and task.duration_min < 60)
@@ -361,6 +364,7 @@ def _build_schedule(
     advice_days = dict(days)
     reserved = fixed | moved
     unplaced = {item.task for item in result.unscheduled}
+    recommendations = []
     if context.mode != "preview":
         for task in sort_tasks(context.tasks):
             if (
@@ -368,6 +372,7 @@ def _build_schedule(
                 or task.ref.task_id is None
                 or task.status not in {"pending", "scheduled"}
                 or task.is_pinned
+                or task.actual_start is not None
                 or not (task.ref in unplaced or (overloaded(result) and task.priority == "low"))
             ):
                 continue
@@ -375,20 +380,29 @@ def _build_schedule(
             if found is not None:
                 snapshot, target = found
                 advice_days[snapshot.day] = snapshot
+                recommendation = task_move_recommendation(
+                    context,
+                    task,
+                    target,
+                    cache.policy(context.profile, target.day),
+                    unplaced=task.ref in unplaced,
+                )
+                recommendations.append(recommendation)
                 warnings.append(
                     PlanWarning(
                         "SUGGESTED_MOVE",
                         task=task.ref,
                         target_date=target.day,
-                        message=move_recommendation(
-                            task, target, cache.policy(context.profile, target.day), automatic=False
-                        ),
+                        message=recommendation.explanation,
                         level="warning",
                     )
                 )
+            else:
+                warnings.append(recommendation_unavailable(task.ref, known_days=bool(advice_days)))
     return replace(
         result,
         moves=tuple(moves),
         warnings=tuple(warnings),
         future_plans=tuple(future_plans),
+        recommendations=tuple(recommendations),
     )
