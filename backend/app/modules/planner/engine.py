@@ -253,7 +253,7 @@ def build_schedule(
 ) -> PlanResult:
     """Pure deterministic plan with critical-day budgets, moves and recommendations.
 
-    Only replan mode proposes automatic moves, and only to explicitly supplied occupied-day
+    Only replan mode with allow_date_change proposes automatic moves to supplied occupied-day
     snapshots. The returned future plans belong to the same atomic write as those moves.
     Preview/initial never move tasks to conceal an incomplete first plan. Persistence, status
     updates and concurrency checks remain the caller's responsibility (integration stage 8).
@@ -280,7 +280,7 @@ def _build_schedule(
     target_plans: dict[date, PlanResult] = {}
     moves = []
     unavailable = []
-    if context.mode == "replan" and policy.critical.level:
+    if context.mode == "replan" and context.allow_date_change and policy.critical.level:
         for task in sort_tasks(context.tasks):
             if (
                 task.status not in {"pending", "scheduled"}
@@ -306,6 +306,24 @@ def _build_schedule(
         excluded=moved,
         rest_shortfall=shortfall,
     )
+    if context.mode == "replan" and not context.allow_date_change:
+        result = replace(
+            result,
+            unscheduled=tuple(
+                replace(item, reason_codes=(*item.reason_codes, "DATE_CHANGE_FORBIDDEN"))
+                for item in result.unscheduled
+            ),
+        )
+        unavailable.extend(
+            PlanWarning(
+                "DATE_CHANGE_FORBIDDEN",
+                task=item.task,
+                message=f"Задача не помещается на {context.day.isoformat()}. "
+                "Перенос даты запрещён: задача оставлена на выбранной дате без времени.",
+                level="warning",
+            )
+            for item in result.unscheduled
+        )
     result = replace(
         result,
         slots=explain_slots(context, result.slots, policy),

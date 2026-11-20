@@ -271,7 +271,14 @@ class ScheduleService:
         await self.session.flush()
         return row
 
-    async def replan(self, user_id: UUID, day: date, trigger: ScheduleTrigger) -> ReplanResult:
+    async def replan(
+        self,
+        user_id: UUID,
+        day: date,
+        trigger: ScheduleTrigger,
+        *,
+        allow_date_change: bool = False,
+    ) -> ReplanResult:
         async with self.mutation(user_id):
             state = await self.profiles.get_profile(user_id)
             if state is None or state.onboarding_completed_at is None:
@@ -310,7 +317,9 @@ class ScheduleService:
                 if any(task.planned_date != selected for task in tasks):
                     raise _error("CONFLICT", "Дата исторической задачи не совпадает с расписанием")
                 snapshots[selected] = (
-                    PlanContext(profile, selected, now, tasks, "replan"),
+                    PlanContext(
+                        profile, selected, now, tasks, "replan", allow_date_change=allow_date_change
+                    ),
                     previous,
                 )
             source, previous = snapshots[day]

@@ -44,7 +44,10 @@ def context(*tasks: PlanTask, elapsed: float = 2, **kw: Any) -> PlanContext:
         work_days=(1, 2, 3, 4, 5, 6, 7),
     )
     mode = kw.pop("mode", "replan")
-    return replace(PlanContext(profile, DAY, at(0) - timedelta(days=1), tasks, mode), **kw)
+    return replace(
+        PlanContext(profile, DAY, at(0) - timedelta(days=1), tasks, mode, allow_date_change=True),
+        **kw,
+    )
 
 
 def future(offset: int = 1, *tasks: PlanTask, fixed: tuple[PlanSlot, ...] = ()) -> FutureDay:

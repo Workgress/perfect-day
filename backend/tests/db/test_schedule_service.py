@@ -335,7 +335,7 @@ async def test_critical_moves_and_both_day_versions_are_saved_atomically(
     user = await setup_user(session, elapsed=14, completed=True)
     row = await make_task(session, user, planned_date=DAY, duration_min=60)
     result = await ScheduleService(session, CLOCK).replan(
-        user.id, DAY, ScheduleTrigger.TASK_CREATED
+        user.id, DAY, ScheduleTrigger.TASK_CREATED, allow_date_change=True
     )
     assert len(result.plan.moves) == len(result.plan.future_plans) == 1
     move = result.plan.moves[0]
@@ -470,7 +470,7 @@ async def test_target_day_storage_failure_rolls_back_source_move_and_status(
 
     monkeypatch.setattr(service, "_save_plan", broken)
     with pytest.raises(RuntimeError):
-        await service.replan(user.id, DAY, ScheduleTrigger.TASK_CREATED)
+        await service.replan(user.id, DAY, ScheduleTrigger.TASK_CREATED, allow_date_change=True)
     stored = await session.get(Task, task_id)
     assert stored is not None and stored.planned_date == DAY and stored.moved_from_date is None
     assert stored.status == TaskStatus.PENDING and stored.version == 1

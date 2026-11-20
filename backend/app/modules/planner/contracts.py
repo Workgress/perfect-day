@@ -206,6 +206,7 @@ class PlanContext:
     # False when the remaining-day adapter supplies authoritative lunch/history slots.
     # Future-day probes construct their own context and keep the default profile lunch.
     include_profile_lunch: bool = True
+    allow_date_change: bool = False
 
     def __post_init__(self) -> None:
         _day(self.day, "day")
@@ -217,6 +218,8 @@ class PlanContext:
             raise ValueError("Unknown planning mode")
         if type(self.include_profile_lunch) is not bool:
             raise ValueError("include_profile_lunch must be a boolean")
+        if type(self.allow_date_change) is not bool:
+            raise ValueError("allow_date_change must be a boolean")
         refs = {task.ref for task in self.tasks}
         if len(refs) != len(self.tasks):
             raise ValueError("Each task reference must be unique")

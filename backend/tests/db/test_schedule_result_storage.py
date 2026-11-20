@@ -119,7 +119,9 @@ async def test_source_result_keeps_exact_target_version_after_target_is_replanne
     user = await setup_user(session, elapsed=14, completed=True)
     await make_task(session, user, planned_date=DAY, duration_min=60)
     service = ScheduleService(session, CLOCK)
-    result = await service.replan(user.id, DAY, ScheduleTrigger.TASK_CREATED)
+    result = await service.replan(
+        user.id, DAY, ScheduleTrigger.TASK_CREATED, allow_date_change=True
+    )
     assert result.plan.moves and result.plan.future_plans
     source = await row_for(session, user.id)
     source_id, user_id = source.id, user.id

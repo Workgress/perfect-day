@@ -215,14 +215,19 @@ def cases() -> tuple[Case, ...]:
         Case(
             "critical-transfer",
             ("critical", "transfer"),
-            context(incoming, elapsed=14, future_days=(future,)),
+            context(incoming, elapsed=14, future_days=(future,), allow_date_change=True),
         )
     )
     result.append(
         Case(
             "deadline-blocks-transfer",
             ("critical", "deadline", "transfer"),
-            context(replace(incoming, deadline=DAY), elapsed=14, future_days=(future,)),
+            context(
+                replace(incoming, deadline=DAY),
+                elapsed=14,
+                future_days=(future,),
+                allow_date_change=True,
+            ),
         )
     )
     result.append(

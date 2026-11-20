@@ -396,7 +396,8 @@ def test_cross_day_moves_appear_in_the_diff_and_future_lunch_is_still_reserved()
     incoming = task(duration=60, kind="intellectual")
     future = FutureDay(DAY + timedelta(days=1))
     result = replan_remaining_day(
-        context(incoming, elapsed=14, future_days=(future,)), (slot(incoming, 14),)
+        context(incoming, elapsed=14, future_days=(future,), allow_date_change=True),
+        (slot(incoming, 14),),
     )
     assert len(result.plan.moves) == len(result.changes) == 1
     change = result.changes[0]
@@ -410,7 +411,9 @@ def test_future_resident_tasks_are_not_reported_as_new_source_placements() -> No
     day = DAY + timedelta(days=1)
     resident = task(10, planned_date=day)
     incoming = task(duration=60, kind="intellectual")
-    ctx = context(incoming, elapsed=14, future_days=(FutureDay(day, (resident,)),))
+    ctx = context(
+        incoming, elapsed=14, future_days=(FutureDay(day, (resident,)),), allow_date_change=True
+    )
     result = replan_remaining_day(ctx, (slot(incoming, 14),))
     assert [change.task for change in result.changes] == [incoming.ref]
     assert any(change.task == resident.ref for change in result.plan.future_plans[0].status_changes)

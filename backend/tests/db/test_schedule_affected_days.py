@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.time import FrozenClock, local_to_utc, parse_timezone
-from app.modules.schedule.models import Schedule, ScheduleSlot
+from app.modules.schedule.models import Schedule, ScheduleSlot, ScheduleTrigger
 from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.models import TaskStatus
 from app.modules.tasks.schemas import TaskCreate, TaskPatch
@@ -248,8 +248,14 @@ async def test_critical_transfer_respects_precise_deadline(session: AsyncSession
     created = await tasks.create(
         user.id,
         TaskCreate(
-            title="Critical", type="intellectual", duration_min=60, planned_date=DAY, deadline=due
+            title="Critical", type="intellectual", duration_min=180, planned_date=DAY, deadline=due
         ),
     )
-    assert created.planned_date > DAY
+    assert created.planned_date == DAY
+    assert created.status == TaskStatus.PENDING
+    async with session.begin():
+        result = await ScheduleService(session, tasks.clock).replan(
+            user.id, DAY, ScheduleTrigger.TASK_UPDATED, allow_date_change=True
+        )
+    assert result.plan.moves[0].to_date > DAY
     assert (await placements(session, user.id))[created.id][1] <= due

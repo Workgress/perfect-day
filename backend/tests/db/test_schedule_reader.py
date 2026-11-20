@@ -171,7 +171,7 @@ async def test_reader_passes_moves_and_warnings_without_internal_future_graph(
     user = await setup_user(session, elapsed=14, completed=True)
     await make_task(session, user, planned_date=DAY, duration_min=60)
     result = await ScheduleService(session, CLOCK).replan(
-        user.id, DAY, ScheduleTrigger.TASK_CREATED
+        user.id, DAY, ScheduleTrigger.TASK_CREATED, allow_date_change=True
     )
     assert result.plan.moves
     source = await ScheduleReader(session).get(user.id, DAY)
