@@ -109,6 +109,7 @@ class PlanTask:
     is_pinned: bool = False
     pinned_start: datetime | None = None
     created_at: datetime | None = None
+    actual_start: datetime | None = None
 
     def __post_init__(self) -> None:
         _day(self.planned_date, "planned_date")
@@ -133,7 +134,7 @@ class PlanTask:
             raise ValueError("A pinned task needs pinned_start")
         if self.preferred_start is not None:
             _local_time(self.preferred_start, "preferred_start")
-        for field in ("pinned_start", "created_at"):
+        for field in ("pinned_start", "created_at", "actual_start"):
             value = getattr(self, field)
             if value is not None:
                 object.__setattr__(self, field, to_utc(value))

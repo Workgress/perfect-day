@@ -298,6 +298,7 @@ class ScheduleService:
                     and (
                         slot.interval.start <= now
                         or by_id[cast(UUID, slot.task.task_id)].status == TaskStatus.DONE
+                        or by_id[cast(UUID, slot.task.task_id)].actual_start is not None
                     )
                 }
                 tasks = tuple(
@@ -322,8 +323,14 @@ class ScheduleService:
                 source = replace(source, future_days=future)
                 calculated = replan_remaining_day(source, previous)
             except ConstraintError as exc:
-                raise _error(
-                    "CONFLICT", "Изменение нарушает сохранённые интервалы расписания"
+                raise AppError(
+                    409,
+                    "CONFLICT",
+                    str(exc),
+                    details={
+                        "reason_code": exc.code,
+                        "task_id": str(exc.task.task_id) if exc.task is not None else None,
+                    },
                 ) from exc
             except PlannerTimeError as exc:
                 raise ProfileValidationError(

@@ -435,7 +435,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -451,7 +452,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -467,7 +469,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -483,7 +486,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -693,7 +697,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -709,7 +714,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -725,7 +731,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -741,7 +748,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -951,7 +959,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -967,7 +976,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -983,7 +993,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -999,7 +1010,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -1209,7 +1221,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1225,7 +1238,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1241,7 +1255,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1257,7 +1272,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -1467,7 +1483,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1483,7 +1500,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1499,7 +1517,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1515,7 +1534,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -1732,7 +1752,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1748,7 +1769,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1764,7 +1786,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -1780,7 +1803,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -1990,7 +2014,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -2006,7 +2031,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -2022,7 +2048,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -2038,7 +2065,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2250,7 +2278,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2393,7 +2422,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2529,7 +2559,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2680,7 +2711,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2831,7 +2863,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -2990,7 +3023,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3132,7 +3166,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -3148,7 +3183,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3302,7 +3338,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3431,7 +3468,8 @@
               "deadline": "2026-11-13",
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3549,7 +3587,8 @@
               "deadline": "2026-11-14",
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3677,7 +3716,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -3693,7 +3733,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T09:30:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -3862,7 +3903,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -3878,7 +3920,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T10:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4047,7 +4090,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4063,7 +4107,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T10:45:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4232,7 +4277,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4248,7 +4294,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:55:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4417,7 +4464,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4529,7 +4577,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4647,7 +4696,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4663,7 +4713,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -4894,7 +4945,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4910,7 +4962,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4926,7 +4979,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4942,7 +4996,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -4958,7 +5013,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -5278,7 +5334,8 @@
               "deadline": null,
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -5472,7 +5529,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -5488,7 +5546,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -5816,7 +5875,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -6024,7 +6084,8 @@
               "deadline": "2026-11-14",
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -6176,7 +6237,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "replan",
@@ -6298,7 +6360,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -6314,7 +6377,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -6330,7 +6394,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "preview",
@@ -6475,7 +6540,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "preview",
@@ -6580,7 +6646,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -6596,7 +6663,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             },
             {
               "ref": {
@@ -6612,7 +6680,8 @@
               "deadline": null,
               "is_pinned": false,
               "pinned_start": null,
-              "created_at": null
+              "created_at": null,
+              "actual_start": null
             }
           ],
           "mode": "preview",

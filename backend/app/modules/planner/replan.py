@@ -52,6 +52,22 @@ def preserve_reservations(
     """Select current hard reservations from a previous snapshot, without creating new systems."""
     tasks = {task.ref: task for task in context.tasks}
     selected = list(context.fixed_slots)
+    known = {slot.task for slot in (*previous, *context.fixed_slots) if slot.task is not None}
+    for started_task in context.tasks:
+        if started_task.actual_start is None:
+            continue
+        if started_task.actual_start > context.now:
+            raise ConstraintError(
+                "ACTUAL_START_IN_FUTURE",
+                "Фактическое начало задачи находится в будущем",
+                started_task.ref,
+            )
+        if started_task.ref not in known:
+            raise ConstraintError(
+                "STARTED_INTERVAL_REQUIRED",
+                "Для начатой задачи нужен сохранённый интервал расписания",
+                started_task.ref,
+            )
     for slot in previous:
         retained: PlanSlot | None = None
         if slot.task is None:
@@ -67,7 +83,11 @@ def preserve_reservations(
                         slot.task,
                     )
                 continue
-            if task.status == "done" or slot.interval.start <= context.now:
+            if (
+                task.status == "done"
+                or slot.interval.start <= context.now
+                or task.actual_start is not None
+            ):
                 preservation: Preservation = (
                     "done"
                     if task.status == "done"
