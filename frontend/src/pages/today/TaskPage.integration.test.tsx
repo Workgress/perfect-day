@@ -80,6 +80,37 @@ const writes = (request: ReturnType<typeof mockApi>) =>
   request.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')
 
 describe('saved tasks with the API', () => {
+  it.each(['network', '503'])(
+    'keeps edited values and avoids an automatic retry after a failed save (%s)',
+    async (mode) => {
+      const request = mockApi(() => {
+        if (mode === 'network') throw new TypeError('Failed to fetch')
+        return failure('SERVICE_UNAVAILABLE', 503)
+      })
+      const { client, router } = setup(true)
+      await rename()
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
+      await screen.findByRole('alert')
+      expect(screen.getByRole('textbox', { name: 'Название' })).toHaveValue('Мой черновик')
+      expect(router.state.location.pathname).toContain('/edit')
+      expect(writes(request)).toHaveLength(1)
+      client.clear()
+    },
+  )
+
+  it('keeps the task panel open and does not announce deletion after a network failure', async () => {
+    const request = mockApi(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    const { client, router } = setup()
+    await userEvent.click(await screen.findByRole('button', { name: 'Удалить задачу' }))
+    await screen.findByText('Нет связи с сервером. Проверьте подключение и повторите попытку.')
+    expect(router.state.location.pathname).toBe(`/today/tasks/${task().id}`)
+    expect(screen.queryByText('Задача удалена')).not.toBeInTheDocument()
+    expect(writes(request)).toHaveLength(1)
+    client.clear()
+  })
+
   it('sends only changed fields and invalidates lists and schedules after saving', async () => {
     const request = mockApi((init) =>
       Response.json({ ...task(), ...JSON.parse(String(init.body)), version: 7 }),

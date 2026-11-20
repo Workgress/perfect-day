@@ -115,7 +115,10 @@ function api(
       if (options.listError) return failed('TASK_LIST_FAILED')
       const limit = options.pageSize ?? Number(path.searchParams.get('limit') ?? 50)
       const offset = Number(path.searchParams.get('offset') ?? 0)
-      const tasks = state.tasks.filter((task) => !options.missing?.has(task.id))
+      const tasks = state.tasks.filter(
+        (task) =>
+          !options.missing?.has(task.id) && task.planned_date === path.searchParams.get('date'),
+      )
       return Response.json({
         items: tasks.slice(offset, offset + limit),
         total: tasks.length,
@@ -160,6 +163,8 @@ function api(
     if (!task) return failed('TASK_NOT_FOUND', 404)
     if (method === 'PATCH') {
       Object.assign(task, JSON.parse(String(init?.body)), { version: task.version + 1 })
+      if (task.planned_date !== state.date)
+        state.saved.slots = state.saved.slots.filter((slot) => slot.task_id !== task.id)
       state.saved.version++
     }
     if (method === 'DELETE') {
@@ -382,37 +387,66 @@ describe('today with the saved schedule API', () => {
     client.clear()
   })
 
-  it('refreshes the timeline after creating, editing and immediately deleting a task', async () => {
+  it('removes a task from today after its date is changed in the editor', async () => {
     const state = data()
-    api(state)
+    const task = state.tasks[3]
+    const request = api(state)
     const { client } = setup()
-    await ready()
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить задачу' }))
-    await userEvent.type(
-      await screen.findByRole('textbox', { name: 'Название' }),
-      'Новая задача из API',
-    )
-    await userEvent.click(screen.getByRole('radio', { name: 'Рутина' }))
-    await userEvent.click(screen.getByRole('radio', { name: '30 мин' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
-    await screen.findByText('Задача добавлена')
     await userEvent.click(
-      within(await ready()).getByRole('button', { name: /^Новая задача из API\./ }),
+      within(await ready()).getByRole('button', { name: new RegExp(`^${task.title}\\.`) }),
     )
-    await screen.findByRole('dialog', { name: 'Новая задача из API' })
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить' }))
-    const title = await screen.findByRole('textbox', { name: 'Название' })
-    await userEvent.clear(title)
-    await userEvent.type(title, 'Обновлённая задача')
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить' }))
+    const target = new Date(`${state.date}T12:00:00Z`)
+    target.setUTCDate(target.getUTCDate() + 1)
+    const targetDate = target.toISOString().slice(0, 10)
+    fireEvent.change(await screen.findByLabelText('День задачи'), { target: { value: targetDate } })
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
-    await screen.findByRole('dialog', { name: 'Обновлённая задача' })
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить задачу' }))
-    await screen.findByText('Задача удалена')
+    await screen.findByRole('dialog', { name: task.title })
+    await ready()
+    expect(state.tasks.find((item) => item.id === task.id)?.planned_date).toBe(targetDate)
     expect(
-      within(await ready()).queryByRole('button', { name: /^Обновлённая задача\./ }),
+      within(await ready()).queryByRole('button', { name: new RegExp(`^${task.title}\\.`) }),
     ).not.toBeInTheDocument()
+    const patch = request.mock.calls.find(([, init]) => init?.method === 'PATCH')!
+    expect(JSON.parse(String(patch[1]?.body))).toMatchObject({ planned_date: targetDate })
     client.clear()
-  }, 15000)
+  })
+
+  it.each(['Рутина', 'Физическая', 'Творческая', 'Интеллектуальная'])(
+    'refreshes the timeline after creating, editing and immediately deleting a task (%s)',
+    async (type) => {
+      const state = data()
+      api(state)
+      const { client } = setup()
+      await ready()
+      await userEvent.click(screen.getByRole('button', { name: 'Добавить задачу' }))
+      await userEvent.type(
+        await screen.findByRole('textbox', { name: 'Название' }),
+        'Новая задача из API',
+      )
+      await userEvent.click(screen.getByRole('radio', { name: type }))
+      await userEvent.click(screen.getByRole('radio', { name: '30 мин' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+      await screen.findByText('Задача добавлена')
+      await userEvent.click(
+        within(await ready()).getByRole('button', { name: /^Новая задача из API\./ }),
+      )
+      await screen.findByRole('dialog', { name: 'Новая задача из API' })
+      await userEvent.click(screen.getByRole('button', { name: 'Изменить' }))
+      const title = await screen.findByRole('textbox', { name: 'Название' })
+      await userEvent.clear(title)
+      await userEvent.type(title, 'Обновлённая задача')
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
+      await screen.findByRole('dialog', { name: 'Обновлённая задача' })
+      await userEvent.click(screen.getByRole('button', { name: 'Удалить задачу' }))
+      await screen.findByText('Задача удалена')
+      expect(
+        within(await ready()).queryByRole('button', { name: /^Обновлённая задача\./ }),
+      ).not.toBeInTheDocument()
+      client.clear()
+    },
+    15000,
+  )
 
   it('does not display a previous account response after the session changes', async () => {
     let resolve!: (response: Response) => void
