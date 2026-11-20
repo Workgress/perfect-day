@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import Field, StrictBool, StringConstraints, model_validator
 
-from app.modules.planner.contracts import Preservation
+from app.modules.planner.contracts import PlacementChangeKind, Preservation
 from app.modules.schedule.read_models import ReadModel, ScheduleReadResult
 from app.modules.tasks.schemas import TaskDate, TaskTimestamp, TaskVersion
 
@@ -99,3 +99,43 @@ class ScheduleExplanations(ReadModel):
 class SchedulePlanningDetails(ScheduleExplanations):
     schedule: ScheduleReadResult
     recommendations: tuple[TaskMoveRecommendation, ...]
+
+
+class PlacementInterval(ReadModel):
+    start_at: TaskTimestamp
+    end_at: TaskTimestamp
+
+    @model_validator(mode="after")
+    def validate_interval(self) -> "PlacementInterval":
+        if self.end_at <= self.start_at:
+            raise ValueError("Конец интервала должен быть позже начала")
+        return self
+
+
+class SchedulePlacementChange(ReadModel):
+    task_id: UUID
+    kind: PlacementChangeKind
+    before: PlacementInterval | None
+    after: PlacementInterval | None
+    reason_codes: tuple[ReasonCode, ...]
+
+    @model_validator(mode="after")
+    def validate_change(self) -> "SchedulePlacementChange":
+        if self.before is None and self.after is None:
+            raise ValueError("Изменение должно содержать исходный или итоговый интервал")
+        expected = (
+            "added"
+            if self.before is None
+            else "removed"
+            if self.after is None
+            else "updated"
+            if self.before == self.after
+            else "moved"
+        )
+        if self.kind != expected:
+            raise ValueError("Тип изменения не соответствует интервалам")
+        return self
+
+
+class ScheduleReplanResponse(SchedulePlanningDetails):
+    changes: tuple[SchedulePlacementChange, ...]

@@ -5,9 +5,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.modules.planner.contracts import TaskRef
+from app.modules.planner.contracts import PlanResult, TaskRef
 from app.modules.schedule.explanations import schedule_explanations
-from app.modules.schedule.planning_schemas import ScheduleExplanations, TaskMoveRecommendation
+from app.modules.schedule.models import Schedule
+from app.modules.schedule.planning_schemas import (
+    ScheduleExplanations,
+    SchedulePlanningDetails,
+    TaskMoveRecommendation,
+)
 from app.modules.schedule.read_models import (
     ScheduleReadMetrics,
     ScheduleReadMove,
@@ -31,6 +36,34 @@ class ScheduleReader:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repository = ScheduleRepository(session)
+
+    async def get_details(self, user_id: UUID, day: date) -> SchedulePlanningDetails | None:
+        row = (await self.repository.active(user_id, (day,))).get(day)
+        if row is None:
+            return None
+        plan = await self.repository.result(user_id, row.id)
+        if plan is None:
+            return None
+        try:
+            explanations = schedule_explanations(plan)
+            return SchedulePlanningDetails(
+                schedule=self._read_schedule(row, plan),
+                recommendations=tuple(
+                    TaskMoveRecommendation(
+                        task_id=_task_id(item.task),
+                        from_date=item.from_date,
+                        to_date=item.to_date,
+                        reason_code=item.reason_code,
+                        explanation=item.explanation,
+                    )
+                    for item in plan.recommendations
+                ),
+                **explanations.model_dump(),
+            )
+        except ValueError as exc:
+            raise AppError(
+                409, "SCHEDULE_RESULT_INCOMPLETE", "Сохранённый результат расписания неполон"
+            ) from exc
 
     async def get_explanations(self, user_id: UUID, day: date) -> ScheduleExplanations | None:
         row = (await self.repository.active(user_id, (day,))).get(day)
@@ -73,6 +106,9 @@ class ScheduleReader:
         plan = await self.repository.result(user_id, row.id)
         if plan is None:
             return None
+        return self._read_schedule(row, plan)
+
+    def _read_schedule(self, row: Schedule, plan: PlanResult) -> ScheduleReadResult:
         return ScheduleReadResult(
             id=row.id,
             planned_date=plan.day,
