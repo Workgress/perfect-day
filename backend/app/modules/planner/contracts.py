@@ -258,6 +258,7 @@ class PlanContext:
 class UnscheduledTask:
     task: TaskRef
     reason_codes: tuple[str, ...]
+    explanation: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

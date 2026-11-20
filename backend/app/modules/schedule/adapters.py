@@ -122,7 +122,11 @@ def stored_summary(plan: PlanResult) -> dict[str, object]:
             for item in plan.warnings
         ],
         "unscheduled": [
-            {"task_id": str(item.task.task_id), "reason_codes": list(item.reason_codes)}
+            {
+                "task_id": str(item.task.task_id),
+                "reason_codes": list(item.reason_codes),
+                "explanation": item.explanation,
+            }
             for item in plan.unscheduled
         ],
         "moves": [
@@ -218,7 +222,11 @@ def restore_plan(schedule: Schedule, future_plans: tuple[PlanResult, ...] = ()) 
                 "slots": tuple(sorted(slots, key=lambda item: item.interval.start)),
                 "metrics": summary["metrics"],
                 "unscheduled": [
-                    {"task": {"task_id": item["task_id"]}, "reason_codes": item["reason_codes"]}
+                    {
+                        "task": {"task_id": item["task_id"]},
+                        "reason_codes": item["reason_codes"],
+                        "explanation": item.get("explanation"),
+                    }
                     for item in summary["unscheduled"]
                 ],
                 "warnings": [

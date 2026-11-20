@@ -28,7 +28,7 @@ from app.modules.planner.contracts import (
     UnscheduledTask,
 )
 from app.modules.planner.energy import IntervalScore, score_interval
-from app.modules.planner.explanations import explain_move, explain_slots
+from app.modules.planner.explanations import explain_move, explain_slots, explain_unscheduled
 from app.modules.planner.policy import DayPolicy, day_policy, prepare_policy_day
 from app.modules.planner.recommendations import (
     critical_move_unavailable,
@@ -330,6 +330,7 @@ def _build_schedule(
     result = replace(
         result,
         slots=explain_slots(context, result.slots, policy),
+        unscheduled=explain_unscheduled(context, result.unscheduled),
         metrics=replace(
             result.metrics,
             moved_min=sum(task.duration_min for task in context.tasks if task.ref in moved),

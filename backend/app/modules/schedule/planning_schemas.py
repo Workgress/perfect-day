@@ -91,8 +91,11 @@ class TaskPlacementExplanation(ReadModel):
         return self
 
 
-class SchedulePlanningDetails(ReadModel):
-    schedule: ScheduleReadResult
-    recommendations: tuple[TaskMoveRecommendation, ...]
+class ScheduleExplanations(ReadModel):
     unscheduled_explanations: tuple[UnscheduledTaskExplanation, ...]
     placement_explanations: tuple[TaskPlacementExplanation, ...]
+
+
+class SchedulePlanningDetails(ScheduleExplanations):
+    schedule: ScheduleReadResult
+    recommendations: tuple[TaskMoveRecommendation, ...]
