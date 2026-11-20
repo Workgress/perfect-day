@@ -65,6 +65,7 @@ def prepare_policy_day(
     *,
     load_factor: float | None = None,
     rest_intervals: tuple[Interval, ...] = (),
+    occupied_intervals: tuple[Interval, ...] = (),
 ) -> tuple[PreparedDay, int]:
     """Reserve distinct 30-minute rests before ranking tasks; retain immutable history.
 
@@ -86,6 +87,7 @@ def prepare_policy_day(
         interval
         for interval in candidate_intervals(prepared.grid, 30)
         if not any(overlaps(interval, slot.interval) for slot in prepared.reserved_slots)
+        and not any(overlaps(interval, occupied) for occupied in occupied_intervals)
     )
     work = prepared.grid.work_window
     # At most two blocks: select jointly so the first choice cannot fragment the only
