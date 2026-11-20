@@ -4,14 +4,22 @@ import {
   localDateTime,
   resolveLocalDateTime,
 } from '@/shared/lib/dateTime'
-import { TASK_TYPES, type TaskCreateRequest, type TaskFormValues } from '@/shared/model/task'
+import {
+  TASK_TYPES,
+  type Task,
+  type TaskDraft,
+  type TaskFields,
+  type TaskFormValues,
+} from '@/shared/model/task'
+
+type TaskFormSource = TaskFields & Pick<Task, 'is_pinned' | 'pinned_start'>
 
 export type TaskFormContext = {
   timezone: string
   workStart: string
   workEnd: string
   now?: Date
-  originalTask?: TaskCreateRequest
+  originalTask?: TaskFormSource
 }
 
 export type TaskFormErrors = Partial<Record<keyof TaskFormValues, string>>
@@ -47,7 +55,7 @@ export function emptyTaskForm(timezone: string, now = new Date()): TaskFormValue
   }
 }
 
-export function taskToFormValues(task: TaskCreateRequest, timezone: string): TaskFormValues {
+export function taskToFormValues(task: TaskFormSource, timezone: string): TaskFormValues {
   return {
     title: task.title,
     description: task.description ?? '',
@@ -74,6 +82,7 @@ export function prepareTaskForm(values: TaskFormValues, context: TaskFormContext
   const original = context.originalTask
   const unchangedPin = Boolean(
     original?.is_pinned &&
+    original.pinned_start &&
     values.isPinned &&
     values.plannedDate === original.planned_date &&
     duration === original.duration_min &&
@@ -147,7 +156,7 @@ export function prepareTaskForm(values: TaskFormValues, context: TaskFormContext
       errors.pinnedStartLocal = 'Задача должна закончиться не позже дедлайна.'
   }
 
-  let request: TaskCreateRequest | null = null
+  let request: TaskDraft | null = null
   if (Object.keys(errors).length === 0 && values.type !== '' && duration !== '') {
     request = {
       title,

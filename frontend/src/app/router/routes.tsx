@@ -99,6 +99,18 @@ export const routes: RouteObject[] = [
                     }),
                     children: [
                       {
+                        path: paths.taskDetails,
+                        lazy: async () => ({
+                          Component: (await import('@/pages/today/TaskPage')).TaskPage,
+                        }),
+                      },
+                      {
+                        path: paths.editTask,
+                        lazy: async () => ({
+                          Component: (await import('@/pages/today/TaskPage')).EditTaskPage,
+                        }),
+                      },
+                      {
                         path: paths.newTask,
                         lazy: async () => ({
                           Component: (await import('@/pages/today/NewTaskPage')).NewTaskPage,
@@ -115,7 +127,8 @@ export const routes: RouteObject[] = [
                   {
                     path: paths.biorhythms,
                     lazy: async () => ({
-                      Component: (await import('@/pages/biorhythms/BiorhythmsPage')).BiorhythmsPage,
+                      Component: (await import('@/pages/biorhythms/BiorhythmsPage'))
+                        .BiorhythmsRoute,
                     }),
                   },
                   {

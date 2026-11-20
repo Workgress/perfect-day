@@ -35,6 +35,8 @@ function task(
     status: 'scheduled',
     completed_at: null,
     version: 1,
+    created_at: timestamp('07:00'),
+    updated_at: timestamp('07:00'),
     ...fields,
     ...placement,
   }

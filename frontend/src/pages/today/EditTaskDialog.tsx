@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Task, TaskCreateRequest, TaskUpdateRequest } from '@/shared/model/task'
+import type { Task, TaskDraft, TaskDraftUpdate } from '@/shared/model/task'
 import { TaskDialog } from './TaskDialog'
 import { TaskForm } from './TaskForm'
 import { taskToFormValues, type TaskFormContext } from './taskFormModel'
@@ -10,7 +10,7 @@ type EditTaskDialogProps = {
   context: TaskFormContext
   options?: TaskFormOptions
   onCancel: () => void
-  onSubmit?: (request: TaskUpdateRequest, options: TaskFormOptions) => void
+  onSubmit?: (request: TaskDraftUpdate, options: TaskFormOptions) => void
 }
 
 const EMPTY_OPTIONS: TaskFormOptions = { recurrence: null, reminderMinutes: null }
@@ -34,7 +34,7 @@ function EditTaskContent({
   const [initialValues] = useState(() => taskToFormValues(task, context.timezone))
   const [initialSettings] = useState(() => taskOptionsToSettings(options, task.planned_date))
   const [preview, setPreview] = useState<{
-    request: TaskCreateRequest
+    request: TaskDraft
     options: TaskFormOptions
   } | null>(null)
 

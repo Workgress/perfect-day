@@ -109,7 +109,7 @@ describe('routes', () => {
       'Подготовка к экзамену',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Составить план' }))
-    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /, \d{1,2} / })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
     expect(useSessionStore.getState().isOnboarded).toBe(true)
   })
@@ -172,7 +172,7 @@ describe('routes', () => {
     expect(useSessionStore.getState().user?.id).toBe('local-user')
     expect(useSessionStore.getState().isLocalProfile).toBe(true)
     expect(useSessionStore.getState().isOnboarded).toBe(false)
-    expect(screen.queryByRole('heading', { name: 'Сегодня' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: /, \d{1,2} / })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -286,19 +286,19 @@ describe('routes', () => {
 
   it('redirects onboarded users from login to today', async () => {
     const router = renderAt('/login', 'user')
-    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /, \d{1,2} / })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
   })
 
   it('redirects onboarded users from registration to today', async () => {
     const router = renderAt('/register', 'user')
-    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /, \d{1,2} / })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
   })
 
   it('redirects root to today', async () => {
     const router = renderAt('/', 'user')
-    expect(await screen.findByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /, \d{1,2} / })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/today')
   })
 
@@ -314,7 +314,7 @@ describe('routes', () => {
     const router = renderAt('/today', 'user')
     await userEvent.click(await screen.findByRole('button', { name: 'Добавить задачу' }))
     expect(await screen.findByRole('dialog', { name: 'Новая задача' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /, \d{1,2} / })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     expect(router.state.location.pathname).toBe('/today')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

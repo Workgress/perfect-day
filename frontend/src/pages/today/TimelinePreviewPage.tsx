@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { DAILY_SCHEDULE_FIXTURES, PLANNING_FIXTURE_CONTEXT } from '@/shared/fixtures/planning'
 import type { DailySchedule } from '@/shared/model/schedule'
-import type { Task, TaskCreateRequest } from '@/shared/model/task'
+import type { Task, TaskDraft } from '@/shared/model/task'
 import { PageHeader } from '@/shared/ui/page-header/PageHeader'
 import * as Segment from '@/shared/ui/segment/Segment'
 import { DailyTimeline } from './DailyTimeline'
@@ -116,7 +116,7 @@ function CreationPreview({
   onClose: () => void
 }) {
   const [preview, setPreview] = useState<{
-    request: TaskCreateRequest
+    request: TaskDraft
     options: TaskFormOptions
   } | null>(null)
   return (

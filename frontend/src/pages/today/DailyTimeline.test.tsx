@@ -8,14 +8,36 @@ const now = new Date('2026-11-11T04:42:00Z')
 const normal = DAILY_SCHEDULE_FIXTURES.normal
 
 describe('daily timeline', () => {
+  it('shows the cycle legend and aligns each rail segment with its interval and task type', () => {
+    const { container } = render(<DailyTimeline day={normal} now={now} />)
+    expect(screen.getByText('окна по циклам')).toBeInTheDocument()
+    const rail = container.querySelector('[aria-hidden="true"][style*="height"]')!
+    const intervals = container.querySelectorAll<HTMLElement>('[data-slot-id]')
+    expect(rail.children).toHaveLength(intervals.length)
+    intervals.forEach((interval, index) => {
+      const segment = rail.children[index] as HTMLElement
+      expect(segment.dataset.type).toBe(interval.dataset.type)
+      expect(segment.style.top).toBe(interval.style.top)
+      expect(segment.style.height).toBe(interval.style.height)
+    })
+  })
+
+  it('counts completed tasks without slots in the summary', () => {
+    const day = structuredClone(normal)
+    day.slots = []
+    render(<DailyTimeline day={day} now={now} />)
+    expect(screen.getByText('2 задачи выполнены')).toBeInTheDocument()
+  })
+
   it('shows four distinct task types and separates breaks, lunch and rest', () => {
     const { container } = render(<DailyTimeline day={normal} now={now} />)
     for (const type of ['intellectual', 'creative', 'physical', 'routine']) {
       expect(container.querySelector(`[data-kind="task"][data-type="${type}"]`)).toBeInTheDocument()
     }
-    for (const kind of ['break', 'lunch', 'rest']) {
+    for (const kind of ['break', 'rest']) {
       expect(container.querySelector(`[data-kind="${kind}"]`)).toHaveAttribute('data-type', 'rest')
     }
+    expect(container.querySelector('[data-kind="lunch"]')).toHaveAttribute('data-type', 'routine')
     const exam = screen.getByRole('article', { name: /^Подготовка к экзамену/ })
     expect(exam).toHaveTextContent('10:00–11:30')
     expect(exam.parentElement).toHaveStyle({ height: '108px' })
@@ -39,7 +61,7 @@ describe('daily timeline', () => {
   it('expands completed tasks and collapses them without changing the remaining intervals', async () => {
     render(<DailyTimeline day={normal} now={now} />)
     expect(screen.queryByRole('article', { name: /^Разобрать почту/ })).not.toBeInTheDocument()
-    const completed = screen.getByRole('button', { name: /Выполнено: 2/ })
+    const completed = screen.getByRole('button', { name: /2 задачи выполнены · 08:00–09:30/ })
     await userEvent.click(completed)
     expect(completed).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('article', { name: /^Разобрать почту/ })).toHaveTextContent(
@@ -74,7 +96,7 @@ describe('daily timeline', () => {
     expect(create).toHaveBeenCalledWith('2026-11-11', '17:00')
   })
 
-  it('keeps very short tasks accessible in the full interval list', async () => {
+  it('keeps very short tasks accessible by their full label', async () => {
     const day = structuredClone(normal)
     day.slots = [
       { ...day.slots[2], start_at: '2026-11-11T05:00:00Z', end_at: '2026-11-11T05:05:00Z' },
@@ -83,8 +105,8 @@ describe('daily timeline', () => {
     render(<DailyTimeline day={day} now={now} onTaskSelect={select} />)
     const card = screen.getByRole('button', { name: /^Подготовка к экзамену\. 10:00–10:05/ })
     expect(card.parentElement).toHaveStyle({ height: '6px' })
-    await userEvent.click(screen.getByText('Все интервалы списком'))
-    await userEvent.click(screen.getByRole('button', { name: 'Подготовка к экзамену' }))
+    card.focus()
+    await userEvent.keyboard('{Enter}')
     expect(select).toHaveBeenCalledWith(day.tasks[2])
   })
 

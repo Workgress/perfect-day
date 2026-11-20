@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { localDate } from '@/shared/lib/dateTime'
 import type { ScheduleSlot } from '@/shared/model/schedule'
 import { TASK_TYPES, type Task } from '@/shared/model/task'
@@ -29,9 +29,20 @@ type TaskDetailsPanelProps = {
   onPin?: () => void
   onStart?: () => void
   notice?: string | null
+  deleteAction?: ReactNode
+  exampleExplanation?: boolean
+  placementMessage?: string
+  busy?: boolean
 }
 
 const PRIORITIES = { low: 'Низкий', medium: 'Средний', high: 'Высокий' }
+
+// Temporary copy from v4 light · 2.4, requested for the panel preview.
+const EXAMPLE_REASONS = [
+  'Интеллектуальный цикл сегодня +95 % — хорошее время для сложной работы.',
+  '10:00–12:00 — ваше утреннее окно продуктивности (жаворонок).',
+  'После неё — перерыв 30 минут: 90 минут фокуса подряд.',
+]
 
 function repeatLabel(options?: TaskFormOptions) {
   if (!options) return 'Не указано'
@@ -53,6 +64,10 @@ export function TaskDetailsPanel({
   onPin,
   onStart,
   notice,
+  deleteAction,
+  exampleExplanation = false,
+  placementMessage,
+  busy = false,
 }: TaskDetailsPanelProps) {
   const [openedAt] = useState(() => new Date())
   const now = suppliedNow ?? openedAt
@@ -85,7 +100,11 @@ export function TaskDetailsPanel({
           ? 'время закреплено'
           : first
             ? 'поставлено алгоритмом'
-            : 'не распределено'
+            : placementMessage
+              ? task.status === 'scheduled'
+                ? 'запланирована'
+                : 'ожидает размещения'
+              : 'не распределено'
   const dateLabel = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'UTC',
     weekday: 'short',
@@ -108,6 +127,7 @@ export function TaskDetailsPanel({
     reasons.push(
       `После задачи — ${nextRest.kind === 'lunch' ? 'обед' : nextRest.kind === 'break' ? 'перерыв' : 'отдых'} ${timelineDuration((Date.parse(nextRest.end_at) - Date.parse(nextRest.start_at)) / 60_000)}.`,
     )
+  const displayedReasons = exampleExplanation ? EXAMPLE_REASONS : reasons
   const reminder = options
     ? (REMINDER_OPTIONS.find(
         (item) =>
@@ -143,6 +163,7 @@ export function TaskDetailsPanel({
         <button
           type="button"
           className={styles.grabber}
+          disabled={busy}
           aria-label="Закрыть задачу"
           onClick={onClose}
         >
@@ -162,6 +183,7 @@ export function TaskDetailsPanel({
           <Button
             variant="secondary"
             className={styles.close}
+            disabled={busy}
             aria-label="Закрыть задачу"
             onClick={onClose}
           >
@@ -178,7 +200,9 @@ export function TaskDetailsPanel({
                 ? placements
                     .map((slot) => `${clock(slot.start_at)}–${clock(slot.end_at)}`)
                     .join(', ')
-                : 'Время не назначено'}
+                : placementMessage
+                  ? 'Размещение не подтверждено'
+                  : 'Время не назначено'}
             </strong>
             <span>
               {dateLabel} · {task.duration_min} мин
@@ -203,11 +227,15 @@ export function TaskDetailsPanel({
             <dd>{reminder}</dd>
           </div>
         </dl>
-        <section className={styles.reasons} aria-label="Почему в это время">
+        <section
+          className={styles.reasons}
+          data-example={exampleExplanation || undefined}
+          aria-label="Почему в это время"
+        >
           <h3 className="text-label">Почему в это время</h3>
-          {reasons.length ? (
+          {displayedReasons.length ? (
             <ul>
-              {reasons.map((reason, index) => (
+              {displayedReasons.map((reason, index) => (
                 <li key={reason} data-reason={index}>
                   <span aria-hidden="true" />
                   <span>{reason}</span>
@@ -216,9 +244,10 @@ export function TaskDetailsPanel({
             </ul>
           ) : (
             <p>
-              {first
-                ? 'Объяснение размещения пока не указано.'
-                : 'Задача пока не размещена на шкале. Выберите день и время в форме редактирования.'}
+              {placementMessage ??
+                (first
+                  ? 'Объяснение размещения пока не указано.'
+                  : 'Задача пока не размещена на шкале. Выберите день и время в форме редактирования.')}
             </p>
           )}
         </section>
@@ -228,29 +257,38 @@ export function TaskDetailsPanel({
             <p>{task.description}</p>
           </section>
         ) : null}
-        <Button
-          className={styles.start}
-          disabled={finished || !first || !onStart}
-          onClick={onStart}
-        >
-          <ArrowRightIcon size={18} />
-          {task.status === 'done'
-            ? 'Выполнена'
-            : task.status === 'skipped'
-              ? 'Пропущена'
-              : 'Начать сейчас'}
-        </Button>
-        <div className={styles.actions}>
-          <Button variant="secondary" disabled={!onMove} onClick={onMove}>
-            Перенести
+        <>
+          <Button
+            className={styles.start}
+            disabled={busy || finished || !first || !onStart}
+            title={!onStart ? 'Запуск задачи пока недоступен' : undefined}
+            onClick={onStart}
+          >
+            <ArrowRightIcon size={18} />
+            {task.status === 'done'
+              ? 'Выполнена'
+              : task.status === 'skipped'
+                ? 'Пропущена'
+                : 'Начать сейчас'}
           </Button>
-          <Button variant="secondary" disabled={finished || !onPin || !first} onClick={onPin}>
-            {task.is_pinned ? 'Открепить' : 'Закрепить'}
-          </Button>
-          <Button variant="secondary" onClick={onEdit}>
-            Изменить
-          </Button>
-        </div>
+          <div className={styles.actions}>
+            <Button variant="secondary" disabled={busy || !onMove} onClick={onMove}>
+              Перенести
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={busy || finished || !onPin || !first}
+              title={!onPin ? 'Закрепление времени пока недоступно' : undefined}
+              onClick={onPin}
+            >
+              {task.is_pinned ? 'Открепить' : 'Закрепить'}
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={onEdit}>
+              Изменить
+            </Button>
+          </div>
+        </>
+        {deleteAction}
         {notice ? (
           <p className={styles.notice} role="status">
             {notice}

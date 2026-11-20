@@ -30,6 +30,14 @@
   gap: var(--space-4);
 }
 
+.brandIdentity {
+  gap: 6px;
+}
+
+.brandIdentity > span {
+  font: 600 14px / 20px var(--font-sans);
+}
+
 .footer {
   display: flex;
   flex-direction: column;

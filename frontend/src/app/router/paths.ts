@@ -10,6 +10,8 @@ export const paths = {
   },
   today: '/today',
   newTask: '/today/new',
+  taskDetails: '/today/tasks/:taskId',
+  editTask: '/today/tasks/:taskId/edit',
   calendar: '/calendar',
   biorhythms: '/biorhythms',
   settings: '/settings',
@@ -17,3 +19,6 @@ export const paths = {
   editTaskPreview: '/dev/tasks/edit',
   timelinePreview: '/dev/timeline',
 } as const
+
+export const taskPath = (id: string) => `/today/tasks/${encodeURIComponent(id)}`
+export const editTaskPath = (id: string) => `${taskPath(id)}/edit`
