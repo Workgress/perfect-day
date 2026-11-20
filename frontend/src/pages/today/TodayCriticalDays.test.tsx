@@ -10,6 +10,7 @@ import { TodayPage } from './TodayPage'
 import { criticalDayCopy } from './todayHeaderModel'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => <p>План доступен</p> }))
+vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
 const days = ['2026-11-21', '2026-11-22']
 function criticalResponse(url: URL, dates = days, timezone = 'Asia/Yekaterinburg') {

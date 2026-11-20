@@ -17,7 +17,6 @@ import {
 } from '@/shared/ui/icon/icons'
 import { buildTimeline, SYSTEM_SLOT_LABELS, timelineClock, timelineDuration } from './timelineModel'
 import styles from './DailyTimeline.module.css'
-import { TaskDayList } from './TaskDayList'
 
 type DailyTimelineProps = {
   day: DailySchedule
@@ -157,7 +156,7 @@ function TimelineContent({
             <span
               key={slot.id}
               className={styles.railSegment}
-              data-type={task?.type ?? 'rest'}
+              data-type={task?.type ?? (slot.kind === 'lunch' ? 'routine' : 'rest')}
               style={{ top, height }}
             />
           ))}
@@ -231,7 +230,7 @@ function TimelineContent({
             const label = task
               ? task.title
               : SYSTEM_SLOT_LABELS[slot.kind as keyof typeof SYSTEM_SLOT_LABELS]
-            const type = task?.type ?? 'rest'
+            const type = task?.type ?? (slot.kind === 'lunch' ? 'routine' : 'rest')
             const state =
               task?.status === 'done'
                 ? 'Выполнена'
@@ -260,11 +259,16 @@ function TimelineContent({
                     {range(start, end)} · {timelineDuration(duration)}
                     <span className={styles.cardType}>
                       {' '}
-                      · {task ? TASK_TYPES[task.type].toLowerCase() : 'отдых'}
+                      ·{' '}
+                      {task
+                        ? TASK_TYPES[task.type].toLowerCase()
+                        : slot.kind === 'lunch'
+                          ? 'рутина'
+                          : 'отдых'}
                     </span>
                   </span>
                 </div>
-                <Marker size={14} />
+                {slot.kind !== 'lunch' ? <Marker size={14} /> : null}
                 {task && task.status !== 'done' && task.status !== 'skipped' ? (
                   <span className={styles.dragHint} aria-hidden="true">
                     <GripVerticalIcon size={16} />
@@ -327,9 +331,9 @@ function TimelineContent({
             </h3>
             <p>
               {unplaced.length
-                ? 'Задачи без времени показаны под шкалой.'
+                ? 'Найдите задачу через поиск, чтобы изменить параметры планирования.'
                 : finished.length
-                  ? 'Выполненные и пропущенные задачи показаны под шкалой.'
+                  ? 'Выполненные и пропущенные задачи доступны через поиск.'
                   : 'Добавьте задачу — подберём для неё подходящее время в течение дня.'}
             </p>
             {onCreateTask ? (
@@ -360,56 +364,6 @@ function TimelineContent({
           </div>
         ) : null}
       </div>
-      <p className={styles.timezone}>Время расписания: {day.timezone}</p>
-      <TaskDayList
-        title="Без времени"
-        tasks={unplaced}
-        onTaskSelect={onTaskSelect}
-        selectedTaskId={selectedTaskId}
-      />
-      <TaskDayList
-        title="Выполненные и пропущенные"
-        tasks={finished}
-        onTaskSelect={onTaskSelect}
-        selectedTaskId={selectedTaskId}
-      />
-      {!empty ? (
-        <details className={styles.list}>
-          <summary>Все интервалы списком</summary>
-          <ol>
-            {day.slots
-              .slice()
-              .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
-              .map((slot) => {
-                const task =
-                  slot.kind === 'task'
-                    ? day.tasks.find((item) => item.id === slot.task_id)
-                    : undefined
-                const label =
-                  task?.title ?? SYSTEM_SLOT_LABELS[slot.kind as keyof typeof SYSTEM_SLOT_LABELS]
-                return (
-                  <li key={slot.id}>
-                    <span>{range(Date.parse(slot.start_at), Date.parse(slot.end_at))}</span>
-                    {task && onTaskSelect ? (
-                      <button
-                        type="button"
-                        data-task-edit-trigger
-                        data-task-details-trigger
-                        aria-haspopup="dialog"
-                        aria-expanded={task.id === selectedTaskId}
-                        onClick={() => openTask(task)}
-                      >
-                        {label}
-                      </button>
-                    ) : (
-                      <span>{label}</span>
-                    )}
-                  </li>
-                )
-              })}
-          </ol>
-        </details>
-      ) : null}
     </section>
   )
 }

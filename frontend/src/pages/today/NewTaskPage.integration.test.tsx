@@ -13,6 +13,7 @@ import { TodayPage } from './TodayPage'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
 vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
+vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
 const timezone = 'Asia/Yekaterinburg'
 const today = () => localDate(new Date(), timezone)
@@ -79,6 +80,28 @@ function deferredResponse() {
 }
 
 describe('task creation with the API', () => {
+  it('explains an automatic move of a physical task instead of implying placement today', async () => {
+    const target = new Date(`${today()}T12:00:00Z`)
+    target.setUTCDate(target.getUTCDate() + 3)
+    const targetDate = target.toISOString().slice(0, 10)
+    const request = vi.fn<typeof fetch>(async (_url, init) =>
+      Response.json(taskResponse({ ...JSON.parse(String(init?.body)), planned_date: targetDate }), {
+        status: 201,
+      }),
+    )
+    vi.stubGlobal('fetch', request)
+    const { router } = setup()
+    await fill()
+    await userEvent.click(screen.getByRole('radio', { name: 'Физическая' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    expect(await screen.findByText(/Планировщик перенёс задачу с/)).toHaveTextContent(
+      `Планировщик перенёс задачу с ${today().split('-').reverse().join('.')} на ${targetDate.split('-').reverse().join('.')}. На сегодняшнем таймлайне её не будет.`,
+    )
+    expect(JSON.parse(String(request.mock.calls[0][1]?.body)).type).toBe('physical')
+    expect(router.state.location.pathname).toBe('/today')
+    expect(screen.getByRole('button', { name: 'Открыть' })).toBeInTheDocument()
+  })
+
   it.each([false, true])(
     'creates a task, updates account caches and confirms success (mobile=%s)',
     async (mobile) => {

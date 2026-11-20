@@ -99,6 +99,7 @@ export function useTodaySchedule(
   }
   return {
     day,
+    metrics: schedule.data?.metrics,
     tasks: tasks.data ?? [],
     absent,
     loading,

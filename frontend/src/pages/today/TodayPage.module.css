@@ -42,6 +42,23 @@
 }
 
 @media (max-width: 768px) {
+  .today {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .plan {
+    display: contents;
+  }
+  .plan > section,
+  .planState {
+    order: 20;
+  }
+  .criticalBanner,
+  .criticalState {
+    order: 40;
+    margin-top: 0;
+  }
   .notice {
     right: var(--space-16);
     bottom: calc(96px + env(safe-area-inset-bottom));
@@ -49,7 +66,7 @@
 }
 .plan {
   min-width: 0;
-  margin-top: var(--space-24);
+  margin-top: 48px;
 }
 .headerActions {
   display: flex;
@@ -233,7 +250,7 @@
     letter-spacing: -0.22px;
   }
   .criticalBanner {
-    margin-top: var(--space-24);
+    margin-top: 0;
     align-items: flex-start;
     flex-wrap: wrap;
   }

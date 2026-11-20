@@ -5,7 +5,7 @@ import styles from './TaskDayList.module.css'
 
 const STATUS = {
   pending: 'Без времени',
-  scheduled: 'Размещение не подтверждено',
+  scheduled: 'Запланирована',
   done: 'Выполнена',
   skipped: 'Пропущена',
 }

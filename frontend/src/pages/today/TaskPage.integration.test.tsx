@@ -13,6 +13,7 @@ import { TodayPage } from './TodayPage'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
 vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
+vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
 const task = (): Task => ({
   ...DAILY_SCHEDULE_FIXTURES.normal.tasks[3],

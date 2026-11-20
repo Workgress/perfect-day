@@ -12,6 +12,7 @@ import { TodayPage } from './TodayPage'
 import { NewTaskPage } from './NewTaskPage'
 import { TaskPage, EditTaskPage } from './TaskPage'
 vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
+vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
 const timezone = 'Asia/Yekaterinburg'
 const fixture = DAILY_SCHEDULE_FIXTURES.normal
@@ -306,7 +307,7 @@ describe('today with the saved schedule API', () => {
     client.clear()
   })
 
-  it('shows unplaced tasks and completed tasks without slots', async () => {
+  it('keeps unplaced and completed tasks available through search without footer lists', async () => {
     const state = data()
     state.saved.slots = []
     state.tasks[2] = { ...state.tasks[2], status: 'pending' }
@@ -314,17 +315,18 @@ describe('today with the saved schedule API', () => {
     api(state)
     const { client } = setup()
     await ready()
+    expect(screen.queryByText(/^Время расписания:/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Все интервалы списком')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Без времени' })).not.toBeInTheDocument()
     expect(
-      within(screen.getByRole('region', { name: 'Без времени' })).getByRole('button', {
-        name: /Подготовка к экзамену/,
-      }),
-    ).toBeInTheDocument()
-    expect(
-      within(screen.getByRole('region', { name: 'Выполненные и пропущенные' })).getByRole(
-        'button',
-        { name: /Разобрать почту/ },
-      ),
-    ).toBeInTheDocument()
+      screen.queryByRole('region', { name: 'Выполненные и пропущенные' }),
+    ).not.toBeInTheDocument()
+    const search = screen.getByRole('searchbox', { name: 'Поиск задач текущего дня' })
+    await userEvent.type(search, 'экзамену')
+    expect(screen.getByRole('button', { name: /Подготовка к экзамену/ })).toBeInTheDocument()
+    await userEvent.clear(search)
+    await userEvent.type(search, 'Разобрать почту')
+    expect(screen.getByRole('button', { name: /Разобрать почту/ })).toBeInTheDocument()
     client.clear()
   })
 

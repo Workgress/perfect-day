@@ -10,6 +10,7 @@ import type { Task } from '@/shared/model/task'
 import styles from './TodayPage.module.css'
 import { TodayTimeline } from './TodayTimeline'
 import { TodayCriticalDays } from './TodayCriticalDays'
+import { TodayEnergyProfile } from './TodayEnergyProfile'
 import { todayDateLabel, todayGreeting } from './todayHeaderModel'
 
 export function TodayPage() {
@@ -35,13 +36,16 @@ export function TodayPage() {
     window.addEventListener('keydown', focusSearch)
     return () => window.removeEventListener('keydown', focusSearch)
   }, [])
-  const created = (location.state as { taskCreated?: { task: Task; generation: number } } | null)
-    ?.taskCreated
+  const created = (
+    location.state as {
+      taskCreated?: { task: Task; generation: number; requestedDate?: string }
+    } | null
+  )?.taskCreated
   const notice = (location.state as { taskNotice?: { generation: number; message: string } } | null)
     ?.taskNotice
 
   return (
-    <>
+    <div className={styles.today}>
       <title>Сегодня · Идеальный день</title>
       <header className={styles.heading}>
         <div>
@@ -95,6 +99,7 @@ export function TodayPage() {
           </Button>
         </div>
       </header>
+      <TodayEnergyProfile date={date} />
       <TodayCriticalDays date={date} />
       {created?.generation === generation ? (
         <div className={styles.notice} role="status">
@@ -104,6 +109,13 @@ export function TodayPage() {
             <p className="text-caption">
               {created.task.title} · {created.task.planned_date.split('-').reverse().join('.')}
             </p>
+            {created.requestedDate && created.requestedDate !== created.task.planned_date ? (
+              <p className="text-caption">
+                Планировщик перенёс задачу с {created.requestedDate.split('-').reverse().join('.')}{' '}
+                на {created.task.planned_date.split('-').reverse().join('.')}.
+                {created.task.planned_date !== date ? ' На сегодняшнем таймлайне её не будет.' : ''}
+              </p>
+            ) : null}
             {created.task.status === 'pending' ? (
               <p className="text-caption">Пока не размещена в расписании.</p>
             ) : null}
@@ -140,6 +152,6 @@ export function TodayPage() {
           </Button>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

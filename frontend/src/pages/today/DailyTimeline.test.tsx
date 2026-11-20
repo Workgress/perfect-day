@@ -34,9 +34,10 @@ describe('daily timeline', () => {
     for (const type of ['intellectual', 'creative', 'physical', 'routine']) {
       expect(container.querySelector(`[data-kind="task"][data-type="${type}"]`)).toBeInTheDocument()
     }
-    for (const kind of ['break', 'lunch', 'rest']) {
+    for (const kind of ['break', 'rest']) {
       expect(container.querySelector(`[data-kind="${kind}"]`)).toHaveAttribute('data-type', 'rest')
     }
+    expect(container.querySelector('[data-kind="lunch"]')).toHaveAttribute('data-type', 'routine')
     const exam = screen.getByRole('article', { name: /^Подготовка к экзамену/ })
     expect(exam).toHaveTextContent('10:00–11:30')
     expect(exam.parentElement).toHaveStyle({ height: '108px' })
@@ -95,7 +96,7 @@ describe('daily timeline', () => {
     expect(create).toHaveBeenCalledWith('2026-11-11', '17:00')
   })
 
-  it('keeps very short tasks accessible in the full interval list', async () => {
+  it('keeps very short tasks accessible by their full label', async () => {
     const day = structuredClone(normal)
     day.slots = [
       { ...day.slots[2], start_at: '2026-11-11T05:00:00Z', end_at: '2026-11-11T05:05:00Z' },
@@ -104,8 +105,8 @@ describe('daily timeline', () => {
     render(<DailyTimeline day={day} now={now} onTaskSelect={select} />)
     const card = screen.getByRole('button', { name: /^Подготовка к экзамену\. 10:00–10:05/ })
     expect(card.parentElement).toHaveStyle({ height: '6px' })
-    await userEvent.click(screen.getByText('Все интервалы списком'))
-    await userEvent.click(screen.getByRole('button', { name: 'Подготовка к экзамену' }))
+    card.focus()
+    await userEvent.keyboard('{Enter}')
     expect(select).toHaveBeenCalledWith(day.tasks[2])
   })
 

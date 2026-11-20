@@ -7,6 +7,8 @@ import { DailyTimeline } from './DailyTimeline'
 import { TaskDayList } from './TaskDayList'
 import { useTodaySchedule } from './useTodaySchedule'
 import styles from './TodayPage.module.css'
+import dashboardStyles from './TodayDashboard.module.css'
+import { TodayPlanSummary } from './TodayPlanSummary'
 
 export function TodayTimeline({ date, search = '' }: { date: string; search?: string }) {
   const generation = useSessionStore((state) => state.generation)
@@ -90,21 +92,17 @@ function TodayTimelineContent({
           />
         </>
       ) : state.day ? (
-        <>
-          <DailyTimeline
-            day={state.day}
-            selectedTaskId={selected}
-            onTaskSelect={open}
-            onCreateTask={create}
-          />
-          {state.warnings.length ? (
-            <ul className={styles.warnings} aria-label="Сообщения о расписании">
-              {state.warnings.map((item, index) => (
-                <li key={`${item.code}:${index}`}>{item.message}</li>
-              ))}
-            </ul>
-          ) : null}
-        </>
+        <div className={dashboardStyles.dashboard}>
+          <div className={dashboardStyles.planMain}>
+            <DailyTimeline
+              day={state.day}
+              selectedTaskId={selected}
+              onTaskSelect={open}
+              onCreateTask={create}
+            />
+          </div>
+          <TodayPlanSummary day={state.day} warnings={state.warnings} />
+        </div>
       ) : null}
     </div>
   )

@@ -48,7 +48,7 @@ function NewTaskContent({ generation }: { generation: number }) {
       }
     },
     retry: false,
-    onSuccess: (task) => {
+    onSuccess: (task, draft) => {
       if (useSessionStore.getState().generation !== generation) return
       client.setQueryData(taskKeys.detail(generation, task.id), task)
       void client.invalidateQueries({ queryKey: taskKeys.lists(generation) })
@@ -57,7 +57,7 @@ function NewTaskContent({ generation }: { generation: number }) {
       if (mounted.current)
         navigate(paths.today, {
           replace: true,
-          state: { taskCreated: { task, generation } },
+          state: { taskCreated: { task, generation, requestedDate: draft.planned_date } },
         })
     },
     onSettled: () => {
