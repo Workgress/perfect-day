@@ -6,12 +6,18 @@ from datetime import UTC, date, datetime, time
 from app.core.time import parse_timezone
 from app.modules.planner.config import (
     ALGORITHM_VERSION,
+    HIGH_INTENSITY_KINDS,
     PRIORITY_ORDER,
     SAME_KIND_PENALTY,
     TASK_CYCLES,
     TASK_INTENSITY,
 )
-from app.modules.planner.constraints import PreparedDay, placement_checker, summarize_day
+from app.modules.planner.constraints import (
+    PreparedDay,
+    placement_checker,
+    prepare_day,
+    summarize_day,
+)
 from app.modules.planner.contracts import (
     FutureDay,
     Interval,
@@ -53,6 +59,46 @@ class _CalculationCache:
         default_factory=dict
     )
     policies: dict[tuple[PlanProfile, date], DayPolicy] = field(default_factory=dict)
+    target_budgets: dict[tuple[PlanProfile, datetime, FutureDay], tuple[int, int, int, int]] = (
+        field(default_factory=dict)
+    )
+
+    failed_targets: set[tuple[PlanProfile, datetime, FutureDay, PlanTask, int]] = field(
+        default_factory=set
+    )
+
+    def fits_target_budget(
+        self, context: PlanContext, task: PlanTask, snapshot: FutureDay, policy: DayPolicy
+    ) -> bool:
+        key = context.profile, context.now, snapshot
+        if key not in self.target_budgets:
+            base = PlanContext(
+                context.profile,
+                snapshot.day,
+                context.now,
+                snapshot.tasks,
+                "replan",
+                snapshot.fixed_slots,
+            )
+            prepared = prepare_day(base, load_factor=policy.load_factor)
+            upper = summarize_day(prepared, required_breaks=())
+            intense = sum(
+                item.duration_min
+                for item in snapshot.tasks
+                if item.status != "skipped" and item.kind in HIGH_INTENSITY_KINDS
+            )
+            self.target_budgets[key] = (
+                upper.requested_min,
+                upper.capacity_min,
+                intense,
+                prepared.high_intensity_cap_min,
+            )
+        requested, capacity, intense, intensity_cap = self.target_budgets[key]
+        return (
+            requested + task.duration_min <= capacity
+            and intense + (task.duration_min if task.kind in HIGH_INTENSITY_KINDS else 0)
+            <= intensity_cap
+        )
 
     def policy(self, profile: PlanProfile, day: date) -> DayPolicy:
         key = (profile, day)
@@ -126,6 +172,7 @@ def _build_day(
     critical_level: int,
     excluded: frozenset[TaskRef] = frozenset(),
     rest_shortfall: int = 0,
+    stop_on_unplaced: bool = False,
 ) -> PlanResult:
     context = prepared.context
     tasks = {task.ref: task for task in context.tasks}
@@ -143,6 +190,8 @@ def _build_day(
     for task in sort_tasks(pending):
         if rest_shortfall:
             unscheduled.append(UnscheduledTask(task.ref, ("CRITICAL_REST_UNAVAILABLE",)))
+            if stop_on_unplaced:
+                break
             continue
         best: PlanSlot | None = None
         best_breaks: tuple[PlanSlot, ...] = ()
@@ -176,6 +225,8 @@ def _build_day(
             unscheduled.append(
                 UnscheduledTask(task.ref, ("NO_FEASIBLE_INTERVAL", *sorted(failures)))
             )
+            if stop_on_unplaced:
+                break
         else:
             placed = (*placed, best)
             breaks = best_breaks
@@ -230,6 +281,20 @@ def _find_target(
     if prefer_peak:
         candidates.sort(key=lambda item: (item[1] < 0.5, item[0].day))
     for snapshot, _ in candidates:
+        if not cache.fits_target_budget(
+            context, task, snapshot, cache.policy(context.profile, snapshot.day)
+        ):
+            continue
+        position = sum(_task_order(resident) < _task_order(task) for resident in snapshot.tasks)
+        probe_key = (
+            context.profile,
+            context.now,
+            snapshot,
+            replace(task, ref=TaskRef(task_index=0), planned_date=snapshot.day, created_at=None),
+            position,
+        )
+        if probe_key in cache.failed_targets:
+            continue
         proposed = replace(
             snapshot, tasks=(*snapshot.tasks, replace(task, planned_date=snapshot.day))
         )
@@ -241,9 +306,10 @@ def _find_target(
             "replan",
             proposed.fixed_slots,
         )
-        result = _build_schedule(probe, cache)
+        result = _build_schedule(probe, cache, require_complete=True)
         if not result.unscheduled and any(slot.task == task.ref for slot in result.slots):
             return proposed, result
+        cache.failed_targets.add(probe_key)
     return None
 
 
@@ -272,6 +338,7 @@ def _build_schedule(
     *,
     load_factor: float | None = None,
     rest_intervals: tuple[Interval, ...] = (),
+    require_complete: bool = False,
 ) -> PlanResult:
     policy = cache.policy(context.profile, context.day)
     prepared, shortfall = prepare_policy_day(
@@ -308,7 +375,10 @@ def _build_schedule(
         critical_level=policy.critical.level,
         excluded=moved,
         rest_shortfall=shortfall,
+        stop_on_unplaced=require_complete,
     )
+    if require_complete and result.unscheduled:
+        return result
     if context.mode == "replan" and not context.allow_date_change:
         result = replace(
             result,
