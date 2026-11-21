@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from math import isfinite
+from re import fullmatch
 from typing import Literal, Protocol, get_args
 from uuid import UUID
 
@@ -109,6 +110,7 @@ class PlanTask:
     is_pinned: bool = False
     pinned_start: datetime | None = None
     created_at: datetime | None = None
+    actual_start: datetime | None = None
 
     def __post_init__(self) -> None:
         _day(self.planned_date, "planned_date")
@@ -133,7 +135,7 @@ class PlanTask:
             raise ValueError("A pinned task needs pinned_start")
         if self.preferred_start is not None:
             _local_time(self.preferred_start, "preferred_start")
-        for field in ("pinned_start", "created_at"):
+        for field in ("pinned_start", "created_at", "actual_start"):
             value = getattr(self, field)
             if value is not None:
                 object.__setattr__(self, field, to_utc(value))
@@ -205,6 +207,7 @@ class PlanContext:
     # False when the remaining-day adapter supplies authoritative lunch/history slots.
     # Future-day probes construct their own context and keep the default profile lunch.
     include_profile_lunch: bool = True
+    allow_date_change: bool = False
 
     def __post_init__(self) -> None:
         _day(self.day, "day")
@@ -216,6 +219,8 @@ class PlanContext:
             raise ValueError("Unknown planning mode")
         if type(self.include_profile_lunch) is not bool:
             raise ValueError("include_profile_lunch must be a boolean")
+        if type(self.allow_date_change) is not bool:
+            raise ValueError("allow_date_change must be a boolean")
         refs = {task.ref for task in self.tasks}
         if len(refs) != len(self.tasks):
             raise ValueError("Each task reference must be unique")
@@ -253,6 +258,7 @@ class PlanContext:
 class UnscheduledTask:
     task: TaskRef
     reason_codes: tuple[str, ...]
+    explanation: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,6 +267,25 @@ class TaskMove:
     from_date: date
     to_date: date
     reason_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class MoveRecommendation:
+    task: TaskRef
+    from_date: date
+    to_date: date
+    reason_code: str
+    explanation: str
+
+    def __post_init__(self) -> None:
+        _day(self.from_date, "from_date")
+        _day(self.to_date, "to_date")
+        if self.task.task_id is None:
+            raise ValueError("Recommendations require a persisted task ID")
+        if not 1 <= (self.to_date - self.from_date).days <= 7:
+            raise ValueError("Recommended date must be within the next seven days")
+        if fullmatch(r"[A-Z][A-Z0-9_]*", self.reason_code) is None or not self.explanation.strip():
+            raise ValueError("Recommendations require a reason and explanation")
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,6 +337,19 @@ class PlanResult:
     warnings: tuple[PlanWarning, ...] = ()
     # Only accepted automatic moves have target plans. Advisory probes are never persisted.
     future_plans: tuple["PlanResult", ...] = ()
+    recommendations: tuple[MoveRecommendation, ...] = ()
+
+    def __post_init__(self) -> None:
+        represented = {slot.task for slot in self.slots if slot.task is not None}
+        represented.update(item.task for item in self.unscheduled)
+        moved = {move.task for move in self.moves}
+        seen = set()
+        for item in self.recommendations:
+            if item.from_date != self.day or item.task not in represented:
+                raise ValueError("Recommendation must reference a task on the source day")
+            if item.task in seen or item.task in moved:
+                raise ValueError("Recommendations must be unique and separate from applied moves")
+            seen.add(item.task)
 
 
 @dataclass(frozen=True, slots=True)

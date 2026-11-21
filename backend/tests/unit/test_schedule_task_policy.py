@@ -36,6 +36,7 @@ def event(operation: TaskOperation = "updated", *fields: str) -> TaskChanged:
         "preferred_start",
         "is_pinned",
         "pinned_start",
+        "actual_start",
         "status",
         "deleted_at",
     ],

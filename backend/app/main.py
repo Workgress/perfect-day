@@ -14,6 +14,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.biorhythm.cache import BiorhythmCache
 from app.modules.biorhythm.router import router as biorhythm_router
 from app.modules.meta.router import router as meta_router
+from app.modules.schedule.planning_router import router as schedule_planning_router
 from app.modules.schedule.read_router import router as schedule_read_router
 from app.modules.schedule.router import router as onboarding_router
 from app.modules.tasks.router import router as tasks_router
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(biorhythm_router, prefix=settings.api_prefix)
     app.include_router(tasks_router, prefix=settings.api_prefix)
     app.include_router(schedule_read_router, prefix=settings.api_prefix)
+    app.include_router(schedule_planning_router, prefix=settings.api_prefix)
     return app
 
 

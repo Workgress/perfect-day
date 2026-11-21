@@ -2,7 +2,14 @@
 
 from app.modules.biorhythm import engine as biorhythm
 from app.modules.planner.config import TASK_CYCLES
-from app.modules.planner.contracts import PlanContext, PlanResult, PlanTask, PlanWarning, TaskRef
+from app.modules.planner.contracts import (
+    MoveRecommendation,
+    PlanContext,
+    PlanResult,
+    PlanTask,
+    PlanWarning,
+    TaskRef,
+)
 from app.modules.planner.explanations import CYCLE_NAMES, PEAK_CODES
 from app.modules.planner.policy import DayPolicy
 
@@ -105,4 +112,38 @@ def move_recommendation(
         f"{action} на {target.day.isoformat()}: задача {task.duration_min} мин помещается целиком; "
         f"нагрузка дня после размещения {target.metrics.planned_min} из "
         f"{target.metrics.capacity_min} доступных мин.{cycle_text}"
+    )
+
+
+def task_move_recommendation(
+    context: PlanContext, task: PlanTask, target: PlanResult, policy: DayPolicy, *, unplaced: bool
+) -> MoveRecommendation:
+    reason_code = "NO_FEASIBLE_INTERVAL" if unplaced else "DAY_OVERLOADED"
+    source = (
+        f"На {context.day.isoformat()} задача не помещается "
+        "в доступные интервалы и лимиты нагрузки. "
+        if unplaced
+        else f"На {context.day.isoformat()} превышен рекомендуемый уровень нагрузки. "
+    )
+    return MoveRecommendation(
+        task.ref,
+        context.day,
+        target.day,
+        reason_code,
+        source + move_recommendation(task, target, policy, automatic=False),
+    )
+
+
+def recommendation_unavailable(task: TaskRef, *, known_days: bool) -> PlanWarning:
+    message = (
+        "В переданных снимках следующих семи дней подходящая дата не найдена: "
+        "размещение должно учитывать занятость, дедлайн и ограничения нагрузки."
+        if known_days
+        else "Нет снимков занятости следующих семи дней для проверки даты переноса."
+    )
+    return PlanWarning(
+        "MOVE_RECOMMENDATION_UNAVAILABLE",
+        task=task,
+        message=f"{message} Задача остаётся на исходной дате.",
+        level="warning",
     )

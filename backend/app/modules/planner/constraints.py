@@ -186,9 +186,12 @@ def _validate_slots(context: PlanContext, grid: TimeGrid, slots: tuple[PlanSlot,
             raise ConstraintError("DEADLINE_EXCEEDED", "Закрепление нарушает дедлайн", slot.task)
         if slot.preservation == "done" and task.status != "done":
             raise ConstraintError("FIXED_TASK_MISMATCH", "Задача не выполнена", slot.task)
-        if (
-            slot.preservation == "started"
-            and not slot.interval.start <= context.now < slot.interval.end
+        if slot.preservation == "started" and not (
+            (
+                slot.interval.start <= context.now
+                or (task.actual_start is not None and task.actual_start <= context.now)
+            )
+            and context.now < slot.interval.end
         ):
             raise ConstraintError(
                 "FIXED_TASK_MISMATCH", "Задача ещё не началась или уже закончилась", slot.task

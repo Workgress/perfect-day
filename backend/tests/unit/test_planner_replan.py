@@ -135,6 +135,47 @@ def test_new_work_never_starts_before_now_or_overlaps_a_begun_task() -> None:
     )
 
 
+@pytest.mark.parametrize("status", ["pending", "scheduled", "skipped"])
+def test_early_actual_start_protects_original_interval_and_metadata(status: str) -> None:
+    started = task(duration=60, actual_start=at(9, 45), status=status)
+    added = task(1, 30, preferred_start=time(14))
+    saved = slot(started, 14)
+    ctx = context(started, added)
+    result = replan_remaining_day(ctx, (saved,))
+    retained = find_task(result.plan.slots, started.ref)
+    assert retained == replace(saved, preservation="started")
+    assert not any(change.task == started.ref for change in result.changes)
+    assert all(
+        left.interval.end <= right.interval.start for left, right in pairwise(result.plan.slots)
+    )
+    repeated = replan_remaining_day(ctx, result.plan.slots)
+    assert find_task(repeated.plan.slots, started.ref) == retained
+
+
+def test_actual_start_without_saved_interval_fails_instead_of_rescheduling() -> None:
+    started = task(actual_start=at(9))
+    with pytest.raises(ConstraintError) as error:
+        replan_remaining_day(context(started))
+    assert error.value.code == "STARTED_INTERVAL_REQUIRED"
+    assert error.value.task == started.ref
+
+
+def test_actual_start_in_future_is_rejected() -> None:
+    started = task(actual_start=at(11))
+    with pytest.raises(ConstraintError) as error:
+        replan_remaining_day(context(started), (slot(started, 14),))
+    assert error.value.code == "ACTUAL_START_IN_FUTURE"
+
+
+def test_duration_edit_of_early_started_task_does_not_rewrite_saved_interval() -> None:
+    started = task(actual_start=at(9))
+    saved = slot(started, 14)
+    with pytest.raises(ConstraintError) as error:
+        replan_remaining_day(context(replace(started, duration_min=60)), (saved,))
+    assert error.value.code == "FIXED_TASK_MISMATCH"
+    assert saved.interval == Interval(at(14), at(14, 30))
+
+
 def test_deleting_a_future_task_releases_its_interval_and_reports_removal() -> None:
     deleted = task()
     old = slot(deleted, 14)
@@ -355,7 +396,8 @@ def test_cross_day_moves_appear_in_the_diff_and_future_lunch_is_still_reserved()
     incoming = task(duration=60, kind="intellectual")
     future = FutureDay(DAY + timedelta(days=1))
     result = replan_remaining_day(
-        context(incoming, elapsed=14, future_days=(future,)), (slot(incoming, 14),)
+        context(incoming, elapsed=14, future_days=(future,), allow_date_change=True),
+        (slot(incoming, 14),),
     )
     assert len(result.plan.moves) == len(result.changes) == 1
     change = result.changes[0]
@@ -369,7 +411,9 @@ def test_future_resident_tasks_are_not_reported_as_new_source_placements() -> No
     day = DAY + timedelta(days=1)
     resident = task(10, planned_date=day)
     incoming = task(duration=60, kind="intellectual")
-    ctx = context(incoming, elapsed=14, future_days=(FutureDay(day, (resident,)),))
+    ctx = context(
+        incoming, elapsed=14, future_days=(FutureDay(day, (resident,)),), allow_date_change=True
+    )
     result = replan_remaining_day(ctx, (slot(incoming, 14),))
     assert [change.task for change in result.changes] == [incoming.ref]
     assert any(change.task == resident.ref for change in result.plan.future_plans[0].status_changes)

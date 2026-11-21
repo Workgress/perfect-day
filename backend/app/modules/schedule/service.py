@@ -18,6 +18,7 @@ from app.core.time import Clock, parse_timezone, to_utc
 from app.modules.planner.constraints import ConstraintError
 from app.modules.planner.contracts import (
     FutureDay,
+    Interval,
     PlacementChange,
     PlanContext,
     PlanMode,
@@ -45,11 +46,18 @@ from app.modules.schedule.models import (
     ScheduleTrigger,
     TaskReplanReceipt,
 )
+from app.modules.schedule.placement import check_selected_placement
+from app.modules.schedule.planning_schemas import (
+    PlacementCheckRequest,
+    PlacementCheckResponse,
+    PlacementRefusal,
+)
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview, PreviewSlot
 from app.modules.schedule.task_policy import task_replan_scope
 from app.modules.tasks.events import TaskChanged
 from app.modules.tasks.models import Task, TaskStatus
+from app.modules.tasks.repository import TaskRepository
 from app.modules.users.events import ProfileChanged
 from app.modules.users.models import UserProfile
 from app.modules.users.schemas import ProfileDocument
@@ -271,7 +279,78 @@ class ScheduleService:
         await self.session.flush()
         return row
 
-    async def replan(self, user_id: UUID, day: date, trigger: ScheduleTrigger) -> ReplanResult:
+    async def check_placement(
+        self, user_id: UUID, body: PlacementCheckRequest
+    ) -> PlacementCheckResponse:
+        await self.lock_user(user_id)
+        task = await TaskRepository(self.session).get(user_id, body.task_id)
+        if task is None:
+            raise AppError(404, "TASK_NOT_FOUND", "Задача не найдена")
+        if task.version != body.version:
+            raise _error("TASK_VERSION_CONFLICT", "Задача уже изменена, обновите данные")
+        state = await self.profiles.get_profile(user_id)
+        if state is None or state.onboarding_completed_at is None:
+            raise _error("ONBOARDING_REQUIRED", "Завершите настройку профиля")
+        profile = profile_snapshot(state)
+        interval = Interval(body.start_at, body.end_at)
+        reasons: tuple[PlacementRefusal, ...]
+        if task.planned_date != body.planned_date:
+            reasons = (
+                PlacementRefusal(
+                    code="TASK_DATE_MISMATCH",
+                    message="Выбранная дата отличается от даты задачи. Сначала перенесите задачу.",
+                ),
+            )
+        else:
+            active = await self.repository.active(user_id, (body.planned_date,))
+            schedule = active.get(body.planned_date)
+            history = (
+                {slot.task_id for slot in schedule.slots if slot.task_id is not None}
+                if schedule
+                else set()
+            )
+            rows = await self.repository.tasks(user_id, (body.planned_date,), history)
+            previous = saved_slots(schedule, {row.id: row for row in rows})
+            if any(row.planned_date != body.planned_date for row in rows):
+                raise _error("CONFLICT", "Дата задачи не совпадает с сохранённым расписанием")
+            context = PlanContext(
+                profile,
+                body.planned_date,
+                to_utc(self.clock.now()),
+                tuple(task_snapshot(row) for row in rows),
+                "replan",
+            )
+            try:
+                bounds = make_time_grid(context).day_bounds
+                if not bounds.start <= interval.start < interval.end <= bounds.end:
+                    reasons = (
+                        PlacementRefusal(
+                            code="OUTSIDE_SELECTED_DATE",
+                            message="Интервал выходит за выбранную дату в часовом поясе профиля.",
+                        ),
+                    )
+                else:
+                    reasons = check_selected_placement(
+                        context, task_snapshot(task), interval, previous
+                    )
+            except ConstraintError as exc:
+                raise AppError(
+                    409, "CONFLICT", str(exc), details={"reason_code": exc.code}
+                ) from exc
+            except PlannerTimeError as exc:
+                raise ProfileValidationError(
+                    "planned_date", exc.code, "Проверьте рабочее время"
+                ) from exc
+        return PlacementCheckResponse(**body.model_dump(), allowed=not reasons, reasons=reasons)
+
+    async def replan(
+        self,
+        user_id: UUID,
+        day: date,
+        trigger: ScheduleTrigger,
+        *,
+        allow_date_change: bool = False,
+    ) -> ReplanResult:
         async with self.mutation(user_id):
             state = await self.profiles.get_profile(user_id)
             if state is None or state.onboarding_completed_at is None:
@@ -298,6 +377,7 @@ class ScheduleService:
                     and (
                         slot.interval.start <= now
                         or by_id[cast(UUID, slot.task.task_id)].status == TaskStatus.DONE
+                        or by_id[cast(UUID, slot.task.task_id)].actual_start is not None
                     )
                 }
                 tasks = tuple(
@@ -309,7 +389,9 @@ class ScheduleService:
                 if any(task.planned_date != selected for task in tasks):
                     raise _error("CONFLICT", "Дата исторической задачи не совпадает с расписанием")
                 snapshots[selected] = (
-                    PlanContext(profile, selected, now, tasks, "replan"),
+                    PlanContext(
+                        profile, selected, now, tasks, "replan", allow_date_change=allow_date_change
+                    ),
                     previous,
                 )
             source, previous = snapshots[day]
@@ -322,8 +404,14 @@ class ScheduleService:
                 source = replace(source, future_days=future)
                 calculated = replan_remaining_day(source, previous)
             except ConstraintError as exc:
-                raise _error(
-                    "CONFLICT", "Изменение нарушает сохранённые интервалы расписания"
+                raise AppError(
+                    409,
+                    "CONFLICT",
+                    str(exc),
+                    details={
+                        "reason_code": exc.code,
+                        "task_id": str(exc.task.task_id) if exc.task is not None else None,
+                    },
                 ) from exc
             except PlannerTimeError as exc:
                 raise ProfileValidationError(

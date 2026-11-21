@@ -73,6 +73,8 @@ def rules() -> dict[str, Any]:
         },
         "moves": {
             "horizon_days": 7,
+            "allow_date_change_default": False,
+            "automatic_requires": "explicit allow_date_change=True",
             "automatic_modes": ["replan"],
             "eligible": "critical source; unpinned/unstarted intellectual or physical; "
             "high priority OR duration >= 60; deadline permits",

@@ -23,9 +23,14 @@ def test_schedule_get_publishes_required_date_security_and_response() -> None:
         }
 
 
-def test_read_route_preserves_onboarding_and_does_not_add_generation_endpoints() -> None:
+def test_read_route_preserves_onboarding_and_keeps_legacy_get_unchanged() -> None:
     paths = create_app().openapi()["paths"]
     assert "post" in paths["/api/v1/onboarding/preview"]
     assert "post" in paths["/api/v1/onboarding/complete"]
-    assert {path for path in paths if path.startswith("/api/v1/schedule")} == {"/api/v1/schedule"}
+    assert {path for path in paths if path.startswith("/api/v1/schedule")} == {
+        "/api/v1/schedule",
+        "/api/v1/schedule/details",
+        "/api/v1/schedule/check-placement",
+        "/api/v1/schedule/replan",
+    }
     assert set(paths["/api/v1/schedule"]) == {"get"}

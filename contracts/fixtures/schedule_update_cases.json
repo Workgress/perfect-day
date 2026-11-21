@@ -34,10 +34,17 @@
       ]
     },
     {
-      "id": "critical_automatic_transfer",
+      "id": "critical_date_preserved",
       "profile": {"birth_days_ago": 14},
       "actions": [
-        {"operation": "create", "task": "a", "body": {"type": "intellectual", "duration_min": 60}, "expected": {"statuses": {"a": "scheduled"}, "moved": ["a"], "critical_level": 1}}
+        {"operation": "create", "task": "a", "body": {"type": "intellectual", "duration_min": 60}, "expected": {"statuses": {"a": "scheduled"}, "dates": {"a": "2026-11-14"}, "schedule_dates": ["2026-11-14"], "critical_level": 1}}
+      ]
+    },
+    {
+      "id": "critical_unplaced_date_preserved",
+      "profile": {"birth_days_ago": 14},
+      "actions": [
+        {"operation": "create", "task": "a", "body": {"type": "intellectual", "duration_min": 180}, "expected": {"statuses": {"a": "pending"}, "dates": {"a": "2026-11-14"}, "schedule_dates": ["2026-11-14"], "unscheduled": ["a"], "absent": ["a"], "critical_level": 1}}
       ]
     },
     {
