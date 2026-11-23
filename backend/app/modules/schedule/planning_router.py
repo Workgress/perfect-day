@@ -90,8 +90,11 @@ async def check_placement(
         "Ответ содержит сохранённое расписание, рекомендации, пояснения и changes "
         "с исходными и итоговыми UTC-интервалами. Каждый вызов создаёт новую версию плана; "
         "при потере ответа сначала перечитайте /schedule/details. "
+        "schedule_version обязательна: версия прочитанного плана, 0 при его отсутствии. "
+        "Устаревшая версия отклоняется до расчёта и записи с SCHEDULE_VERSION_CONFLICT. "
         "Ошибки: 409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, 409 CONFLICT, "
-        "409 SCHEDULE_RESULT_INCOMPLETE, 422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. "
+        "409 SCHEDULE_VERSION_CONFLICT, 409 SCHEDULE_RESULT_INCOMPLETE, "
+        "422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. "
         "Cache-Control: no-store."
     ),
 )
@@ -104,6 +107,7 @@ async def replan(
             body.planned_date,
             ScheduleTrigger.MANUAL_EDIT,
             allow_date_change=body.allow_date_change,
+            expected_version=body.schedule_version,
         )
         details = await ScheduleReader(service.session).get_details(user.id, body.planned_date)
         if details is None:

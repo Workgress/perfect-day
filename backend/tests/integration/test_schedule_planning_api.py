@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -139,7 +140,9 @@ async def test_manual_replan_returns_saved_details_and_actual_changes(
 ) -> None:
     api = schedule_api
     task_id = await seed_pending(api)
-    response = await call(api, "POST", "replan", {"planned_date": DAY.isoformat()})
+    response = await call(
+        api, "POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": 0}
+    )
     assert response.status_code == 200, response.text
     result = ScheduleReplanResponse.model_validate(response.json())
     assert result.schedule.version == 1 and not result.schedule.moves
@@ -149,9 +152,63 @@ async def test_manual_replan_returns_saved_details_and_actual_changes(
     assert change.before is None and change.after is not None
     read = await call(api, "GET", f"details?date={DAY}")
     assert read.json() == result.model_dump(mode="json", exclude={"changes"})
-    second = await call(api, "POST", "replan", {"planned_date": DAY.isoformat()})
+    second = await call(
+        api,
+        "POST",
+        "replan",
+        {"planned_date": DAY.isoformat(), "schedule_version": result.schedule.version},
+    )
     assert second.status_code == 200, second.text
     assert second.json()["schedule"]["version"] == 2 and second.json()["changes"] == []
+
+
+@pytest.mark.parametrize("existing", [False, True])
+async def test_replan_version_conflict_does_not_calculate_or_write(
+    schedule_api: TasksAPI, monkeypatch: pytest.MonkeyPatch, existing: bool
+) -> None:
+    api = schedule_api
+    if existing:
+        await create_task(api)
+    current = (await get_schedule(api)).json()["version"] if existing else 0
+    expected = 0 if existing else 1
+    before = await snapshot(api)
+    calculate = Mock(side_effect=AssertionError("Stale plans must be rejected before calculation"))
+    monkeypatch.setattr("app.modules.schedule.service.replan_remaining_day", calculate)
+    response = await call(
+        api, "POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": expected}
+    )
+    assert response.status_code == 409
+    assert response.json()["error"] == {
+        "code": "SCHEDULE_VERSION_CONFLICT",
+        "message": "Расписание уже изменено, обновите данные",
+        "details": {
+            "planned_date": DAY.isoformat(),
+            "expected_version": expected,
+            "current_version": current,
+        },
+    }
+    calculate.assert_not_called()
+    assert await snapshot(api) == before
+
+
+async def test_concurrent_public_replans_with_same_version_have_one_winner(
+    schedule_api: TasksAPI,
+) -> None:
+    api = schedule_api
+    await seed_pending(api)
+    body = {"planned_date": DAY.isoformat(), "schedule_version": 0}
+    responses = await asyncio.wait_for(
+        asyncio.gather(call(api, "POST", "replan", body), call(api, "POST", "replan", body)),
+        timeout=15,
+    )
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    refused = next(response for response in responses if response.status_code == 409)
+    assert refused.json()["error"]["details"] == {
+        "planned_date": DAY.isoformat(),
+        "expected_version": 0,
+        "current_version": 1,
+    }
+    assert (await get_schedule(api)).json()["version"] == 1
 
 
 @pytest.mark.parametrize("failure", ["storage", "response", "calculation"])
@@ -180,7 +237,9 @@ async def test_replan_rolls_back_if_storage_or_response_preparation_fails(
             "app.modules.schedule.service.replan_remaining_day",
             Mock(side_effect=RuntimeError("private calculation failure")),
         )
-    response = await call(api, "POST", "replan", {"planned_date": DAY.isoformat()})
+    response = await call(
+        api, "POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": 0}
+    )
     assert response.status_code == (503 if failure == "calculation" else 500)
     assert response.json()["error"]["code"] == (
         "PLANNER_UNAVAILABLE" if failure == "calculation" else "INTERNAL_ERROR"
@@ -203,9 +262,13 @@ async def test_details_rejects_invalid_queries(schedule_api: TasksAPI, query: st
     "body",
     [
         {},
-        {"planned_date": "2026-11-13T00:00:00Z"},
-        {"planned_date": "2026-11-13", "allow_date_change": "false"},
-        {"planned_date": "2026-11-13", "user_id": "ignored"},
+        {"planned_date": "2026-11-13"},
+        {"planned_date": "2026-11-13T00:00:00Z", "schedule_version": 0},
+        {"planned_date": "2026-11-13", "schedule_version": 0, "allow_date_change": "false"},
+        {"planned_date": "2026-11-13", "schedule_version": 0, "user_id": "ignored"},
+        {"planned_date": "2026-11-13", "schedule_version": True},
+        {"planned_date": "2026-11-13", "schedule_version": "1"},
+        {"planned_date": "2026-11-13", "schedule_version": -1},
     ],
 )
 async def test_replan_validates_body_before_writes(schedule_api: TasksAPI, body: dict) -> None:
@@ -219,7 +282,7 @@ async def test_replan_validates_body_before_writes(schedule_api: TasksAPI, body:
     ("method", "path", "body"),
     [
         ("GET", f"details?date={DAY}", None),
-        ("POST", "replan", {"planned_date": DAY.isoformat()}),
+        ("POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": 0}),
         (
             "POST",
             "check-placement",
@@ -282,7 +345,9 @@ async def test_replan_requires_explicit_permission_to_change_task_date(
         )
         row = await make_task(session, user, planned_date=DAY, duration_min=180)
         task_id = str(row.id)
-    blocked = await call(api, "POST", "replan", {"planned_date": DAY.isoformat()})
+    blocked = await call(
+        api, "POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": 0}
+    )
     assert blocked.status_code == 200, blocked.text
     result = ScheduleReplanResponse.model_validate(blocked.json())
     assert not result.schedule.moves and len(result.unscheduled_explanations) == 1
@@ -290,7 +355,14 @@ async def test_replan_requires_explicit_permission_to_change_task_date(
     task = (await api.request("GET", f"/{task_id}")).json()
     assert task["planned_date"] == DAY.isoformat() and task["status"] == "pending"
     allowed = await call(
-        api, "POST", "replan", {"planned_date": DAY.isoformat(), "allow_date_change": True}
+        api,
+        "POST",
+        "replan",
+        {
+            "planned_date": DAY.isoformat(),
+            "schedule_version": result.schedule.version,
+            "allow_date_change": True,
+        },
     )
     assert allowed.status_code == 200, allowed.text
     result = ScheduleReplanResponse.model_validate(allowed.json())
@@ -339,7 +411,10 @@ async def test_http_replan_preserves_pin_and_early_actual_start(schedule_api: Ta
         started.pinned_start = None
         started.actual_start = clock.now()
     api.auth.app.dependency_overrides[get_clock] = lambda: clock
-    response = await call(api, "POST", "replan", {"planned_date": DAY.isoformat()})
+    version = (await get_schedule(api)).json()["version"]
+    response = await call(
+        api, "POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": version}
+    )
     assert response.status_code == 200, response.text
     result = ScheduleReplanResponse.model_validate(response.json())
     exposed = {str(item.task_id): item for item in result.placement_explanations}
@@ -373,7 +448,7 @@ async def test_all_planning_methods_use_existing_access_gates(
     before = await snapshot(api)
     for method, path, body in [
         ("GET", f"details?date={DAY}", None),
-        ("POST", "replan", {"planned_date": DAY.isoformat()}),
+        ("POST", "replan", {"planned_date": DAY.isoformat(), "schedule_version": 0}),
         (
             "POST",
             "check-placement",

@@ -31,7 +31,8 @@ def test_planning_request_schemas_forbid_unknown_fields_and_default_to_no_date_c
     models = schema["components"]["schemas"]
     assert models["ScheduleReplanRequest"]["additionalProperties"] is False
     assert models["ScheduleReplanRequest"]["properties"]["allow_date_change"]["default"] is False
-    assert models["ScheduleReplanRequest"]["required"] == ["planned_date"]
+    assert models["ScheduleReplanRequest"]["required"] == ["planned_date", "schedule_version"]
+    assert models["ScheduleReplanRequest"]["properties"]["schedule_version"]["minimum"] == 0
     assert set(models["PlacementCheckRequest"]["required"]) == {
         "task_id",
         "version",

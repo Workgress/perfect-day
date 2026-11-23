@@ -87,6 +87,16 @@ class ScheduleRepository:
         )
         return list(rows)
 
+    async def active_versions(self, user_id: UUID, days: tuple[date, ...]) -> dict[date, int]:
+        rows = await self.session.execute(
+            select(Schedule.date, Schedule.version)
+            .where(
+                Schedule.user_id == user_id, Schedule.date.in_(days), Schedule.is_active.is_(True)
+            )
+            .order_by(Schedule.date)
+        )
+        return {day: version for day, version in rows}
+
     async def next_version(self, user_id: UUID, day: date) -> int:
         maximum = await self.session.scalar(
             select(func.max(Schedule.version)).where(

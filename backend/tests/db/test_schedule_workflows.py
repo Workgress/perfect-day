@@ -38,7 +38,7 @@ async def change_state(
         row = await TaskRepository(session).get(user_id, task_id, for_update=True)
         assert row is not None
         if row.version != version:
-            raise TaskVersionConflictError()
+            raise TaskVersionConflictError(version, row.version)
         for field, value in values.items():
             setattr(row, field, value)
         row.version += 1

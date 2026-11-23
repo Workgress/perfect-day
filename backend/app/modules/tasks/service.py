@@ -8,6 +8,8 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.errors import AppError
 from app.core.time import Clock, parse_timezone, to_utc
+from app.modules.tasks.errors import TaskNotFoundError
+from app.modules.tasks.errors import TaskVersionConflictError as TaskVersionConflictError
 from app.modules.tasks.events import (
     TaskChangeCoordinator,
     TaskChanged,
@@ -18,20 +20,11 @@ from app.modules.tasks.events import (
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.tasks.repository import TaskRepository
 from app.modules.tasks.schemas import TaskCreate, TaskList, TaskListQuery, TaskPatch, TaskResponse
+from app.modules.tasks.versioning import check_task_version
 from app.modules.users.repository import ProfileRepository
 from app.modules.users.service import ProfileIncompleteError
 
 PLACEMENT_FIELDS = frozenset({"planned_date", "duration_min", "type", "priority", "deadline"})
-
-
-class TaskNotFoundError(AppError):
-    def __init__(self) -> None:
-        super().__init__(404, "TASK_NOT_FOUND", "Задача не найдена")
-
-
-class TaskVersionConflictError(AppError):
-    def __init__(self) -> None:
-        super().__init__(409, "TASK_VERSION_CONFLICT", "Задача уже изменена, обновите данные")
 
 
 class TaskStatusConflictError(AppError):
@@ -164,8 +157,7 @@ class TaskService:
             task = await self.repository.get(user_id, task_id, for_update=True)
             if task is None:
                 raise TaskNotFoundError()
-            if task.version != version:
-                raise TaskVersionConflictError()
+            check_task_version(task, version)
             tz = await self._timezone(user_id)
             now = to_utc(self.clock.now())
             if operation == "updated":
