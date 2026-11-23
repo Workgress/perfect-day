@@ -111,6 +111,7 @@ class PlanTask:
     pinned_start: datetime | None = None
     created_at: datetime | None = None
     actual_start: datetime | None = None
+    is_date_locked: bool = False
 
     def __post_init__(self) -> None:
         _day(self.planned_date, "planned_date")
@@ -131,6 +132,8 @@ class PlanTask:
             raise ValueError("duration_min must be an integer from 5 to 480")
         if type(self.is_pinned) is not bool:
             raise ValueError("is_pinned must be a boolean")
+        if type(self.is_date_locked) is not bool:
+            raise ValueError("is_date_locked must be a boolean")
         if self.is_pinned and self.pinned_start is None:
             raise ValueError("A pinned task needs pinned_start")
         if self.preferred_start is not None:

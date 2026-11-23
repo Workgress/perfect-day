@@ -34,7 +34,7 @@ def assert_portable(actual: Any, expected: Any) -> None:
 def test_fixture_coverage_version_and_reproduction() -> None:
     assert (
         DATA["schema_version"] == 1
-        and DATA["algorithm_version"] == ALGORITHM_VERSION == "planner-1.0.1"
+        and DATA["algorithm_version"] == ALGORITHM_VERSION == "planner-1.1.0"
     )
     assert len(CASES) == len(DATA["cases"]) >= 20
     tags = {tag for case in CASES.values() for tag in case["tags"]}

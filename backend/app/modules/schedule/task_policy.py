@@ -14,6 +14,7 @@ REPLAN_FIELDS = frozenset(
         "preferred_start",
         "is_pinned",
         "pinned_start",
+        "is_date_locked",
         "actual_start",
         "status",
         "deleted_at",

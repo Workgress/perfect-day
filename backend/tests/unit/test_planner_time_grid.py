@@ -42,7 +42,7 @@ def context(
 
 
 def test_planner_configuration_does_not_change_biorhythm_version() -> None:
-    assert ALGORITHM_VERSION == "planner-1.0.1"
+    assert ALGORITHM_VERSION == "planner-1.1.0"
     assert BIO_VERSION == "1.0.0"
     assert GRID_STEP_MINUTES == 15
 

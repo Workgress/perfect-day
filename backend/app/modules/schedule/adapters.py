@@ -67,6 +67,7 @@ def task_snapshot(row: Task) -> PlanTask:
         row.pinned_start,
         row.created_at,
         actual_start=row.actual_start,
+        is_date_locked=row.is_date_locked,
     )
 
 
