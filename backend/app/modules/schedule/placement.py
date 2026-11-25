@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
 
 from app.core.time import parse_timezone
@@ -25,13 +25,20 @@ MESSAGES = {
 }
 
 
-def check_selected_placement(
+@dataclass(frozen=True, slots=True)
+class PlacementRejection:
+    code: str
+    message: str
+    conflict: PlanSlot | None = None
+
+
+def selected_placement_refusals(
     context: PlanContext, task: PlanTask, interval: Interval, previous: tuple[PlanSlot, ...]
-) -> tuple[PlacementRefusal, ...]:
+) -> tuple[PlacementRejection, ...]:
     preserved = preserve_reservations(context, previous)
     protected = next((slot for slot in preserved if slot.task == task.ref), None)
     if task.status in {"done", "skipped"}:
-        return (PlacementRefusal(code="TASK_INACTIVE", message=MESSAGES["TASK_INACTIVE"]),)
+        return (PlacementRejection(code="TASK_INACTIVE", message=MESSAGES["TASK_INACTIVE"]),)
     if protected is not None and protected.interval != interval:
         code = (
             "TASK_STARTED"
@@ -40,11 +47,13 @@ def check_selected_placement(
             if protected.preservation == "pinned"
             else "TASK_ALREADY_RESERVED"
         )
-        return (PlacementRefusal(code=code, message=MESSAGES[code]),)
+        return (PlacementRejection(code=code, message=MESSAGES[code]),)
     if task.is_pinned and interval.start != task.pinned_start:
-        return (PlacementRefusal(code="TASK_PINNED", message=MESSAGES["TASK_PINNED"]),)
+        return (PlacementRejection(code="TASK_PINNED", message=MESSAGES["TASK_PINNED"]),)
     if interval.end - interval.start != timedelta(minutes=task.duration_min):
-        return (PlacementRefusal(code="DURATION_MISMATCH", message=MESSAGES["DURATION_MISMATCH"]),)
+        return (
+            PlacementRejection(code="DURATION_MISMATCH", message=MESSAGES["DURATION_MISMATCH"]),
+        )
     known = {item.ref: item for item in context.tasks}
     by_task = {slot.task: slot for slot in preserved if slot.task is not None}
     occupied = tuple(
@@ -127,12 +136,25 @@ def check_selected_placement(
                 }[conflict.kind]
                 message = f"Интервал занят {label} с {start:%H:%M %z} до {end:%H:%M %z}."
         refusals.append(
-            PlacementRefusal(
+            PlacementRejection(
                 code=code,
                 message=message,
-                conflicting_task_id=conflict.task.task_id
-                if conflict is not None and conflict.task is not None
-                else None,
+                conflict=conflict,
             )
         )
     return tuple(refusals)
+
+
+def check_selected_placement(
+    context: PlanContext, task: PlanTask, interval: Interval, previous: tuple[PlanSlot, ...]
+) -> tuple[PlacementRefusal, ...]:
+    return tuple(
+        PlacementRefusal(
+            code=item.code,
+            message=item.message,
+            conflicting_task_id=item.conflict.task.task_id
+            if item.conflict is not None and item.conflict.task is not None
+            else None,
+        )
+        for item in selected_placement_refusals(context, task, interval, previous)
+    )

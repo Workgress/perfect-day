@@ -9,6 +9,7 @@ from app.db.session import get_session
 from app.modules.schedule.dependencies import get_schedule_service
 from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.events import TaskChangedHandler, task_changed
+from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import TaskDeleteQuery, TaskListQuery
 from app.modules.tasks.service import TaskService
 from app.modules.users.dependencies import get_clock
@@ -25,6 +26,15 @@ def get_task_service(
     scheduler: Annotated[ScheduleService, Depends(get_schedule_service)],
 ) -> TaskService:
     return TaskService(session, clock, handler, coordinator=scheduler)
+
+
+def get_task_placement_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    clock: Annotated[Clock, Depends(get_clock)],
+    handler: Annotated[TaskChangedHandler, Depends(get_task_changed_handler)],
+    scheduler: Annotated[ScheduleService, Depends(get_schedule_service)],
+) -> TaskPlacementService:
+    return TaskPlacementService(session, clock, scheduler, handler)
 
 
 def _reject_duplicate_parameters(request: Request) -> None:

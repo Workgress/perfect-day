@@ -8,8 +8,11 @@ from app.core.security import get_current_user
 from app.modules.tasks.dependencies import (
     get_task_delete_query,
     get_task_list_query,
+    get_task_placement_service,
     get_task_service,
 )
+from app.modules.tasks.placement_schemas import TaskPinRequest
+from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import (
     TaskCreate,
     TaskDeleteQuery,
@@ -25,6 +28,7 @@ from app.modules.users.models import User
 router = APIRouter(prefix="/tasks", tags=["tasks"], route_class=PrivateAPIRoute)
 CurrentUser = Annotated[User, Depends(get_current_user)]
 Tasks = Annotated[TaskService, Depends(get_task_service)]
+Placement = Annotated[TaskPlacementService, Depends(get_task_placement_service)]
 
 
 @router.post("", status_code=201, response_model=TaskResponse, summary="Создать задачу")
@@ -44,6 +48,29 @@ async def list_tasks(
 @router.get("/{task_id}", response_model=TaskResponse, summary="Получить задачу")
 async def get_task(task_id: UUID, user: CurrentUser, service: Tasks) -> TaskResponse:
     return await service.get(user.id, task_id)
+
+
+@router.post(
+    "/{task_id}/pin",
+    response_model=TaskResponse,
+    summary="Закрепить задачу на выбранных дате и времени",
+    description=(
+        "Принимает версию задачи и schedule_versions исходного и целевого дней. "
+        "Версия 0 означает отсутствие плана. Дата локальная в поясе профиля. "
+        "start_at — ISO 8601 с UTC-смещением; конец вычисляет сервер. "
+        "Проверка интервала и сохранение задачи с пересчётом обоих дней атомарны. "
+        "Закреплённое будущее время можно заменить; занятое время и история не перемещаются. "
+        "Тот же pin с актуальными версиями не меняет задачу и план. "
+        "Ошибки: 404 TASK_NOT_FOUND, 409 TASK_VERSION_CONFLICT, 409 SCHEDULE_VERSION_CONFLICT, "
+        "409 TASK_STATUS_CONFLICT, 409 INTERVAL_OCCUPIED, 409 TASK_MOVE_NOT_ALLOWED, "
+        "409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, 409 SCHEDULE_RESULT_INCOMPLETE, "
+        "422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. Cache-Control: no-store."
+    ),
+)
+async def pin_task(
+    task_id: UUID, body: TaskPinRequest, user: CurrentUser, service: Placement
+) -> TaskResponse:
+    return await service.pin(user.id, task_id, body)
 
 
 @router.patch("/{task_id}", response_model=TaskResponse, summary="Изменить задачу или дату")
