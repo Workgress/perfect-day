@@ -13,6 +13,7 @@ from app.modules.tasks.dependencies import (
     get_task_unpin_query,
 )
 from app.modules.tasks.placement_schemas import (
+    TaskDateLockRequest,
     TaskMoveRequest,
     TaskPinRequest,
     TaskStartNowRequest,
@@ -103,6 +104,30 @@ async def move_task(
     task_id: UUID, body: TaskMoveRequest, user: CurrentUser, service: Placement
 ) -> TaskResponse:
     return await service.move(user.id, task_id, body)
+
+
+@router.put(
+    "/{task_id}/date-lock",
+    response_model=TaskResponse,
+    summary="Изменить запрет автоматического переноса задачи на другой день",
+    description=(
+        "Принимает is_date_locked (строгий bool), version задачи и schedule_versions "
+        "только её текущей даты; 0 означает отсутствие плана. "
+        "Фиксация даты запрещает автоматический перенос и рекомендации смены даты. "
+        "Подбор времени внутри дня и явный ручной перенос разрешены. "
+        "Фиксация времени, фактическое начало и защищённые интервалы сохраняются. "
+        "Изменение настройки и пересчёт текущего дня атомарны; другие даты не меняются. "
+        "Повтор с тем же значением и актуальными версиями не меняет задачу и расписание. "
+        "Ошибки: 404 TASK_NOT_FOUND, 409 TASK_VERSION_CONFLICT, 409 SCHEDULE_VERSION_CONFLICT, "
+        "409 TASK_MOVE_NOT_ALLOWED, 409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, "
+        "409 SCHEDULE_RESULT_INCOMPLETE, 422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. "
+        "Cache-Control: no-store."
+    ),
+)
+async def set_task_date_lock(
+    task_id: UUID, body: TaskDateLockRequest, user: CurrentUser, service: Placement
+) -> TaskResponse:
+    return await service.set_date_lock(user.id, task_id, body)
 
 
 @router.post(

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict, StrictBool
 
 from app.modules.schedule.planning_schemas import ScheduleVersion, ScheduleVersions
 from app.modules.tasks.schemas import (
@@ -32,6 +32,14 @@ class TaskMoveRequest(TaskPlacementRequest):
 class TaskStartNowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    version: TaskVersion
+    schedule_versions: ScheduleVersions
+
+
+class TaskDateLockRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_date_locked: StrictBool
     version: TaskVersion
     schedule_versions: ScheduleVersions
 

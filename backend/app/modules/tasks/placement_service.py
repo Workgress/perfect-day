@@ -17,6 +17,7 @@ from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.events import TaskChanged, TaskChangedHandler, task_changed
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.tasks.placement_schemas import (
+    TaskDateLockRequest,
     TaskMoveRequest,
     TaskPinRequest,
     TaskPlacementRequest,
@@ -126,6 +127,28 @@ class TaskPlacementService:
             task.pinned_start = None
             result, event = await self._save_change(
                 user_id, task, changed, task.planned_date, to_utc(self.clock.now())
+            )
+        await self.on_changed(event)
+        return result
+
+    async def set_date_lock(
+        self, user_id: UUID, task_id: UUID, body: TaskDateLockRequest
+    ) -> TaskResponse:
+        async with (
+            self.session.begin(),
+            self.scheduler.task_mutation(
+                user_id, task_id, body.version, body.schedule_versions
+            ) as task,
+        ):
+            if task.is_date_locked == body.is_date_locked:
+                return TaskResponse.model_validate(task)
+            task.is_date_locked = body.is_date_locked
+            result, event = await self._save_change(
+                user_id,
+                task,
+                frozenset({"is_date_locked"}),
+                task.planned_date,
+                to_utc(self.clock.now()),
             )
         await self.on_changed(event)
         return result
