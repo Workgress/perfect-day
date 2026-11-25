@@ -12,7 +12,7 @@ from app.modules.tasks.dependencies import (
     get_task_service,
     get_task_unpin_query,
 )
-from app.modules.tasks.placement_schemas import TaskPinRequest, TaskUnpinQuery
+from app.modules.tasks.placement_schemas import TaskMoveRequest, TaskPinRequest, TaskUnpinQuery
 from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import (
     TaskCreate,
@@ -72,6 +72,32 @@ async def pin_task(
     task_id: UUID, body: TaskPinRequest, user: CurrentUser, service: Placement
 ) -> TaskResponse:
     return await service.pin(user.id, task_id, body)
+
+
+@router.post(
+    "/{task_id}/move",
+    response_model=TaskResponse,
+    summary="Переместить и закрепить задачу",
+    description=(
+        "Общая операция для формы и перетаскивания: planned_date — локальная дата профиля, "
+        "start_at — ISO 8601 с UTC-смещением. Конец вычисляется по длительности задачи. "
+        "Обязательны version задачи и schedule_versions обоих затронутых дней; "
+        "в пределах дня нужен один ключ, 0 означает отсутствие плана. "
+        "Перемещение закрепляет время; прежнее будущее закрепление можно заменить. "
+        "Фиксация даты сохраняется и не запрещает явный ручной перенос. "
+        "Занятое время, начатые и исторические интервалы не перемещаются. "
+        "Изменение задачи и пересчёт обоих дней атомарны. Повтор с актуальными версиями "
+        "и тем же размещением не меняет задачу, расписания и версии. "
+        "Ошибки: 404 TASK_NOT_FOUND, 409 TASK_VERSION_CONFLICT, 409 SCHEDULE_VERSION_CONFLICT, "
+        "409 TASK_STATUS_CONFLICT, 409 INTERVAL_OCCUPIED, 409 TASK_MOVE_NOT_ALLOWED, "
+        "409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, 409 SCHEDULE_RESULT_INCOMPLETE, "
+        "422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. Cache-Control: no-store."
+    ),
+)
+async def move_task(
+    task_id: UUID, body: TaskMoveRequest, user: CurrentUser, service: Placement
+) -> TaskResponse:
+    return await service.move(user.id, task_id, body)
 
 
 @router.delete(

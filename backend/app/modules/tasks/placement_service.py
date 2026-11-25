@@ -16,7 +16,11 @@ from app.modules.schedule.placement import PlacementRejection, selected_placemen
 from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.events import TaskChanged, TaskChangedHandler, task_changed
 from app.modules.tasks.models import Task, TaskStatus
-from app.modules.tasks.placement_schemas import TaskPinRequest
+from app.modules.tasks.placement_schemas import (
+    TaskMoveRequest,
+    TaskPinRequest,
+    TaskPlacementRequest,
+)
 from app.modules.tasks.repository import TaskRepository
 from app.modules.tasks.schemas import TaskResponse
 from app.modules.tasks.service import TaskStatusConflictError
@@ -56,6 +60,14 @@ class TaskPlacementService:
         self.on_changed = on_changed
 
     async def pin(self, user_id: UUID, task_id: UUID, body: TaskPinRequest) -> TaskResponse:
+        return await self._place(user_id, task_id, body)
+
+    async def move(self, user_id: UUID, task_id: UUID, body: TaskMoveRequest) -> TaskResponse:
+        return await self._place(user_id, task_id, body)
+
+    async def _place(
+        self, user_id: UUID, task_id: UUID, body: TaskPlacementRequest
+    ) -> TaskResponse:
         async with (
             self.session.begin(),
             self.scheduler.task_mutation(
@@ -140,7 +152,12 @@ class TaskPlacementService:
         return TaskResponse.model_validate(task), event
 
     async def _validate(
-        self, user_id: UUID, task: Task, body: TaskPinRequest, interval: Interval, now: datetime
+        self,
+        user_id: UUID,
+        task: Task,
+        body: TaskPlacementRequest,
+        interval: Interval,
+        now: datetime,
     ) -> bool:
         """Check immutable snapshots before changing any task fields; True denotes a saved pin."""
         days = tuple(sorted({task.planned_date, body.planned_date}))

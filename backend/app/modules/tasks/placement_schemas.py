@@ -12,13 +12,21 @@ from app.modules.tasks.schemas import (
 )
 
 
-class TaskPinRequest(BaseModel):
+class TaskPlacementRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     planned_date: TaskDate
     start_at: TaskTimestamp
     version: TaskVersion
     schedule_versions: ScheduleVersions
+
+
+class TaskPinRequest(TaskPlacementRequest):
+    pass
+
+
+class TaskMoveRequest(TaskPlacementRequest):
+    pass
 
 
 class TaskUnpinQuery(TaskQuery):
