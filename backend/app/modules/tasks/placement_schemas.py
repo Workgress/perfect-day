@@ -29,6 +29,13 @@ class TaskMoveRequest(TaskPlacementRequest):
     pass
 
 
+class TaskStartNowRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: TaskVersion
+    schedule_versions: ScheduleVersions
+
+
 class TaskUnpinQuery(TaskQuery):
     version: Annotated[TaskVersion, BeforeValidator(_query_integer)]
     schedule_version: Annotated[ScheduleVersion, BeforeValidator(_query_integer)]

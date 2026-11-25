@@ -1,7 +1,7 @@
 """Conversions between existing ORM rows and immutable planner snapshots."""
 
 from dataclasses import asdict, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import cast
 from uuid import UUID
@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import TypeAdapter
 
 from app.core.errors import AppError
+from app.modules.planner.constraints import ConstraintError
 from app.modules.planner.contracts import (
     Interval,
     PlanProfile,
@@ -90,6 +91,48 @@ def saved_slots(schedule: Schedule | None, tasks: dict[UUID, Task]) -> tuple[Pla
             )
         )
     return tuple(result)
+
+
+def with_started_interval(
+    previous: tuple[PlanSlot, ...], task: PlanTask, interval: Interval
+) -> tuple[PlanSlot, ...]:
+    """Seed a new calculation without changing slots of any saved schedule version."""
+    if (
+        task.status not in {"pending", "scheduled"}
+        or task.actual_start != interval.start
+        or interval.end - interval.start != timedelta(minutes=task.duration_min)
+        or (task.is_pinned and task.pinned_start != interval.start)
+    ):
+        raise ConstraintError(
+            "FIXED_TASK_MISMATCH", "Начатый интервал не соответствует задаче", task.ref
+        )
+    own = tuple(slot for slot in previous if slot.task == task.ref)
+    if len(own) > 1:
+        raise ConstraintError(
+            "TASK_ALREADY_RESERVED", "Для задачи заданы повторные интервалы", task.ref
+        )
+    if any(slot.interval.start <= interval.start and slot.interval != interval for slot in own):
+        raise ConstraintError(
+            "TASK_STARTED", "Начатый или исторический интервал нельзя изменить", task.ref
+        )
+    started = PlanSlot(
+        "task",
+        interval,
+        task.ref,
+        task.is_pinned,
+        preservation="started",
+        reason_codes=("TASK_STARTED",),
+        explanation="Задача начата пользователем; время начала зафиксировано.",
+    )
+    return (
+        *(
+            slot
+            for slot in previous
+            if slot.task != task.ref
+            and not (slot.kind == "break" and slot.interval.start > interval.start)
+        ),
+        started,
+    )
 
 
 def quantized_slot(slot: PlanSlot) -> PlanSlot:

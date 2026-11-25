@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.errors import AppError
-from app.core.time import Clock, to_utc
+from app.core.time import Clock, parse_timezone, to_utc
 from app.modules.planner.constraints import ConstraintError
 from app.modules.planner.contracts import Interval, PlanContext
 from app.modules.planner.time_grid import PlannerTimeError, make_time_grid
@@ -20,6 +20,7 @@ from app.modules.tasks.placement_schemas import (
     TaskMoveRequest,
     TaskPinRequest,
     TaskPlacementRequest,
+    TaskStartNowRequest,
 )
 from app.modules.tasks.repository import TaskRepository
 from app.modules.tasks.schemas import TaskResponse
@@ -129,8 +130,65 @@ class TaskPlacementService:
         await self.on_changed(event)
         return result
 
+    async def start_now(
+        self, user_id: UUID, task_id: UUID, body: TaskStartNowRequest
+    ) -> TaskResponse:
+        async with (
+            self.session.begin(),
+            self.scheduler.task_mutation(
+                user_id, task_id, body.version, body.schedule_versions
+            ) as task,
+        ):
+            if task.status in {TaskStatus.DONE, TaskStatus.SKIPPED}:
+                raise TaskStatusConflictError()
+            if task.actual_start is not None:
+                return TaskResponse.model_validate(task)
+            now = to_utc(self.clock.now())
+            state = await self.scheduler.profiles.get_profile(user_id)
+            profile = profile_snapshot(state)
+            if task.planned_date != now.astimezone(parse_timezone(profile.timezone)).date():
+                raise _move_error(
+                    "TASK_DATE_MISMATCH",
+                    "Сначала перенесите задачу на текущую дату в поясе профиля",
+                )
+            try:
+                interval = Interval(now, now + timedelta(minutes=task.duration_min))
+            except OverflowError as exc:
+                raise _move_error(
+                    "OUTSIDE_SELECTED_DATE", "Интервал выходит за выбранную дату"
+                ) from exc
+            placement = TaskPlacementRequest(
+                planned_date=task.planned_date,
+                start_at=now,
+                version=body.version,
+                schedule_versions=body.schedule_versions,
+            )
+            await self._validate(user_id, task, placement, interval, now, starting=True)
+            changed = {"actual_start"}
+            task.actual_start = now
+            if task.is_pinned and task.pinned_start != now:
+                task.pinned_start = now
+                changed.add("pinned_start")
+            result, event = await self._save_change(
+                user_id,
+                task,
+                frozenset(changed),
+                task.planned_date,
+                now,
+                started_interval=interval,
+            )
+        await self.on_changed(event)
+        return result
+
     async def _save_change(
-        self, user_id: UUID, task: Task, changed: frozenset[str], old_date: date, now: datetime
+        self,
+        user_id: UUID,
+        task: Task,
+        changed: frozenset[str],
+        old_date: date,
+        now: datetime,
+        *,
+        started_interval: Interval | None = None,
     ) -> tuple[TaskResponse, TaskChanged]:
         task.version += 1
         task.updated_at = now
@@ -140,7 +198,10 @@ class TaskPlacementService:
             user_id, task.id, "updated", changed, old_date, task.planned_date, task.version, now
         )
         try:
-            await self.scheduler.task_changed(event)
+            if started_interval is None:
+                await self.scheduler.task_changed(event)
+            else:
+                await self.scheduler.task_changed(event, started_interval=started_interval)
         except AppError as exc:
             if exc.body.code == "CONFLICT":
                 raise _move_error(
@@ -158,6 +219,8 @@ class TaskPlacementService:
         body: TaskPlacementRequest,
         interval: Interval,
         now: datetime,
+        *,
+        starting: bool = False,
     ) -> bool:
         """Check immutable snapshots before changing any task fields; True denotes a saved pin."""
         days = tuple(sorted({task.planned_date, body.planned_date}))
@@ -185,8 +248,13 @@ class TaskPlacementService:
                     409, "SCHEDULE_RESULT_INCOMPLETE", "Сохранённый результат расписания неполон"
                 )
             return True
-        if task.actual_start is not None or any(
+        protected = task.actual_start is not None or any(
             slot.interval.start <= now < slot.interval.end for slot in own
+        )
+        if protected and not (
+            starting
+            and task.actual_start is None
+            and all(slot.interval == interval for slot in own)
         ):
             raise _move_error("TASK_STARTED", "Начатый интервал задачи нельзя изменить")
         if any(slot.interval.end <= now for slot in own):

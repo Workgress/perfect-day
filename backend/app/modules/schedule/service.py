@@ -39,6 +39,7 @@ from app.modules.schedule.adapters import (
     slot_row,
     stored_summary,
     task_snapshot,
+    with_started_interval,
 )
 from app.modules.schedule.models import (
     OnboardingCompletion,
@@ -417,6 +418,7 @@ class ScheduleService:
         *,
         allow_date_change: bool = False,
         expected_version: int | None = None,
+        started_interval: tuple[UUID, Interval] | None = None,
     ) -> ReplanResult:
         async with self.mutation(user_id):
             state = await self.profiles.get_profile(user_id)
@@ -425,7 +427,11 @@ class ScheduleService:
             profile = profile_snapshot(state)
             if expected_version is not None:
                 await self._check_schedule_versions(user_id, {day: expected_version})
-            now = to_utc(self.clock.now())
+            now = (
+                started_interval[1].start
+                if started_interval is not None
+                else to_utc(self.clock.now())
+            )
             days = tuple(day + timedelta(days=i) for i in range(min(7, (date.max - day).days) + 1))
             active = await self.repository.active(user_id, days)
             history = {
@@ -465,6 +471,12 @@ class ScheduleService:
                 )
             source, previous = snapshots[day]
             try:
+                if started_interval is not None:
+                    task_id, interval = started_interval
+                    row = by_id.get(task_id)
+                    if row is None or row.planned_date != day or row.deleted_at is not None:
+                        raise ConstraintError("TASK_CONTEXT_MISMATCH", "Задача не принадлежит дню")
+                    previous = with_started_interval(previous, task_snapshot(row), interval)
                 future = tuple(
                     FutureDay(selected, ctx.tasks, preserve_reservations(ctx, saved))
                     for selected, (ctx, saved) in snapshots.items()
@@ -530,7 +542,9 @@ class ScheduleService:
             await self.session.flush()
             return ReplanResult(plan, tuple(changes))
 
-    async def task_changed(self, event: TaskChanged) -> None:
+    async def task_changed(
+        self, event: TaskChanged, *, started_interval: Interval | None = None
+    ) -> None:
         scope = task_replan_scope(event)
         if scope is None:
             return
@@ -549,7 +563,15 @@ class ScheduleService:
             state = await self.profiles.get_profile(event.user_id)
             if state is not None and state.onboarding_completed_at is not None:
                 for day in scope.days:
-                    await self.replan(event.user_id, day, scope.trigger)
+                    if started_interval is None:
+                        await self.replan(event.user_id, day, scope.trigger)
+                    else:
+                        await self.replan(
+                            event.user_id,
+                            day,
+                            scope.trigger,
+                            started_interval=(event.task_id, started_interval),
+                        )
             self.session.add(
                 TaskReplanReceipt(
                     user_id=event.user_id, task_id=event.task_id, version=event.version

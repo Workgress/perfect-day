@@ -12,7 +12,12 @@ from app.modules.tasks.dependencies import (
     get_task_service,
     get_task_unpin_query,
 )
-from app.modules.tasks.placement_schemas import TaskMoveRequest, TaskPinRequest, TaskUnpinQuery
+from app.modules.tasks.placement_schemas import (
+    TaskMoveRequest,
+    TaskPinRequest,
+    TaskStartNowRequest,
+    TaskUnpinQuery,
+)
 from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import (
     TaskCreate,
@@ -98,6 +103,30 @@ async def move_task(
     task_id: UUID, body: TaskMoveRequest, user: CurrentUser, service: Placement
 ) -> TaskResponse:
     return await service.move(user.id, task_id, body)
+
+
+@router.post(
+    "/{task_id}/start-now",
+    response_model=TaskResponse,
+    summary="Начать задачу сейчас и пересчитать день",
+    description=(
+        "Принимает version задачи и schedule_versions её текущего дня. "
+        "Задача должна быть активной и относиться к сегодняшней дате в поясе профиля. "
+        "Сервер один раз получает время, сохраняет actual_start и полный интервал от now. "
+        "Прежний будущий слот заменяется; история и чужие занятые интервалы не перемещаются. "
+        "Фиксация даты сохраняется; у закреплённой задачи pinned_start обновляется до now. "
+        "Задача, план и запись пересчёта сохраняются атомарно. Повтор для начатой задачи "
+        "с актуальными версиями возвращает исходное actual_start без изменений. "
+        "Ошибки: 404 TASK_NOT_FOUND, 409 TASK_VERSION_CONFLICT, 409 SCHEDULE_VERSION_CONFLICT, "
+        "409 TASK_STATUS_CONFLICT, 409 TASK_MOVE_NOT_ALLOWED, 409 INTERVAL_OCCUPIED, "
+        "409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, 409 SCHEDULE_RESULT_INCOMPLETE, "
+        "422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. Cache-Control: no-store."
+    ),
+)
+async def start_task_now(
+    task_id: UUID, body: TaskStartNowRequest, user: CurrentUser, service: Placement
+) -> TaskResponse:
+    return await service.start_now(user.id, task_id, body)
 
 
 @router.delete(
