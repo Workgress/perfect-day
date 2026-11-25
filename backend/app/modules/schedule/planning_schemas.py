@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import Field, StrictBool, StringConstraints, model_validator
+from pydantic import Field, StrictBool, StrictInt, StringConstraints, model_validator
 
 from app.modules.planner.contracts import PlacementChangeKind, Preservation
 from app.modules.schedule.read_models import ReadModel, ScheduleReadResult
@@ -9,10 +9,13 @@ from app.modules.tasks.schemas import TaskDate, TaskTimestamp, TaskVersion
 
 ExplanationText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 ReasonCode = Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*$")]
+ScheduleVersion = Annotated[StrictInt, Field(ge=0)]
+ScheduleVersions = dict[TaskDate, ScheduleVersion]
 
 
 class ScheduleReplanRequest(ReadModel):
     planned_date: TaskDate
+    schedule_version: ScheduleVersion
     allow_date_change: StrictBool = False
 
 

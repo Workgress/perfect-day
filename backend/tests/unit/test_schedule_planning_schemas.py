@@ -2,12 +2,13 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from app.modules.schedule.planning_schemas import (
     PlacementCheckRequest,
     PlacementCheckResponse,
     ScheduleReplanRequest,
+    ScheduleVersions,
     TaskMoveRecommendation,
     TaskPlacementExplanation,
     UnscheduledTaskExplanation,
@@ -37,10 +38,10 @@ def recommendation_payload() -> dict[str, object]:
 
 
 def test_replan_requires_explicit_permission_to_change_dates() -> None:
-    request = ScheduleReplanRequest(planned_date=date(2026, 11, 23))
+    request = ScheduleReplanRequest(planned_date=date(2026, 11, 23), schedule_version=0)
     assert request.allow_date_change is False
     assert ScheduleReplanRequest.model_validate(
-        {"planned_date": "2026-11-23", "allow_date_change": True}
+        {"planned_date": "2026-11-23", "schedule_version": 1, "allow_date_change": True}
     ).allow_date_change
 
 
@@ -48,8 +49,44 @@ def test_replan_requires_explicit_permission_to_change_dates() -> None:
 def test_replan_rejects_ambiguous_permission(permission: object) -> None:
     with pytest.raises(ValidationError):
         ScheduleReplanRequest.model_validate(
-            {"planned_date": "2026-11-23", "allow_date_change": permission}
+            {"planned_date": "2026-11-23", "schedule_version": 0, "allow_date_change": permission}
         )
+
+
+@pytest.mark.parametrize("version", [0, 1, 100])
+def test_replan_accepts_absent_or_saved_schedule_version(version: int) -> None:
+    request = ScheduleReplanRequest.model_validate(
+        {"planned_date": "2026-11-23", "schedule_version": version}
+    )
+    assert request.schedule_version == version
+
+
+@pytest.mark.parametrize("version", [None, True, False, -1, "1", 1.0])
+def test_replan_rejects_invalid_schedule_versions(version: object) -> None:
+    with pytest.raises(ValidationError):
+        ScheduleReplanRequest.model_validate(
+            {"planned_date": "2026-11-23", "schedule_version": version}
+        )
+
+
+def test_replan_requires_a_schedule_version() -> None:
+    with pytest.raises(ValidationError) as error:
+        ScheduleReplanRequest.model_validate({"planned_date": "2026-11-23"})
+    assert error.value.errors()[0]["loc"] == ("schedule_version",)
+
+
+def test_schedule_version_map_normalizes_dates_and_keeps_zero() -> None:
+    versions = TypeAdapter(ScheduleVersions).validate_python({"2026-11-23": 3, "2026-11-24": 0})
+    assert versions == {date(2026, 11, 23): 3, date(2026, 11, 24): 0}
+
+
+@pytest.mark.parametrize(
+    "versions",
+    [{"2026-11-23": True}, {"2026-11-23": -1}, {"2026-11-23": "1"}, {"2026-11-23T00:00:00Z": 1}],
+)
+def test_schedule_version_map_rejects_invalid_dates_and_versions(versions: object) -> None:
+    with pytest.raises(ValidationError):
+        TypeAdapter(ScheduleVersions).validate_python(versions)
 
 
 def test_placement_normalizes_offset_and_keeps_local_date() -> None:

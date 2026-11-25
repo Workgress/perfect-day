@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "algorithm_version": "planner-1.0.1",
+  "algorithm_version": "planner-1.1.0",
   "defaults": {
     "day": "2026-11-14",
     "now": "2026-11-14T07:00:00Z",

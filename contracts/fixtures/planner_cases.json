@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "algorithm_version": "planner-1.0.1",
+  "algorithm_version": "planner-1.1.0",
   "interface": "Internal immutable snapshots; not task CRUD JSON. HTTP preview uses original task_index and local clocks.",
   "comparison": {
     "float_absolute_tolerance": 1e-12,
@@ -8,7 +8,7 @@
     "float_rounding_for_export_only": 12
   },
   "rules": {
-    "algorithm_version": "planner-1.0.1",
+    "algorithm_version": "planner-1.1.0",
     "biorhythm_version": "1.0.0",
     "time": {
       "birth_scale": "UTC; unknown birth time is 12:00 UTC",
@@ -194,6 +194,7 @@
       "horizon_days": 7,
       "allow_date_change_default": false,
       "automatic_requires": "explicit allow_date_change=True",
+      "date_lock": "is_date_locked forbids automatic moves and date-change advice; time within the selected day remains flexible",
       "automatic_modes": [
         "replan"
       ],
@@ -438,7 +439,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -455,7 +457,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -472,7 +475,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -489,7 +493,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -503,7 +508,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -702,7 +707,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -719,7 +725,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -736,7 +743,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -753,7 +761,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -767,7 +776,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -966,7 +975,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -983,7 +993,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1000,7 +1011,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1017,7 +1029,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -1031,7 +1044,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -1230,7 +1243,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1247,7 +1261,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1264,7 +1279,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1281,7 +1297,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -1295,7 +1312,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -1494,7 +1511,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1511,7 +1529,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1528,7 +1547,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1545,7 +1565,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -1559,7 +1580,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "Asia/Yekaterinburg",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -1765,7 +1786,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1782,7 +1804,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1799,7 +1822,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -1816,7 +1840,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -1830,7 +1855,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "Europe/Berlin",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -2029,7 +2054,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -2046,7 +2072,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -2063,7 +2090,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -2080,7 +2108,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2094,7 +2123,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "America/New_York",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -2295,7 +2324,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2309,7 +2339,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -2441,7 +2471,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2455,7 +2486,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -2580,7 +2611,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2594,7 +2626,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -2734,7 +2766,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2748,7 +2781,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -2888,7 +2921,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -2902,7 +2936,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -3050,7 +3084,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3064,7 +3099,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -3195,7 +3230,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -3212,7 +3248,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3226,7 +3263,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -3369,7 +3406,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3383,7 +3421,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -3501,7 +3539,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3515,7 +3554,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -3644,7 +3683,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3658,7 +3698,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -3775,7 +3815,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -3792,7 +3833,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T09:30:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3806,7 +3848,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -3964,7 +4006,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -3981,7 +4024,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T10:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -3995,7 +4039,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4153,7 +4197,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -4170,7 +4215,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T10:45:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -4184,7 +4230,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4342,7 +4388,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -4359,7 +4406,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:55:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -4373,7 +4421,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4531,7 +4579,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -4545,7 +4594,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4646,7 +4695,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T08:00:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -4660,7 +4710,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4767,7 +4817,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -4784,7 +4835,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -4798,7 +4850,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -4950,7 +5002,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -5042,7 +5094,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -5059,7 +5112,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -5076,7 +5130,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -5093,7 +5148,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -5110,7 +5166,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -5190,7 +5247,7 @@
         "plan": {
           "day": "2026-11-14",
           "timezone": "UTC",
-          "algorithm_version": "planner-1.0.1",
+          "algorithm_version": "planner-1.1.0",
           "slots": [
             {
               "kind": "task",
@@ -5433,7 +5490,8 @@
               "is_pinned": true,
               "pinned_start": "2026-11-14T14:07:00Z",
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -5465,7 +5523,7 @@
         "plan": {
           "day": "2026-11-14",
           "timezone": "UTC",
-          "algorithm_version": "planner-1.0.1",
+          "algorithm_version": "planner-1.1.0",
           "slots": [
             {
               "kind": "lunch",
@@ -5630,7 +5688,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -5647,7 +5706,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -5679,7 +5739,7 @@
         "plan": {
           "day": "2026-11-14",
           "timezone": "UTC",
-          "algorithm_version": "planner-1.0.1",
+          "algorithm_version": "planner-1.1.0",
           "slots": [
             {
               "kind": "task",
@@ -5861,7 +5921,7 @@
         "plan": {
           "day": "2026-11-14",
           "timezone": "UTC",
-          "algorithm_version": "planner-1.0.1",
+          "algorithm_version": "planner-1.1.0",
           "slots": [
             {
               "kind": "lunch",
@@ -5935,6 +5995,502 @@
       }
     },
     {
+      "id": "date-locked-critical-transfer",
+      "tags": [
+        "date_lock",
+        "critical",
+        "transfer"
+      ],
+      "entrypoint": "build_schedule",
+      "input": {
+        "context": {
+          "profile": {
+            "birth_utc": "2026-10-31T12:00:00Z",
+            "timezone": "UTC",
+            "chronotype": "dove",
+            "work_start": "08:00:00",
+            "work_end": "18:00:00",
+            "sleep_time": "23:00:00",
+            "lunch_start": "12:00:00",
+            "lunch_duration_min": 60,
+            "work_days": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ]
+          },
+          "day": "2026-11-14",
+          "now": "2026-11-14T07:00:00Z",
+          "tasks": [
+            {
+              "ref": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "kind": "intellectual",
+              "duration_min": 60,
+              "planned_date": "2026-11-14",
+              "priority": "medium",
+              "status": "pending",
+              "preferred_start": null,
+              "deadline": null,
+              "is_pinned": false,
+              "pinned_start": null,
+              "created_at": null,
+              "actual_start": null,
+              "is_date_locked": true
+            }
+          ],
+          "mode": "replan",
+          "fixed_slots": [],
+          "future_days": [
+            {
+              "day": "2026-11-15",
+              "tasks": [],
+              "fixed_slots": []
+            }
+          ],
+          "include_profile_lunch": true,
+          "allow_date_change": true
+        },
+        "previous_slots": null
+      },
+      "expected": {
+        "day": "2026-11-14",
+        "timezone": "UTC",
+        "algorithm_version": "planner-1.1.0",
+        "slots": [
+          {
+            "kind": "task",
+            "interval": {
+              "start": "2026-11-14T10:00:00Z",
+              "end": "2026-11-14T11:00:00Z"
+            },
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "is_pinned": false,
+            "preservation": null,
+            "score": 0.867192448133,
+            "reason_codes": [
+              "ENERGY_RANKED",
+              "CIRCADIAN_WINDOW"
+            ],
+            "explanation": "10:00 +0000–11:00 +0000. Время выбрано по оценке энергии и ограничениям расписания. Интервал включает высокое окно суточного профиля энергии. Интеллектуальный биоритм: среднее за интервал 46.9%. Среднее значение суточного профиля: 100.0% (хронотип: голубь). Длительность: 60 мин."
+          },
+          {
+            "kind": "lunch",
+            "interval": {
+              "start": "2026-11-14T12:00:00Z",
+              "end": "2026-11-14T13:00:00Z"
+            },
+            "task": null,
+            "is_pinned": false,
+            "preservation": "system",
+            "score": null,
+            "reason_codes": [
+              "LUNCH"
+            ],
+            "explanation": "12:00 +0000–13:00 +0000. Перерыв на обед."
+          }
+        ],
+        "unscheduled": [],
+        "metrics": {
+          "requested_min": 60,
+          "planned_min": 60,
+          "capacity_min": 388,
+          "high_intensity_min": 60,
+          "critical_level": 1,
+          "load_factor": 0.72,
+          "moved_min": 0
+        },
+        "moves": [],
+        "status_changes": [
+          {
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "previous": "pending",
+            "next": "scheduled"
+          }
+        ],
+        "warnings": [
+          {
+            "code": "CRITICAL_DAY",
+            "task": null,
+            "target_date": null,
+            "message": "Критических циклов: 1. Коэффициент нагрузки: 0.72; доступно 388 мин.",
+            "level": "warning"
+          },
+          {
+            "code": "CYCLE_MINIMUM",
+            "task": null,
+            "target_date": null,
+            "message": "Физический биоритм в местные 12:00: -63.1%. Рекомендуется снизить нагрузку.",
+            "level": "warning"
+          }
+        ],
+        "future_plans": [],
+        "recommendations": []
+      }
+    },
+    {
+      "id": "date-locked-overflow",
+      "tags": [
+        "date_lock",
+        "overflow",
+        "advice"
+      ],
+      "entrypoint": "build_schedule",
+      "input": {
+        "context": {
+          "profile": {
+            "birth_utc": "2026-10-31T12:00:00Z",
+            "timezone": "UTC",
+            "chronotype": "dove",
+            "work_start": "08:00:00",
+            "work_end": "18:00:00",
+            "sleep_time": "23:00:00",
+            "lunch_start": "12:00:00",
+            "lunch_duration_min": 60,
+            "work_days": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ]
+          },
+          "day": "2026-11-14",
+          "now": "2026-11-14T07:00:00Z",
+          "tasks": [
+            {
+              "ref": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "kind": "intellectual",
+              "duration_min": 180,
+              "planned_date": "2026-11-14",
+              "priority": "medium",
+              "status": "pending",
+              "preferred_start": null,
+              "deadline": null,
+              "is_pinned": false,
+              "pinned_start": null,
+              "created_at": null,
+              "actual_start": null,
+              "is_date_locked": true
+            }
+          ],
+          "mode": "replan",
+          "fixed_slots": [],
+          "future_days": [
+            {
+              "day": "2026-11-15",
+              "tasks": [],
+              "fixed_slots": []
+            }
+          ],
+          "include_profile_lunch": true,
+          "allow_date_change": true
+        },
+        "previous_slots": null
+      },
+      "expected": {
+        "day": "2026-11-14",
+        "timezone": "UTC",
+        "algorithm_version": "planner-1.1.0",
+        "slots": [
+          {
+            "kind": "lunch",
+            "interval": {
+              "start": "2026-11-14T12:00:00Z",
+              "end": "2026-11-14T13:00:00Z"
+            },
+            "task": null,
+            "is_pinned": false,
+            "preservation": "system",
+            "score": null,
+            "reason_codes": [
+              "LUNCH"
+            ],
+            "explanation": "12:00 +0000–13:00 +0000. Перерыв на обед."
+          }
+        ],
+        "unscheduled": [
+          {
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "reason_codes": [
+              "NO_FEASIBLE_INTERVAL",
+              "INTENSITY_CAPACITY_EXCEEDED",
+              "INTERVAL_OCCUPIED",
+              "DATE_CHANGE_FORBIDDEN"
+            ],
+            "explanation": "На 2026-11-14 не удалось подобрать время для задачи. Нужен непрерывный интервал 180 мин. Причины отказов при проверке вариантов: Размещение превышает лимит интенсивной работы дня. Часть проверенных окон занята задачами или перерывами. Перенос даты запрещён: задача оставлена на выбранной дате без времени."
+          }
+        ],
+        "metrics": {
+          "requested_min": 180,
+          "planned_min": 0,
+          "capacity_min": 388,
+          "high_intensity_min": 0,
+          "critical_level": 1,
+          "load_factor": 0.72,
+          "moved_min": 0
+        },
+        "moves": [],
+        "status_changes": [],
+        "warnings": [
+          {
+            "code": "CRITICAL_DAY",
+            "task": null,
+            "target_date": null,
+            "message": "Критических циклов: 1. Коэффициент нагрузки: 0.72; доступно 388 мин.",
+            "level": "warning"
+          },
+          {
+            "code": "CYCLE_MINIMUM",
+            "task": null,
+            "target_date": null,
+            "message": "Физический биоритм в местные 12:00: -63.1%. Рекомендуется снизить нагрузку.",
+            "level": "warning"
+          },
+          {
+            "code": "OVERLOAD",
+            "task": null,
+            "target_date": null,
+            "message": "Запланировано 0 из 388 доступных мин; не размещено задач: 1. Рекомендуется перенести часть нагрузки.",
+            "level": "warning"
+          },
+          {
+            "code": "DATE_CHANGE_FORBIDDEN",
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "target_date": null,
+            "message": "Задача не помещается на 2026-11-14. Перенос даты запрещён: задача оставлена на выбранной дате без времени.",
+            "level": "warning"
+          }
+        ],
+        "future_plans": [],
+        "recommendations": []
+      }
+    },
+    {
+      "id": "date-locked-replan-time",
+      "tags": [
+        "date_lock",
+        "replan",
+        "preferred_time"
+      ],
+      "entrypoint": "replan_remaining_day",
+      "input": {
+        "context": {
+          "profile": {
+            "birth_utc": "2026-11-12T12:00:00Z",
+            "timezone": "UTC",
+            "chronotype": "dove",
+            "work_start": "08:00:00",
+            "work_end": "18:00:00",
+            "sleep_time": "23:00:00",
+            "lunch_start": "12:00:00",
+            "lunch_duration_min": 60,
+            "work_days": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ]
+          },
+          "day": "2026-11-14",
+          "now": "2026-11-14T11:00:00Z",
+          "tasks": [
+            {
+              "ref": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "kind": "routine",
+              "duration_min": 60,
+              "planned_date": "2026-11-14",
+              "priority": "medium",
+              "status": "pending",
+              "preferred_start": "09:00:00",
+              "deadline": null,
+              "is_pinned": false,
+              "pinned_start": null,
+              "created_at": null,
+              "actual_start": null,
+              "is_date_locked": true
+            }
+          ],
+          "mode": "replan",
+          "fixed_slots": [],
+          "future_days": [],
+          "include_profile_lunch": true,
+          "allow_date_change": false
+        },
+        "previous_slots": [
+          {
+            "kind": "task",
+            "interval": {
+              "start": "2026-11-14T14:00:00Z",
+              "end": "2026-11-14T15:00:00Z"
+            },
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "is_pinned": false,
+            "preservation": null,
+            "score": 0.7,
+            "reason_codes": [],
+            "explanation": "Сохранённый интервал"
+          }
+        ]
+      },
+      "expected": {
+        "plan": {
+          "day": "2026-11-14",
+          "timezone": "UTC",
+          "algorithm_version": "planner-1.1.0",
+          "slots": [
+            {
+              "kind": "lunch",
+              "interval": {
+                "start": "2026-11-14T12:00:00Z",
+                "end": "2026-11-14T13:00:00Z"
+              },
+              "task": null,
+              "is_pinned": false,
+              "preservation": "system",
+              "score": null,
+              "reason_codes": [
+                "LUNCH"
+              ],
+              "explanation": "12:00 +0000–13:00 +0000. Перерыв на обед."
+            },
+            {
+              "kind": "task",
+              "interval": {
+                "start": "2026-11-14T13:15:00Z",
+                "end": "2026-11-14T14:15:00Z"
+              },
+              "task": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "is_pinned": false,
+              "preservation": null,
+              "score": 0.448252117241,
+              "reason_codes": [
+                "ENERGY_RANKED",
+                "LOW_ENERGY_ROUTINE"
+              ],
+              "explanation": "13:15 +0000–14:15 +0000. Время выбрано по оценке энергии и ограничениям расписания. Рутинная задача размещена с предпочтением менее энергичных окон. Длительность: 60 мин."
+            }
+          ],
+          "unscheduled": [],
+          "metrics": {
+            "requested_min": 60,
+            "planned_min": 60,
+            "capacity_min": 540,
+            "high_intensity_min": 0,
+            "critical_level": 0,
+            "load_factor": 1.0,
+            "moved_min": 0
+          },
+          "moves": [],
+          "status_changes": [
+            {
+              "task": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "previous": "pending",
+              "next": "scheduled"
+            }
+          ],
+          "warnings": [
+            {
+              "code": "PHYSICAL_PEAK",
+              "task": null,
+              "target_date": null,
+              "message": "Физический биоритм в местные 12:00: 52%. Фаза пика.",
+              "level": "info"
+            }
+          ],
+          "future_plans": [],
+          "recommendations": []
+        },
+        "changes": [
+          {
+            "task": {
+              "task_id": "00000000-0000-0000-0000-000000000001",
+              "task_index": null
+            },
+            "kind": "moved",
+            "before": {
+              "kind": "task",
+              "interval": {
+                "start": "2026-11-14T14:00:00Z",
+                "end": "2026-11-14T15:00:00Z"
+              },
+              "task": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "is_pinned": false,
+              "preservation": null,
+              "score": 0.7,
+              "reason_codes": [],
+              "explanation": "Сохранённый интервал"
+            },
+            "after": {
+              "kind": "task",
+              "interval": {
+                "start": "2026-11-14T13:15:00Z",
+                "end": "2026-11-14T14:15:00Z"
+              },
+              "task": {
+                "task_id": "00000000-0000-0000-0000-000000000001",
+                "task_index": null
+              },
+              "is_pinned": false,
+              "preservation": null,
+              "score": 0.448252117241,
+              "reason_codes": [
+                "ENERGY_RANKED",
+                "LOW_ENERGY_ROUTINE"
+              ],
+              "explanation": "13:15 +0000–14:15 +0000. Время выбрано по оценке энергии и ограничениям расписания. Рутинная задача размещена с предпочтением менее энергичных окон. Длительность: 60 мин."
+            },
+            "reason_codes": [
+              "REPLANNED",
+              "ENERGY_RANKED",
+              "LOW_ENERGY_ROUTINE"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "critical-transfer",
       "tags": [
         "critical",
@@ -5980,7 +6536,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -6000,7 +6557,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "lunch",
@@ -6079,7 +6636,7 @@
           {
             "day": "2026-11-15",
             "timezone": "UTC",
-            "algorithm_version": "planner-1.0.1",
+            "algorithm_version": "planner-1.1.0",
             "slots": [
               {
                 "kind": "task",
@@ -6192,7 +6749,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -6212,7 +6770,7 @@
       "expected": {
         "day": "2026-11-14",
         "timezone": "UTC",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -6347,7 +6905,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "replan",
@@ -6368,7 +6927,7 @@
         "plan": {
           "day": "2026-11-14",
           "timezone": "UTC",
-          "algorithm_version": "planner-1.0.1",
+          "algorithm_version": "planner-1.1.0",
           "slots": [],
           "unscheduled": [
             {
@@ -6495,7 +7054,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -6512,7 +7072,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -6529,7 +7090,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "preview",
@@ -6543,7 +7105,7 @@
       "expected": {
         "day": "2026-03-29",
         "timezone": "Europe/Berlin",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -6677,7 +7239,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "preview",
@@ -6691,7 +7254,7 @@
       "expected": {
         "day": "2026-03-29",
         "timezone": "Europe/Berlin",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",
@@ -6785,7 +7348,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -6802,7 +7366,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             },
             {
               "ref": {
@@ -6819,7 +7384,8 @@
               "is_pinned": false,
               "pinned_start": null,
               "created_at": null,
-              "actual_start": null
+              "actual_start": null,
+              "is_date_locked": false
             }
           ],
           "mode": "preview",
@@ -6833,7 +7399,7 @@
       "expected": {
         "day": "2026-10-25",
         "timezone": "Europe/Berlin",
-        "algorithm_version": "planner-1.0.1",
+        "algorithm_version": "planner-1.1.0",
         "slots": [
           {
             "kind": "task",

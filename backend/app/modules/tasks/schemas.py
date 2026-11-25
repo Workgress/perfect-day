@@ -160,6 +160,8 @@ class TaskResponse(BaseModel):
     preferred_start: time | None
     is_pinned: StrictBool
     pinned_start: TaskTimestamp | None
+    is_date_locked: StrictBool
+    actual_start: TaskTimestamp | None
 
 
 class TaskList(BaseModel):

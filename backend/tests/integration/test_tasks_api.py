@@ -221,6 +221,7 @@ async def test_conflicts_and_invalid_transitions_do_not_overwrite(tasks_api: Tas
     assert done.status_code == 200
     stale = await tasks_api.request("PATCH", path, {"version": 1, "title": "Правка"})
     assert stale.status_code == 409 and stale.json()["error"]["code"] == "TASK_VERSION_CONFLICT"
+    assert stale.json()["error"]["details"] == {"expected_version": 1, "current_version": 2}
     invalid = await tasks_api.request("POST", f"{path}/skip", {"version": 2})
     assert invalid.status_code == 409 and invalid.json()["error"]["code"] == "TASK_STATUS_CONFLICT"
     assert (await tasks_api.request("GET", path)).json() == done.json()

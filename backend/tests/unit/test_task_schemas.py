@@ -130,7 +130,17 @@ def test_body_versions_are_strict_positive_integers(version: Any) -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["id", "user_id", "status", "completed_at", "is_pinned", "pinned_start", "preferred_start"],
+    [
+        "id",
+        "user_id",
+        "status",
+        "completed_at",
+        "is_pinned",
+        "pinned_start",
+        "preferred_start",
+        "is_date_locked",
+        "actual_start",
+    ],
 )
 def test_server_owned_fields_cannot_be_written(task_input: dict[str, Any], field: str) -> None:
     for schema, payload in (
@@ -213,6 +223,8 @@ def test_response_serializes_orm_without_exposing_private_fields(
         preferred_start=None,
         is_pinned=False,
         pinned_start=None,
+        is_date_locked=False,
+        actual_start=None,
     )
     response = TaskResponse.model_validate(task)
     payload = response.model_dump(mode="json")

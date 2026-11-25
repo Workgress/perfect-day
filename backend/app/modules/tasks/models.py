@@ -67,6 +67,7 @@ class Task(UUIDPkMixin, TimestampMixin, Base):
     deadline: Mapped[datetime | None]
     is_pinned: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     pinned_start: Mapped[datetime | None]
+    is_date_locked: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     status: Mapped[TaskStatus] = mapped_column(
         pg_enum(TaskStatus, "task_status"),
         default=TaskStatus.PENDING,

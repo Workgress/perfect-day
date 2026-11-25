@@ -354,6 +354,7 @@ def _build_schedule(
             if (
                 task.status not in {"pending", "scheduled"}
                 or task.is_pinned
+                or task.is_date_locked
                 or task.actual_start is not None
                 or task.ref in fixed
                 or task.kind not in {"intellectual", "physical"}
@@ -379,11 +380,18 @@ def _build_schedule(
     )
     if require_complete and result.unscheduled:
         return result
-    if context.mode == "replan" and not context.allow_date_change:
+    date_change_forbidden = {
+        task.ref
+        for task in context.tasks
+        if task.is_date_locked or (context.mode == "replan" and not context.allow_date_change)
+    }
+    if date_change_forbidden:
         result = replace(
             result,
             unscheduled=tuple(
                 replace(item, reason_codes=(*item.reason_codes, "DATE_CHANGE_FORBIDDEN"))
+                if item.task in date_change_forbidden
+                else item
                 for item in result.unscheduled
             ),
         )
@@ -396,6 +404,7 @@ def _build_schedule(
                 level="warning",
             )
             for item in result.unscheduled
+            if item.task in date_change_forbidden
         )
     result = replace(
         result,
@@ -443,6 +452,7 @@ def _build_schedule(
                 or task.ref.task_id is None
                 or task.status not in {"pending", "scheduled"}
                 or task.is_pinned
+                or task.is_date_locked
                 or task.actual_start is not None
                 or not (task.ref in unplaced or (overloaded(result) and task.priority == "low"))
             ):

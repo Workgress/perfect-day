@@ -211,6 +211,32 @@ def cases() -> tuple[Case, ...]:
     )
     future = FutureDay(DAY + timedelta(days=1))
     incoming = task(minutes=60, kind="intellectual")
+    locked = replace(incoming, is_date_locked=True)
+    result.extend(
+        (
+            Case(
+                "date-locked-critical-transfer",
+                ("date_lock", "critical", "transfer"),
+                context(locked, elapsed=14, future_days=(future,), allow_date_change=True),
+            ),
+            Case(
+                "date-locked-overflow",
+                ("date_lock", "overflow", "advice"),
+                context(
+                    replace(locked, duration_min=180),
+                    elapsed=14,
+                    future_days=(future,),
+                    allow_date_change=True,
+                ),
+            ),
+            Case(
+                "date-locked-replan-time",
+                ("date_lock", "replan", "preferred_time"),
+                context(replace(locked, kind="routine", preferred_start=time(9)), now=at(11)),
+                (slot(locked, 14),),
+            ),
+        )
+    )
     result.append(
         Case(
             "critical-transfer",

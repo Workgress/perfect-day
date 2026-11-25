@@ -137,7 +137,7 @@ async def test_replan_with_protected_intervals_and_occupied_horizon(
         protected_rows[0].pinned_start = None
         protected_rows[0].actual_start = now - timedelta(minutes=15)
         first_version = (await scheduler.repository.active(api.user_id, (DAY,)))[DAY].version
-    body = {"planned_date": DAY.isoformat()}
+    body = {"planned_date": DAY.isoformat(), "schedule_version": first_version}
     headers = {"Authorization": f"Bearer {api.token}"}
     durations = []
     baseline = None
@@ -148,6 +148,7 @@ async def test_replan_with_protected_intervals_and_occupied_horizon(
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         result = ScheduleReplanResponse.model_validate(response.json())
+        body["schedule_version"] = result.schedule.version
         assert result.schedule.version == first_version + index + 1
         assert not result.schedule.moves
         assert len(result.placement_explanations) + len(result.unscheduled_explanations) == count

@@ -2,7 +2,7 @@
 
 import logging
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import date, timedelta
@@ -39,6 +39,7 @@ from app.modules.schedule.adapters import (
     slot_row,
     stored_summary,
     task_snapshot,
+    with_started_interval,
 )
 from app.modules.schedule.models import (
     OnboardingCompletion,
@@ -55,9 +56,11 @@ from app.modules.schedule.planning_schemas import (
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import OnboardingRequest, PlanPreview, PreviewSlot
 from app.modules.schedule.task_policy import task_replan_scope
+from app.modules.tasks.errors import TaskNotFoundError
 from app.modules.tasks.events import TaskChanged
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.tasks.repository import TaskRepository
+from app.modules.tasks.versioning import check_task_version
 from app.modules.users.events import ProfileChanged
 from app.modules.users.models import UserProfile
 from app.modules.users.schemas import ProfileDocument
@@ -103,6 +106,71 @@ class ScheduleService:
         async with self.session.begin_nested():
             await self.lock_user(user_id)
             yield
+
+    async def _check_schedule_versions(
+        self, user_id: UUID, expected_versions: Mapping[date, int]
+    ) -> None:
+        """Compare versions while the caller holds the owner lock, before any writes."""
+        days = tuple(sorted(expected_versions))
+        current = await self.repository.active_versions(user_id, days)
+        for day in days:
+            expected_version = expected_versions[day]
+            current_version = current.get(day, 0)
+            if expected_version != current_version:
+                raise AppError(
+                    409,
+                    "SCHEDULE_VERSION_CONFLICT",
+                    "Расписание уже изменено, обновите данные",
+                    {
+                        "planned_date": day.isoformat(),
+                        "expected_version": expected_version,
+                        "current_version": current_version,
+                    },
+                )
+
+    @asynccontextmanager
+    async def task_mutation(
+        self,
+        user_id: UUID,
+        task_id: UUID,
+        version: int,
+        schedule_versions: Mapping[date, int] | int,
+        *,
+        target_date: date | None = None,
+    ) -> AsyncIterator[Task]:
+        """Caller owns the transaction; a single version refers to the locked task's day."""
+        async with self.mutation(user_id):
+            task = await TaskRepository(self.session).get(user_id, task_id, for_update=True)
+            if task is None:
+                raise TaskNotFoundError()
+            check_task_version(task, version)
+            expected_versions = (
+                {task.planned_date: schedule_versions}
+                if isinstance(schedule_versions, int)
+                else schedule_versions
+            )
+            required = {task.planned_date, target_date or task.planned_date}
+            if set(expected_versions) != required:
+                raise AppError(
+                    422,
+                    "VALIDATION_ERROR",
+                    "Ошибка проверки данных",
+                    {
+                        "fields": [
+                            {
+                                "field": "body.schedule_versions",
+                                "code": "SCHEDULE_DATES_MISMATCH",
+                                "message": "Нужны версии только исходного и целевого дней задачи",
+                            }
+                        ]
+                    },
+                )
+            await self._check_schedule_versions(user_id, expected_versions)
+            state = await self.profiles.get_profile(user_id)
+            if state is None or state.onboarding_completed_at is None:
+                raise _error("ONBOARDING_REQUIRED", "Завершите настройку профиля")
+            profile_snapshot(state)
+            yield task
 
     def _calculate(self, context: PlanContext) -> PlanResult:
         try:
@@ -285,9 +353,8 @@ class ScheduleService:
         await self.lock_user(user_id)
         task = await TaskRepository(self.session).get(user_id, body.task_id)
         if task is None:
-            raise AppError(404, "TASK_NOT_FOUND", "Задача не найдена")
-        if task.version != body.version:
-            raise _error("TASK_VERSION_CONFLICT", "Задача уже изменена, обновите данные")
+            raise TaskNotFoundError()
+        check_task_version(task, body.version)
         state = await self.profiles.get_profile(user_id)
         if state is None or state.onboarding_completed_at is None:
             raise _error("ONBOARDING_REQUIRED", "Завершите настройку профиля")
@@ -350,13 +417,21 @@ class ScheduleService:
         trigger: ScheduleTrigger,
         *,
         allow_date_change: bool = False,
+        expected_version: int | None = None,
+        started_interval: tuple[UUID, Interval] | None = None,
     ) -> ReplanResult:
         async with self.mutation(user_id):
             state = await self.profiles.get_profile(user_id)
             if state is None or state.onboarding_completed_at is None:
                 raise _error("ONBOARDING_REQUIRED", "Завершите настройку профиля")
             profile = profile_snapshot(state)
-            now = to_utc(self.clock.now())
+            if expected_version is not None:
+                await self._check_schedule_versions(user_id, {day: expected_version})
+            now = (
+                started_interval[1].start
+                if started_interval is not None
+                else to_utc(self.clock.now())
+            )
             days = tuple(day + timedelta(days=i) for i in range(min(7, (date.max - day).days) + 1))
             active = await self.repository.active(user_id, days)
             history = {
@@ -396,6 +471,12 @@ class ScheduleService:
                 )
             source, previous = snapshots[day]
             try:
+                if started_interval is not None:
+                    task_id, interval = started_interval
+                    row = by_id.get(task_id)
+                    if row is None or row.planned_date != day or row.deleted_at is not None:
+                        raise ConstraintError("TASK_CONTEXT_MISMATCH", "Задача не принадлежит дню")
+                    previous = with_started_interval(previous, task_snapshot(row), interval)
                 future = tuple(
                     FutureDay(selected, ctx.tasks, preserve_reservations(ctx, saved))
                     for selected, (ctx, saved) in snapshots.items()
@@ -461,7 +542,9 @@ class ScheduleService:
             await self.session.flush()
             return ReplanResult(plan, tuple(changes))
 
-    async def task_changed(self, event: TaskChanged) -> None:
+    async def task_changed(
+        self, event: TaskChanged, *, started_interval: Interval | None = None
+    ) -> None:
         scope = task_replan_scope(event)
         if scope is None:
             return
@@ -480,7 +563,15 @@ class ScheduleService:
             state = await self.profiles.get_profile(event.user_id)
             if state is not None and state.onboarding_completed_at is not None:
                 for day in scope.days:
-                    await self.replan(event.user_id, day, scope.trigger)
+                    if started_interval is None:
+                        await self.replan(event.user_id, day, scope.trigger)
+                    else:
+                        await self.replan(
+                            event.user_id,
+                            day,
+                            scope.trigger,
+                            started_interval=(event.task_id, started_interval),
+                        )
             self.session.add(
                 TaskReplanReceipt(
                     user_id=event.user_id, task_id=event.task_id, version=event.version
