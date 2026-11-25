@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from pydantic import JsonValue
@@ -91,26 +91,53 @@ class TaskPlacementService:
             task.planned_date = body.planned_date
             task.is_pinned = True
             task.pinned_start = body.start_at
-            task.version += 1
-            task.updated_at = now
-            flag_modified(task, "updated_at")
-            await self.repository.save(task)
-            event = TaskChanged(
-                user_id, task_id, "updated", changed, old_date, task.planned_date, task.version, now
-            )
-            try:
-                await self.scheduler.task_changed(event)
-            except AppError as exc:
-                if exc.body.code == "CONFLICT":
-                    raise _move_error(
-                        str(exc.body.details.get("reason_code", "SCHEDULE_CONSTRAINT")),
-                        exc.body.message,
-                    ) from exc
-                raise
-            await self.session.refresh(task)
-            result = TaskResponse.model_validate(task)
+            result, event = await self._save_change(user_id, task, changed, old_date, now)
         await self.on_changed(event)
         return result
+
+    async def unpin(
+        self, user_id: UUID, task_id: UUID, version: int, schedule_version: int
+    ) -> TaskResponse:
+        async with (
+            self.session.begin(),
+            self.scheduler.task_mutation(user_id, task_id, version, schedule_version) as task,
+        ):
+            if not task.is_pinned and task.pinned_start is None:
+                return TaskResponse.model_validate(task)
+            changed = frozenset(
+                name
+                for name, value in (("is_pinned", False), ("pinned_start", None))
+                if getattr(task, name) != value
+            )
+            task.is_pinned = False
+            task.pinned_start = None
+            result, event = await self._save_change(
+                user_id, task, changed, task.planned_date, to_utc(self.clock.now())
+            )
+        await self.on_changed(event)
+        return result
+
+    async def _save_change(
+        self, user_id: UUID, task: Task, changed: frozenset[str], old_date: date, now: datetime
+    ) -> tuple[TaskResponse, TaskChanged]:
+        task.version += 1
+        task.updated_at = now
+        flag_modified(task, "updated_at")
+        await self.repository.save(task)
+        event = TaskChanged(
+            user_id, task.id, "updated", changed, old_date, task.planned_date, task.version, now
+        )
+        try:
+            await self.scheduler.task_changed(event)
+        except AppError as exc:
+            if exc.body.code == "CONFLICT":
+                raise _move_error(
+                    str(exc.body.details.get("reason_code", "SCHEDULE_CONSTRAINT")),
+                    exc.body.message,
+                ) from exc
+            raise
+        await self.session.refresh(task)
+        return TaskResponse.model_validate(task), event
 
     async def _validate(
         self, user_id: UUID, task: Task, body: TaskPinRequest, interval: Interval, now: datetime

@@ -1,7 +1,15 @@
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
 
-from app.modules.schedule.planning_schemas import ScheduleVersions
-from app.modules.tasks.schemas import TaskDate, TaskTimestamp, TaskVersion
+from pydantic import BaseModel, BeforeValidator, ConfigDict
+
+from app.modules.schedule.planning_schemas import ScheduleVersion, ScheduleVersions
+from app.modules.tasks.schemas import (
+    TaskDate,
+    TaskQuery,
+    TaskTimestamp,
+    TaskVersion,
+    _query_integer,
+)
 
 
 class TaskPinRequest(BaseModel):
@@ -11,3 +19,8 @@ class TaskPinRequest(BaseModel):
     start_at: TaskTimestamp
     version: TaskVersion
     schedule_versions: ScheduleVersions
+
+
+class TaskUnpinQuery(TaskQuery):
+    version: Annotated[TaskVersion, BeforeValidator(_query_integer)]
+    schedule_version: Annotated[ScheduleVersion, BeforeValidator(_query_integer)]

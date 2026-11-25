@@ -10,8 +10,9 @@ from app.modules.tasks.dependencies import (
     get_task_list_query,
     get_task_placement_service,
     get_task_service,
+    get_task_unpin_query,
 )
-from app.modules.tasks.placement_schemas import TaskPinRequest
+from app.modules.tasks.placement_schemas import TaskPinRequest, TaskUnpinQuery
 from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import (
     TaskCreate,
@@ -71,6 +72,31 @@ async def pin_task(
     task_id: UUID, body: TaskPinRequest, user: CurrentUser, service: Placement
 ) -> TaskResponse:
     return await service.pin(user.id, task_id, body)
+
+
+@router.delete(
+    "/{task_id}/pin",
+    response_model=TaskResponse,
+    summary="Открепить задачу и пересчитать расписание",
+    description=(
+        "Query version — версия задачи, schedule_version — версия плана текущей даты задачи. "
+        "Версия плана 0 означает его отсутствие. Обе версии проверяются до любых изменений. "
+        "Снятие фиксации времени и пересчёт дня атомарны; дата задачи не меняется. "
+        "Фиксация даты и фактическое начало сохраняются, начатые и исторические интервалы "
+        "остаются на месте. Если фиксация уже снята, актуальные версии возвращают задачу "
+        "без изменения времени, версий и расписания. Ответ — 200 TaskResponse. "
+        "Ошибки: 404 TASK_NOT_FOUND, 409 TASK_VERSION_CONFLICT, 409 SCHEDULE_VERSION_CONFLICT, "
+        "409 TASK_MOVE_NOT_ALLOWED, 409 ONBOARDING_REQUIRED, 409 PROFILE_INCOMPLETE, "
+        "422 VALIDATION_ERROR, 503 PLANNER_UNAVAILABLE. Cache-Control: no-store."
+    ),
+)
+async def unpin_task(
+    task_id: UUID,
+    user: CurrentUser,
+    service: Placement,
+    query: Annotated[TaskUnpinQuery, Depends(get_task_unpin_query)],
+) -> TaskResponse:
+    return await service.unpin(user.id, task_id, query.version, query.schedule_version)
 
 
 @router.patch("/{task_id}", response_model=TaskResponse, summary="Изменить задачу или дату")

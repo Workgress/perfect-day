@@ -9,6 +9,7 @@ from app.db.session import get_session
 from app.modules.schedule.dependencies import get_schedule_service
 from app.modules.schedule.service import ScheduleService
 from app.modules.tasks.events import TaskChangedHandler, task_changed
+from app.modules.tasks.placement_schemas import TaskUnpinQuery
 from app.modules.tasks.placement_service import TaskPlacementService
 from app.modules.tasks.schemas import TaskDeleteQuery, TaskListQuery
 from app.modules.tasks.service import TaskService
@@ -55,5 +56,12 @@ def get_task_list_query(
 def get_task_delete_query(
     request: Request, query: Annotated[TaskDeleteQuery, Query()]
 ) -> TaskDeleteQuery:
+    _reject_duplicate_parameters(request)
+    return query
+
+
+def get_task_unpin_query(
+    request: Request, query: Annotated[TaskUnpinQuery, Query()]
+) -> TaskUnpinQuery:
     _reject_duplicate_parameters(request)
     return query
