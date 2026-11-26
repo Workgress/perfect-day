@@ -110,6 +110,34 @@
   flex-direction: column;
   gap: 24px;
 }
+.emptyWindows {
+  min-width: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.emptyWindows h2 {
+  font: 600 16px / 24px var(--font-sans);
+}
+.windowContext {
+  margin-top: var(--space-8);
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.emptyWindows ul {
+  display: grid;
+  gap: var(--space-16);
+  margin-top: var(--space-16);
+}
+.emptyWindows li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  font: 400 14px / 20px var(--font-sans);
+}
+.emptyWindows li > svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
 .nextTask {
   padding: 24px 20px;
   border: 1px solid var(--border-subtle);
@@ -224,6 +252,63 @@
   padding-top: 24px;
   border-top: 1px solid var(--border-subtle);
 }
+.hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  font: 400 14px / 20px var(--font-sans);
+}
+.hint > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.hint > div {
+  min-width: 0;
+  flex: 1;
+}
+.hint[data-level='critical'] > svg {
+  color: var(--status-danger);
+}
+.hint h3 {
+  font-weight: 500;
+}
+.hint p,
+.hintState {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hint a,
+.hintDetails summary {
+  color: var(--accent-text);
+}
+.hintDetails {
+  margin-top: 8px;
+  font: 400 13px / 20px var(--font-sans);
+}
+.hintDetails summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 32px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hintDetails summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.hintDetails p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hintState {
+  font: 400 13px / 20px var(--font-sans);
+}
 .loadToggle {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -235,7 +320,8 @@
   text-align: left;
   font: inherit;
 }
-.summary h2:not(.nextLabel) {
+.load h2,
+.hints h2 {
   font: 600 17px / 24px var(--font-sans);
 }
 .loadToggle > span:first-child {
@@ -389,6 +475,9 @@
 .transferActions > button {
   min-height: 44px;
 }
+.transferActions > button:first-child {
+  flex: 1;
+}
 .transferError {
   margin-top: 8px;
   color: var(--status-danger);
@@ -444,6 +533,9 @@
     order: 30;
     margin-top: 0;
   }
+  .emptyWindows {
+    order: 25;
+  }
   .desktopTitle,
   .energyHeader .context {
     display: none;
@@ -461,6 +553,12 @@
   }
   .forecastLink {
     font-size: 13px;
+    min-height: 44px;
+    align-items: center;
+  }
+  .hintDetails summary {
+    min-height: 44px;
+    padding-block: 12px;
   }
   .cycles {
     grid-template-columns: 1fr;
@@ -494,7 +592,8 @@
     justify-content: flex-end;
   }
   .reading strong {
-    font-size: 24px;
+    font-size: clamp(18px, 5.6vw, 22px);
+    white-space: nowrap;
   }
   .reading span {
     display: none;
@@ -527,6 +626,6 @@
     grid-template-columns: minmax(0, 1fr) 72px 76px;
   }
   .reading strong {
-    font-size: 21px;
+    font-size: 18px;
   }
 }

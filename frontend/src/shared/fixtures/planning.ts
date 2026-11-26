@@ -34,6 +34,8 @@ function task(
     deadline: null,
     status: 'scheduled',
     completed_at: null,
+    is_date_locked: false,
+    actual_start: null,
     version: 1,
     created_at: timestamp('07:00'),
     updated_at: timestamp('07:00'),

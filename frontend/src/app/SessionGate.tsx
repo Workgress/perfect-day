@@ -17,7 +17,7 @@ export function SessionGate({ children }: { children: ReactNode }) {
   const user = useSessionStore((state) => state.user)
   const generation = useSessionStore((state) => state.generation)
   const client = useQueryClient()
-  const verification = pathname === '/verify-email'
+  const verification = pathname === paths.verifyEmail || pathname === paths.resetPassword
   const bootstrap = useQuery({
     queryKey: ['session', 'restore', generation],
     queryFn: restoreSession,

@@ -1,57 +1,61 @@
 import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
+import type { DailySchedule } from '@/shared/model/schedule'
+import { planningDetails, savedFixture } from '@/test/planningDetails'
 import { transferProposal } from './todayTransferModel'
 
 const day = DAILY_SCHEDULE_FIXTURES.normal
 const now = Date.parse('2026-11-11T04:42:00Z')
+function advised(value: DailySchedule, index = 5) {
+  return {
+    ...value,
+    planning: planningDetails(savedFixture(day), {
+      recommendations: [
+        {
+          task_id: day.tasks[index].id,
+          from_date: day.date,
+          to_date: '2026-11-16',
+          reason_code: 'DAY_OVERLOADED',
+          explanation: 'На 16 ноября задача помещается целиком.',
+        },
+      ],
+    }),
+  }
+}
 
-describe('load transfer candidates', () => {
-  it.each(['pending', 'scheduled'] as const)(
-    'excludes a task already moved to another date (%s), even with stale schedule references',
-    (status) => {
-      const task = { ...day.tasks[3], planned_date: '2026-11-12', status }
-      expect(
-        transferProposal({ ...day, tasks: [task], unscheduled_task_ids: [task.id] }, now),
-      ).toBeNull()
-    },
-  )
-  it('prefers a future non-routine task with low priority and reports its occupied time', () => {
-    const tasks = day.tasks.map((task, index) =>
-      index === 5 ? { ...task, type: 'creative' as const } : task,
-    )
-    const proposal = transferProposal({ ...day, tasks }, now)!
-    expect(proposal.task.id).toBe(day.tasks[5].id)
-    expect(proposal.date).toBe('2026-11-12')
-    expect(proposal.released).toBe(60)
+describe('server move recommendations', () => {
+  it('never invents a recommendation when the server supplied none', () => {
+    expect(transferProposal(day, now)).toBeNull()
   })
-  it('does not move pinned, completed, started or expired tasks', () => {
-    const tasks = day.tasks.map((task) => ({ ...task, deadline: '2026-11-11T23:00:00Z' }))
-    expect(transferProposal({ ...day, tasks }, now)).toBeNull()
-    expect(transferProposal(day, Date.parse('2026-11-11T16:00:00Z'))).toBeNull()
-    const pinned = {
-      ...day.tasks[5],
-      is_pinned: true as const,
-      pinned_start: '2026-11-11T11:00:00Z',
-    }
-    expect(transferProposal({ ...day, tasks: [pinned] }, now)).toBeNull()
+  it('uses the server target date and explanation, including for routine tasks', () => {
+    const proposal = transferProposal(advised(day), now)!
+    expect(proposal.task.id).toBe(day.tasks[5].id)
+    expect(proposal.date).toBe('2026-11-16')
+    expect(proposal.released).toBe(60)
+    expect(proposal.explanation).toBe('На 16 ноября задача помещается целиком.')
+  })
+  it.each(['pending', 'scheduled'] as const)('ignores already moved tasks (%s)', (status) => {
+    const tasks = day.tasks.map((task, index) =>
+      index === 5 ? { ...task, planned_date: '2026-11-12', status } : task,
+    )
+    expect(transferProposal(advised({ ...day, tasks }), now)).toBeNull()
+  })
+  it.each([
+    { is_pinned: true },
+    { is_date_locked: true },
+    { actual_start: '2026-11-11T04:42:00Z' },
+    { status: 'done' as const },
+    { status: 'skipped' as const },
+  ])('does not offer a protected or inactive task: %j', (fields) => {
+    const tasks = day.tasks.map((task, index) => (index === 5 ? { ...task, ...fields } : task))
+    expect(transferProposal(advised({ ...day, tasks }), now)).toBeNull()
+  })
+  it('does not offer a scheduled interval whose start has passed', () => {
+    expect(transferProposal(advised(day), Date.parse('2026-11-11T11:00:00Z'))).toBeNull()
   })
   it('does not promise freed time for a task without an interval', () => {
-    const task = { ...day.tasks[5], type: 'creative' as const, status: 'pending' as const }
-    const proposal = transferProposal({ ...day, tasks: [task], slots: [] }, now)!
-    expect(proposal.released).toBe(0)
-    expect(proposal.task.id).toBe(task.id)
-  })
-  it('never proposes routine tasks, including an unplaced routine with the same title', () => {
-    const routine = { ...day.tasks[5], title: 'д', status: 'pending' as const }
-    const intellectual = {
-      ...day.tasks[3],
-      title: 'д',
-      type: 'intellectual' as const,
-      duration_min: 120,
-      status: 'pending' as const,
-    }
-    expect(transferProposal({ ...day, tasks: [routine], slots: [] }, now)).toBeNull()
-    const proposal = transferProposal({ ...day, tasks: [routine, intellectual], slots: [] }, now)!
-    expect(proposal.task.id).toBe(intellectual.id)
-    expect(proposal.task.duration_min).toBe(120)
+    const tasks = day.tasks.map((task, index) =>
+      index === 5 ? { ...task, status: 'pending' as const } : task,
+    )
+    expect(transferProposal(advised({ ...day, tasks, slots: [] }), now)?.released).toBe(0)
   })
 })

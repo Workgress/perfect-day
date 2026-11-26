@@ -10,6 +10,10 @@ import {
   reopenTask,
   skipTask,
   updateTask,
+  pinTask,
+  moveTask,
+  unpinTask,
+  startTask,
 } from './tasks'
 
 const task = DAILY_SCHEDULE_FIXTURES.normal.tasks[2]
@@ -110,6 +114,49 @@ describe('task API contract', () => {
     expect(request.mock.calls[0][1]?.method).toBe('DELETE')
   })
 
+  it.each([
+    [pinTask, 'pin'],
+    [moveTask, 'move'],
+  ] as const)('sends exact placement versions and timestamps for %s', async (command, name) => {
+    const request = respond(task)
+    const placement = {
+      planned_date: '2026-11-12',
+      start_at: '2026-11-12T10:05:00+05:00',
+      version: 7,
+      schedule_versions: { '2026-11-11': 3, '2026-11-12': 0 },
+    }
+    const controller = new AbortController()
+    await command(task.id, placement, controller.signal)
+    expect(new URL(String(request.mock.calls[0][0])).pathname).toBe(
+      `/api/v1/tasks/${task.id}/${name}`,
+    )
+    expect(request.mock.calls[0][1]).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify(placement),
+      signal: controller.signal,
+    })
+  })
+
+  it('reads the unpin response and sends both versions as query parameters without a body', async () => {
+    const request = respond({ ...task, is_pinned: false, pinned_start: null, version: 9 })
+    expect((await unpinTask(task.id, 7, 3)).version).toBe(9)
+    expect(Object.fromEntries(new URL(String(request.mock.calls[0][0])).searchParams)).toEqual({
+      version: '7',
+      schedule_version: '3',
+    })
+    expect(request.mock.calls[0][1]?.method).toBe('DELETE')
+    expect(request.mock.calls[0][1]?.body).toBeUndefined()
+  })
+
+  it('starts with the server clock, preserving actual_start and date lock from the response', async () => {
+    const updated = { ...task, actual_start: '2026-11-11T04:42:17Z', is_date_locked: true }
+    const request = respond(updated)
+    const body = { version: 7, schedule_versions: { '2026-11-11': 3 } }
+    expect(await startTask(task.id, body)).toEqual(updated)
+    expect(String(request.mock.calls[0][0])).toContain('/start-now')
+    expect(request.mock.calls[0][1]?.body).toBe(JSON.stringify(body))
+  })
+
   it.each([409, 422, 503])(
     'preserves server error details without retrying a write: %s',
     async (status) => {
@@ -141,6 +188,9 @@ describe('task API contract', () => {
     { ...task, created_at: undefined },
     { ...task, deadline: '2026-11-19' },
     { ...task, type: 'social' },
+    { ...task, actual_start: '2026-11-11T10:00:00' },
+    { ...task, actual_start: undefined },
+    { ...task, is_date_locked: 'false' },
   ])('rejects an invalid task response %#', async (value) => {
     respond(value)
     await expect(getTask(task.id)).rejects.toThrow('некорректные данные')

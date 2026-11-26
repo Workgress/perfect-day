@@ -29,7 +29,7 @@ export type TaskFields = {
 export type TaskPlacement =
   { is_pinned: false; pinned_start: null } | { is_pinned: true; pinned_start: string }
 
-/** Form draft includes placement controls that the public write API does not support yet. */
+/** Placement is saved through separate commands, never through CRUD payloads. */
 export type TaskDraft = TaskFields & TaskPlacement
 
 /** POST /tasks: placement, status and timestamps are read-only. */
@@ -60,6 +60,8 @@ export type TaskList = { items: Task[]; total: number; limit: number; offset: nu
 export type Task = TaskFields & {
   is_pinned: boolean
   pinned_start: string | null
+  is_date_locked: boolean
+  actual_start: string | null
   id: string
   status: TaskStatus
   completed_at: string | null
@@ -67,6 +69,15 @@ export type Task = TaskFields & {
   created_at: string
   updated_at: string
 }
+
+export type TaskPlacementRequest = {
+  planned_date: string
+  start_at: string
+  version: number
+  schedule_versions: Record<string, number>
+}
+
+export type TaskStartRequest = Pick<TaskPlacementRequest, 'version' | 'schedule_versions'>
 
 /** UI values allow empty required controls until validation succeeds. */
 export type TaskFormValues = {

@@ -1,4 +1,11 @@
-import { AuthError, getAuthRedirectPath, submitAuth, validateCredentials } from './auth'
+import {
+  AuthError,
+  getAuthRedirectPath,
+  normalizeAuthError,
+  submitAuth,
+  validateCredentials,
+} from './auth'
+import { HttpError } from '@/shared/api/http'
 import { installApiServer } from '@/test/apiServer'
 
 afterEach(() => vi.unstubAllEnvs())
@@ -84,5 +91,29 @@ describe('auth boundaries', () => {
     expect(
       validateCredentials({ email: 'anna@example.com', password: '12345678' }, 'register').password,
     ).toContain('букву и одну цифру')
+  })
+
+  it('normalizes password-reset validation and HTTP-date Retry-After without losing server details', () => {
+    const retry = new Date(Date.now() + 60_000).toUTCString()
+    const result = normalizeAuthError(
+      new HttpError(
+        429,
+        {
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many',
+            details: { fields: [{ field: 'body.new_password', message: 'Добавьте цифру' }] },
+          },
+        },
+        new Headers({ 'Retry-After': retry }),
+      ),
+    )
+    expect(result).toBeInstanceOf(AuthError)
+    expect(result).toMatchObject({
+      code: 'RATE_LIMIT_EXCEEDED',
+      fields: { password: 'Добавьте цифру' },
+    })
+    expect((result as AuthError).retryAfter).toBeGreaterThanOrEqual(59)
+    expect((result as AuthError).retryAfter).toBeLessThanOrEqual(60)
   })
 })

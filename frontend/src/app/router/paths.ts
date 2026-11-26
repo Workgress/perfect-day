@@ -2,6 +2,8 @@ export const paths = {
   login: '/login',
   register: '/register',
   verifyEmail: '/verify-email',
+  verificationSent: '/verify-email/sent',
+  resetPassword: '/reset-password',
   onboarding: {
     root: '/onboarding',
     birthDate: '/onboarding/birth-date',

@@ -12,4 +12,6 @@ export const taskKeys = {
 export const scheduleKeys = {
   all: (generation: number) => ['schedule', generation] as const,
   day: (generation: number, date: string) => [...scheduleKeys.all(generation), date] as const,
+  details: (generation: number, date: string, version: number) =>
+    [...scheduleKeys.day(generation, date), 'details', version] as const,
 }

@@ -41,6 +41,7 @@ export function useTodaySchedule(
     work_start?: string
     work_end?: string
   },
+  now: Date,
 ) {
   const tasks = useQuery({
     queryKey: taskKeys.day(generation, date),
@@ -73,6 +74,16 @@ export function useTodaySchedule(
     })),
   })
   const absent = apiProblem(schedule.error)?.code === 'SCHEDULE_NOT_FOUND'
+  const deleted = new Set(
+    missing.filter((_, index) => apiProblem(references[index]?.error)?.code === 'TASK_NOT_FOUND'),
+  )
+  const stale = Boolean(
+    schedule.data?.unscheduled.some((item) => deleted.has(item.task_id)) ||
+    schedule.data?.slots.some(
+      (slot) =>
+        slot.task_id && deleted.has(slot.task_id) && Date.parse(slot.start_at) > now.getTime(),
+    ),
+  )
   const loading =
     tasks.isPending ||
     tasks.isFetching ||
@@ -82,24 +93,51 @@ export function useTodaySchedule(
   let error: unknown =
     tasks.error ??
     (absent ? null : schedule.error) ??
-    references.find((query) => query.isError)?.error
+    references.find((query) => query.isError && apiProblem(query.error)?.code !== 'TASK_NOT_FOUND')
+      ?.error
   let day: DailySchedule | undefined
-  if (!loading && !error && tasks.data && schedule.data) {
+  if (!loading && !error && tasks.data && (schedule.data || (absent && !tasks.data.length))) {
     try {
       if (!work.work_start || !work.work_end)
         throw new Error('Не удалось получить рабочее время профиля. Обновите страницу.')
-      day = dailySchedule(
-        schedule.data,
-        [...tasks.data, ...references.flatMap((query) => (query.data ? [query.data] : []))],
-        { timezone: work.timezone, work_start: work.work_start, work_end: work.work_end },
-      )
+      if (schedule.data && schedule.data.timezone !== work.timezone)
+        throw new Error('Рабочее время задано в другом часовом поясе, чем сохранённое расписание.')
+      day = stale
+        ? undefined
+        : absent
+          ? {
+              date,
+              timezone: work.timezone,
+              work_start: work.work_start,
+              work_end: work.work_end,
+              schedule: null,
+              tasks: [],
+              slots: [],
+              unscheduled_task_ids: [],
+            }
+          : dailySchedule(
+              schedule.data!,
+              [
+                ...tasks.data,
+                ...references.flatMap((query, index) =>
+                  query.data && !deleted.has(missing[index]) ? [query.data] : [],
+                ),
+              ],
+              { timezone: work.timezone, work_start: work.work_start, work_end: work.work_end },
+              deleted,
+            )
     } catch (cause) {
       error = cause
     }
   }
   return {
+    version:
+      !loading && !error && tasks.isSuccess && (schedule.isSuccess || absent)
+        ? (schedule.data?.version ?? 0)
+        : undefined,
     day,
-    metrics: schedule.data?.metrics,
+    stale: !loading && !error && stale,
+    metrics: stale ? undefined : schedule.data?.metrics,
     tasks: tasks.data ?? [],
     absent,
     loading,
@@ -110,6 +148,6 @@ export function useTodaySchedule(
         schedule.refetch(),
         ...references.map((query) => query.refetch()),
       ]),
-    warnings: schedule.data?.warnings ?? [],
+    warnings: absent || stale ? [] : (schedule.data?.warnings ?? []),
   }
 }

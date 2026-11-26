@@ -61,3 +61,7 @@ export function startSessionSync() {
 export function announceLogin() {
   channel?.postMessage('login')
 }
+
+export function announceLogout() {
+  channel?.postMessage('logout')
+}

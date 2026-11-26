@@ -350,7 +350,7 @@ button.free:hover {
 .now {
   position: absolute;
   inset-inline: 0;
-  z-index: 2;
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -367,9 +367,21 @@ button.free:hover {
 }
 
 .now > span:last-child {
+  position: relative;
   flex: 1;
   height: 2px;
   background: var(--now-line);
+}
+.now > span:last-child::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--now-line);
+  box-shadow: 0 0 0 2px var(--bg-base);
 }
 
 .empty {

@@ -10,6 +10,32 @@ function Chart() {
 }
 
 describe('biorhythm chart interactions', () => {
+  it.each([
+    {
+      value: 0.2,
+      percent: 20,
+      phase: 'rising' as const,
+      trend: 'down' as const,
+      label: 'Спад',
+      direction: 'значение снижается',
+    },
+    {
+      value: -0.2,
+      percent: -20,
+      phase: 'declining' as const,
+      trend: 'up' as const,
+      label: 'Подъём',
+      direction: 'значение растёт',
+    },
+  ])('shows $label from the direction even when the level phase is $phase', (reading) => {
+    const data = structuredClone(BIORHYTHM_FIXTURES.week)
+    data.points[0].cycles.emotional = reading
+    render(<BiorhythmChart data={data} selectedAt={data.points[0].at} onSelect={vi.fn()} />)
+    const emotional = screen.getByRole('region', { name: 'Эмоциональный' })
+    expect(within(emotional).getByRole('heading', { name: reading.label })).toBeInTheDocument()
+    expect(emotional).toHaveTextContent(reading.direction)
+  })
+
   it('selects points using the keyboard and exposes percentages as accessible text', async () => {
     render(<Chart />)
     const slider = screen.getByRole('slider', { name: 'Дата на графике биоритмов' })

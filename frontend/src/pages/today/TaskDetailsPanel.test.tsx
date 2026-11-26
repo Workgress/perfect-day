@@ -17,6 +17,15 @@ const base = {
 }
 
 describe('task details panel', () => {
+  it('keeps a pending task action open when Escape or cancel is pressed', () => {
+    const close = vi.fn()
+    render(<TaskDetailsPanel {...base} busy onClose={close} />)
+    const dialog = screen.getByRole('dialog')
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    expect(close).not.toHaveBeenCalled()
+  })
+
   it('shows the task details and real placement explanations without opening editable fields', () => {
     render(<TaskDetailsPanel {...base} options={{ recurrence: null, reminderMinutes: 10 }} />)
     const panel = screen.getByRole('dialog', { name: task.title })

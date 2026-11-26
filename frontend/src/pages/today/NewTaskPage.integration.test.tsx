@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
@@ -8,10 +8,15 @@ import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
 import { localDate } from '@/shared/lib/dateTime'
 import { useSessionStore } from '@/stores/session'
 import { mockMatchMedia } from '@/test/matchMedia'
+import { savedFixture } from '@/test/planningDetails'
 import { NewTaskPage } from './NewTaskPage'
 import { TodayPage } from './TodayPage'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
+vi.mock('./useTodaySchedule', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./useTodaySchedule')>()),
+  useTodaySchedule: () => ({ version: undefined }),
+}))
 vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
 vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
@@ -80,6 +85,107 @@ function deferredResponse() {
 }
 
 describe('task creation with the API', () => {
+  it('automatically moves a newly unplaced task to a future day and explains it without a second creation', async () => {
+    const day = today()
+    const tomorrow = new Date(Date.parse(`${day}T12:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+    let task = taskResponse({ planned_date: day, title: 'Подготовиться к экзамену' })
+    const saved = { ...savedFixture(DAILY_SCHEDULE_FIXTURES.normal), planned_date: day, version: 6 }
+    const request = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/tasks') && init?.method === 'POST') {
+        task = { ...taskResponse(JSON.parse(String(init.body))), status: 'pending' }
+        return Response.json(task, { status: 201 })
+      }
+      if (url.pathname.endsWith('/schedule/replan')) {
+        task = { ...task, planned_date: tomorrow, status: 'scheduled', version: task.version + 1 }
+        return Response.json({
+          schedule: {
+            ...saved,
+            version: 7,
+            slots: [],
+            moves: [
+              {
+                task_id: task.id,
+                from_date: day,
+                to_date: tomorrow,
+                reason_code: 'NO_AVAILABLE_TIME',
+              },
+            ],
+          },
+        })
+      }
+      if (url.pathname.endsWith('/schedule')) return Response.json(saved)
+      return Response.json(task)
+    })
+    vi.stubGlobal('fetch', request)
+    const { client, router } = setup()
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    await screen.findByText('Задача добавлена')
+    expect(screen.getByText(/В выбранный день не нашлось подходящего окна/)).toHaveTextContent(
+      tomorrow.split('-').reverse().join('.'),
+    )
+    expect(router.state.location.state.taskCreated.task.planned_date).toBe(tomorrow)
+    expect(
+      request.mock.calls.filter(
+        ([input, init]) =>
+          new URL(String(input)).pathname.endsWith('/tasks') && init?.method === 'POST',
+      ),
+    ).toHaveLength(1)
+    const replan = request.mock.calls.find(([input]) =>
+      new URL(String(input)).pathname.endsWith('/schedule/replan'),
+    )!
+    expect(JSON.parse(String(replan[1]?.body))).toMatchObject({
+      allow_date_change: true,
+      schedule_version: 6,
+    })
+    client.clear()
+  })
+  afterEach(() => onlineManager.setOnline(true))
+
+  it('reports an offline creation immediately and never sends a queued write after reconnection', async () => {
+    const request = vi.fn<typeof fetch>(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    vi.stubGlobal('fetch', request)
+    const { client } = setup()
+    await fill()
+    act(() => onlineManager.setOnline(false))
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи с сервером')
+    expect(screen.getByRole('textbox', { name: 'Название' })).toHaveValue(
+      'Подготовиться к экзамену',
+    )
+    expect(screen.getByRole('button', { name: 'Добавить и распределить' })).toBeEnabled()
+    expect(request).toHaveBeenCalledTimes(1)
+    await act(async () => onlineManager.setOnline(true))
+    expect(request).toHaveBeenCalledTimes(1)
+    client.clear()
+  })
+
+  it('invalidates the displayed plan after an unconfirmed creation so closing the draft cannot leave a fresh stale list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Lost response')
+      }),
+    )
+    const { client, generation, router } = setup()
+    const listKey = taskKeys.day(generation, today())
+    const savedKey = scheduleKeys.day(generation, today())
+    client.setQueryData(listKey, [])
+    client.setQueryData(savedKey, { version: 1 })
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    await screen.findByRole('alert')
+    expect(client.getQueryState(listKey)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(savedKey)?.isInvalidated).toBe(true)
+    expect(router.state.location.pathname).toBe('/today/new')
+    client.clear()
+  })
+
   it('explains an automatic move of a physical task instead of implying placement today', async () => {
     const target = new Date(`${today()}T12:00:00Z`)
     target.setUTCDate(target.getUTCDate() + 3)
@@ -326,9 +432,9 @@ describe('task creation with the API', () => {
   it('makes unavailable options read-only rather than silently discarding choices', async () => {
     const { client } = setup()
     expect(screen.getByRole('radio', { name: 'Каждый день' })).toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Закрепить время' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Закрепить время' })).toBeEnabled()
     await userEvent.click(screen.getByRole('button', { name: /Ещё:/ }))
-    expect(screen.getByRole('combobox', { name: /Желаемое время/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Желаемое время/ })).toBeEnabled()
     expect(screen.getByRole('combobox', { name: 'Напоминание' })).toBeDisabled()
     expect(screen.getByRole('combobox', { name: 'Напоминание' })).toHaveValue('')
     expect(fetch).not.toHaveBeenCalled()
@@ -337,7 +443,12 @@ describe('task creation with the API', () => {
 
   it('sends a user-selected date and an absolute deadline in the profile timezone', async () => {
     const request = vi.fn<typeof fetch>(async (_url, init) =>
-      Response.json(taskResponse(JSON.parse(String(init?.body))), { status: 201 }),
+      init?.method === 'POST'
+        ? Response.json(taskResponse(JSON.parse(String(init.body))), { status: 201 })
+        : Response.json(
+            { error: { code: 'SCHEDULE_NOT_FOUND', message: 'Нет расписания' } },
+            { status: 404 },
+          ),
     )
     vi.stubGlobal('fetch', request)
     const { client } = setup()
@@ -349,7 +460,9 @@ describe('task creation with the API', () => {
     fireEvent.change(screen.getByLabelText('Время дедлайна'), { target: { value: '18:00' } })
     await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
     expect(await screen.findByText('Задача добавлена')).toBeInTheDocument()
-    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({
+    expect(
+      JSON.parse(String(request.mock.calls.find(([, init]) => init?.method === 'POST')![1]?.body)),
+    ).toMatchObject({
       planned_date: '2099-11-19',
       deadline: '2099-11-19T13:00:00.000Z',
     })

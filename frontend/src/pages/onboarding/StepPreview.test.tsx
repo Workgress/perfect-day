@@ -111,6 +111,56 @@ describe('first tasks preview', () => {
     expect(screen.queryByText(/Биоритмы пока не учитываются/)).not.toBeInTheDocument()
   })
 
+  it('makes diagnostic explanations readable without changing measured biorhythms', async () => {
+    useSessionStore.getState().updateOnboarding({
+      tasks: [
+        { id: 'study', title: 'Учиться', type: 'intellectual', durationMin: 60 },
+        { id: 'draw', title: 'Рисовать', type: 'creative', durationMin: 60 },
+      ],
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: URL | string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body))
+        return Response.json({
+          planned_date: body.planned_date,
+          timezone: 'Asia/Yekaterinburg',
+          slots: [
+            {
+              task_index: 0,
+              start_time: '14:45:00',
+              end_time: '15:45:00',
+              explanation:
+                '14:45 +0500–15:45 +0500. Время выбрано по оценке энергии и ограничениям расписания. Интеллектуальный биоритм: среднее за интервал -6.5%. Среднее значение суточного профиля: 78.1% (хронотип: жаворонок). Длительность: 60 мин.',
+            },
+            {
+              task_index: 1,
+              start_time: '15:45:00',
+              end_time: '16:45:00',
+              explanation:
+                '15:45 +0500–16:45 +0500. Время выбрано по оценке энергии и ограничениям расписания. Интервал включает высокое окно суточного профиля энергии. Эмоциональный биоритм: среднее за интервал 79.8%. Среднее значение биоритма находится в фазе пика. Среднее значение суточного профиля: 88.1% (хронотип: жаворонок). Длительность: 60 мин.',
+            },
+          ],
+          unscheduled_task_indexes: [],
+        })
+      }),
+    )
+
+    renderWithProviders(<FirstTasksPreview />)
+    expect(await screen.findByText('14:45–15:45')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Учтены биоритмы, режим дня и свободное время. Интеллектуальный биоритм за это время: −6,5 %.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Учтены биоритмы, режим дня и свободное время. Время подходит по суточному ритму вашего хронотипа. Эмоциональный биоритм за это время: 79,8 %.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/\+0500|Среднее значение|Длительность:/)).not.toBeInTheDocument()
+  })
+
   it('shows a retry action on server failures without local successful slots', async () => {
     vi.stubGlobal(
       'fetch',

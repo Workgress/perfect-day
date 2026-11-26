@@ -1,46 +1,50 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { useMutation } from '@tanstack/react-query'
 import { paths } from '@/app/router/paths'
+import { announceLogin } from '@/app/session'
 import { Button } from '@/shared/ui/button/Button'
 import { FormMessage, TextField } from '@/shared/ui/form-field/FormField'
-import { MailIcon, ShieldCheckIcon } from '@/shared/ui/icon/icons'
+import { ShieldCheckIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
-import { useMutation } from '@tanstack/react-query'
-import { announceLogin } from '@/app/session'
 import {
   AuthError,
-  resendConfirmation,
   submitAuth,
   validateCredentials,
   type AuthFieldErrors,
   type AuthMode,
 } from './auth'
+import { RecoveryDialog } from './RecoveryDialog'
+import { cooldownLabel, useAuthCooldown } from './useAuthCooldown'
 import styles from './AuthForm.module.css'
 
-type AuthFormProps = {
-  mode: AuthMode
-  initialEmail: string
-  redirectTo: string
-}
+type Props = { mode: AuthMode; initialEmail: string; redirectTo: string; passwordReset?: boolean }
 
-export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
+export function AuthForm({ mode, initialEmail, redirectTo, passwordReset }: Props) {
   const navigate = useNavigate()
   const signIn = useSessionStore((state) => state.signIn)
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
-  const [touched, setTouched] = useState({ email: false, password: false })
+  const [confirmation, setConfirmation] = useState('')
+  const [touched, setTouched] = useState({ email: false, password: false, confirmPassword: false })
   const [submitted, setSubmitted] = useState(false)
   const [pending, setPending] = useState(false)
   const [serverErrors, setServerErrors] = useState<AuthFieldErrors>({})
-  const [notice, setNotice] = useState<{ text: string; tone: 'error' | 'info' } | null>(null)
-  const [verification, setVerification] = useState<{ email: string; resendAt: number } | null>(null)
-  const [cooldown, setCooldown] = useState(0)
+  const [notice, setNotice] = useState<{
+    text: string
+    tone: 'error' | 'info'
+    limited?: boolean
+  } | null>(() =>
+    passwordReset ? { text: 'Пароль обновлён. Войдите с новым паролем.', tone: 'info' } : null,
+  )
+  const [recovery, setRecovery] = useState(false)
+  const cooldown = useAuthCooldown()
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
-  const verificationRef = useRef<HTMLHeadingElement>(null)
+  const confirmRef = useRef<HTMLInputElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const isRegister = mode === 'register'
-  const authMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: ({
       credentials,
       signal,
@@ -48,206 +52,129 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
       credentials: { email: string; password: string }
       signal: AbortSignal
     }) => submitAuth(mode, credentials, signal),
+    retry: false,
     gcTime: 0,
   })
-  const resendMutation = useMutation({
-    mutationFn: ({ address, signal }: { address: string; signal: AbortSignal }) =>
-      resendConfirmation(address, signal),
-    gcTime: 0,
-  })
-  const errors = validateCredentials({ email, password }, mode)
-  const emailError = serverErrors.email ?? (submitted || touched.email ? errors.email : undefined)
-  const passwordError =
-    serverErrors.password ?? (submitted || touched.password ? errors.password : undefined)
-
+  const errors = validateCredentials(
+    { email, password },
+    mode,
+    isRegister ? confirmation : undefined,
+  )
+  const error = (field: keyof AuthFieldErrors) =>
+    serverErrors[field] ?? (submitted || touched[field] ? errors[field] : undefined)
   useEffect(() => () => requestRef.current?.abort(), [])
-
   useEffect(() => {
     if (pending) return
     if (serverErrors.email) emailRef.current?.focus()
     else if (serverErrors.password) passwordRef.current?.focus()
   }, [serverErrors, pending])
-
-  useEffect(() => {
-    if (verification) verificationRef.current?.focus()
-  }, [verification])
-
-  useEffect(() => {
-    if (!verification || cooldown === 0) return
-    const timer = setTimeout(() => {
-      setCooldown(Math.max(0, Math.ceil((verification.resendAt - Date.now()) / 1000)))
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [verification, cooldown])
-
-  const showError = (error: unknown) => {
-    if (error instanceof AuthError) {
-      setServerErrors(error.fields)
-      setNotice({ text: error.message, tone: 'error' })
-      if (error.code === 'EMAIL_NOT_VERIFIED') setVerification({ email: email.trim(), resendAt: 0 })
-      if (error.retryAfter > 0) {
-        setCooldown(error.retryAfter)
-        setVerification((current) =>
-          current ? { ...current, resendAt: Date.now() + error.retryAfter * 1000 } : current,
-        )
-      }
-    } else {
-      setNotice({ text: 'Не удалось выполнить запрос. Попробуйте ещё раз.', tone: 'error' })
-    }
+  const clearNotice = () => {
+    if (!cooldown.seconds) setNotice(null)
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (requestRef.current) return
+    if (requestRef.current || cooldown.seconds) return
     setSubmitted(true)
     setNotice(null)
     setServerErrors({})
-    if (errors.email || errors.password) {
+    if (Object.values(errors).some(Boolean)) {
       if (errors.email) emailRef.current?.focus()
-      else passwordRef.current?.focus()
+      else if (errors.password) passwordRef.current?.focus()
+      else confirmRef.current?.focus()
       return
     }
-
     const controller = new AbortController()
     requestRef.current = controller
     setPending(true)
     try {
-      const result = await authMutation.mutateAsync({
+      const result = await mutation.mutateAsync({
         credentials: { email: email.trim(), password },
         signal: controller.signal,
       })
       if (controller.signal.aborted) return
       setPassword('')
+      setConfirmation('')
       if (result.status === 'authenticated') {
         signIn({ ...result.session, email: email.trim() })
         announceLogin()
         navigate(redirectTo, { replace: true })
-      } else {
-        setCooldown(result.resendAfterSeconds)
-        setVerification({
-          email: email.trim(),
-          resendAt: Date.now() + result.resendAfterSeconds * 1000,
+      } else
+        navigate(paths.verificationSent, {
+          replace: true,
+          state: {
+            email: email.trim(),
+            from: redirectTo,
+            sent: true,
+            resendAfterSeconds: result.resendAfterSeconds,
+          },
         })
-      }
-    } catch (error) {
-      if (!controller.signal.aborted) showError(error)
-    } finally {
-      if (!controller.signal.aborted) setPending(false)
-      if (requestRef.current === controller) requestRef.current = null
-      authMutation.reset()
-    }
-  }
-
-  const handleResend = async () => {
-    if (!verification || cooldown > 0 || requestRef.current) return
-    const controller = new AbortController()
-    requestRef.current = controller
-    setPending(true)
-    setNotice(null)
-    try {
-      const seconds = await resendMutation.mutateAsync({
-        address: verification.email,
-        signal: controller.signal,
-      })
+    } catch (reason) {
       if (controller.signal.aborted) return
-      setCooldown(seconds)
-      setVerification({ ...verification, resendAt: Date.now() + seconds * 1000 })
-    } catch (error) {
-      if (!controller.signal.aborted) showError(error)
+      if (reason instanceof AuthError) {
+        if (reason.code === 'EMAIL_NOT_VERIFIED') {
+          navigate(paths.verificationSent, {
+            state: { email: email.trim(), from: redirectTo, sent: false, resendAfterSeconds: 0 },
+          })
+          return
+        }
+        setServerErrors(reason.fields)
+        const limited = reason.code === 'RATE_LIMIT_EXCEEDED'
+        setNotice({
+          text:
+            reason.code === 'INVALID_CREDENTIALS'
+              ? 'Неверная почта или пароль. Проверьте данные.'
+              : limited
+                ? isRegister
+                  ? 'Слишком много попыток регистрации'
+                  : 'Слишком много попыток входа'
+                : reason.message,
+          tone: limited ? 'info' : 'error',
+          limited,
+        })
+        if (limited || reason.retryAfter > 0) cooldown.start(reason.retryAfter || 60)
+      } else setNotice({ text: 'Не удалось выполнить запрос. Попробуйте ещё раз.', tone: 'error' })
     } finally {
       if (!controller.signal.aborted) setPending(false)
       if (requestRef.current === controller) requestRef.current = null
-      resendMutation.reset()
+      mutation.reset()
     }
-  }
-
-  if (verification) {
-    return (
-      <section
-        className={styles.verification}
-        aria-labelledby="verification-title"
-        aria-busy={pending}
-      >
-        <h2 id="verification-title" className="text-title" tabIndex={-1} ref={verificationRef}>
-          Проверьте почту
-        </h2>
-        <p className={styles.secondary}>
-          {isRegister ? (
-            <>
-              Если адрес <strong>{verification.email}</strong> ещё не зарегистрирован, мы отправили
-              письмо для подтверждения. Если аккаунт уже есть — войдите.
-            </>
-          ) : (
-            <>
-              Ссылка для подтверждения адреса <strong>{verification.email}</strong> позволит
-              продолжить настройку.
-            </>
-          )}
-        </p>
-        {notice ? <FormMessage tone={notice.tone}>{notice.text}</FormMessage> : null}
-        <Button onClick={handleResend} disabled={pending || cooldown > 0}>
-          {pending ? 'Отправляем…' : 'Отправить ещё раз'}
-        </Button>
-        {cooldown > 0 ? (
-          <p className={`text-caption ${styles.secondary}`}>
-            Повторная отправка через {cooldown} с
-          </p>
-        ) : null}
-        <Link
-          className={styles.link}
-          to={paths.login}
-          state={{ from: redirectTo, email: verification.email }}
-        >
-          Вернуться ко входу
-        </Link>
-        <button
-          className={styles.link}
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            setVerification(null)
-            setNotice(null)
-            setSubmitted(false)
-            setTouched({ email: false, password: false })
-          }}
-        >
-          Исправить адрес
-        </button>
-      </section>
-    )
   }
 
   return (
     <>
-      <div className={styles.social} aria-label="Вход через другие сервисы">
-        {['Google', 'Яндекс ID', 'VK ID'].map((provider) => (
-          <Button
-            key={provider}
-            variant="secondary"
-            disabled={pending}
-            onClick={() => {
-              setNotice({
-                text: `Вход через ${provider} пока недоступен. Используйте почту.`,
-                tone: 'info',
-              })
-            }}
-          >
-            Продолжить с {provider}
-          </Button>
-        ))}
-      </div>
-      <div className={`text-caption ${styles.divider}`}>или по почте</div>
+      {!isRegister ? (
+        <>
+          <div className={styles.social} aria-label="Вход через другие сервисы">
+            {['Google', 'Яндекс ID', 'VK ID'].map((provider) => (
+              <Button
+                key={provider}
+                variant="secondary"
+                disabled={pending}
+                onClick={() =>
+                  setNotice({
+                    text: `Вход через ${provider} пока недоступен. Используйте почту.`,
+                    tone: 'info',
+                  })
+                }
+              >
+                Продолжить с {provider}
+              </Button>
+            ))}
+          </div>
+          <div className={`text-caption ${styles.divider}`}>или по почте</div>
+        </>
+      ) : null}
       <form
-        className={styles.form}
+        className={`${styles.form} ${isRegister ? styles.register : ''}`}
         noValidate
         aria-label={isRegister ? 'Регистрация по почте' : 'Вход по почте'}
         aria-busy={pending}
         onSubmit={handleSubmit}
       >
-        {notice ? <FormMessage tone={notice.tone}>{notice.text}</FormMessage> : null}
         <TextField
           ref={emailRef}
-          label="Email"
+          label="Электронная почта"
           type="email"
           name="email"
           autoComplete="email"
@@ -256,12 +183,12 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
           required
           disabled={pending}
           value={email}
-          error={emailError}
-          onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+          error={error('email')}
+          onBlur={() => setTouched((value) => ({ ...value, email: true }))}
           onChange={(event) => {
             setEmail(event.target.value)
-            setServerErrors((current) => ({ ...current, email: undefined }))
-            setNotice(null)
+            setServerErrors((value) => ({ ...value, email: undefined }))
+            clearNotice()
           }}
         />
         <TextField
@@ -273,69 +200,106 @@ export function AuthForm({ mode, initialEmail, redirectTo }: AuthFormProps) {
           required
           disabled={pending}
           value={password}
-          error={passwordError}
-          hint={isRegister ? 'От 8 до 128 символов, минимум одна буква и одна цифра' : undefined}
-          onBlur={() => setTouched((current) => ({ ...current, password: true }))}
+          error={error('password')}
+          onBlur={() => setTouched((value) => ({ ...value, password: true }))}
           onChange={(event) => {
             setPassword(event.target.value)
-            setServerErrors((current) => ({ ...current, password: undefined }))
-            setNotice(null)
+            setServerErrors((value) => ({ ...value, password: undefined }))
+            clearNotice()
           }}
         />
-        <div className={`text-caption ${styles.links}`}>
-          {isRegister ? (
-            <span className={styles.secondary}>Уже есть аккаунт?</span>
-          ) : (
-            <button
-              className={styles.link}
-              type="button"
+        {isRegister ? (
+          <>
+            <TextField
+              ref={confirmRef}
+              label="Повторите пароль"
+              type="password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              required
               disabled={pending}
-              onClick={() => {
-                setNotice({
-                  text: 'Восстановление пароля пока недоступно. Попробуйте позже.',
-                  tone: 'info',
-                })
-              }}
+              value={confirmation}
+              error={error('confirmPassword')}
+              onBlur={() => setTouched((value) => ({ ...value, confirmPassword: true }))}
+              onChange={(event) => setConfirmation(event.target.value)}
+            />
+            <p className={styles.secondary}>Не менее 8 символов. Используйте буквы и цифры.</p>
+          </>
+        ) : null}
+        {notice ? (
+          <div className={styles.feedback} data-limited={notice.limited || undefined}>
+            <FormMessage tone={notice.tone}>{notice.text}</FormMessage>
+          </div>
+        ) : null}
+        {!isRegister ? (
+          <div className={`text-caption ${styles.links}`}>
+            <button
+              type="button"
+              data-recovery-trigger
+              className={styles.link}
+              disabled={pending}
+              onClick={() => setRecovery(true)}
             >
               Забыли пароль?
             </button>
-          )}
-          <Link
-            className={styles.link}
-            to={isRegister ? paths.login : paths.register}
-            state={{ from: redirectTo, email: email.trim() }}
-            aria-disabled={pending || undefined}
-            onClick={(event) => {
-              if (pending) event.preventDefault()
-            }}
-          >
-            {isRegister ? 'Войти' : 'Создать аккаунт'}
-          </Link>
-        </div>
-        <Button type="submit" disabled={pending}>
-          <MailIcon />
+            <Link
+              className={styles.link}
+              to={paths.register}
+              state={{ from: redirectTo, email: email.trim() }}
+              aria-disabled={pending || undefined}
+              onClick={(event) => {
+                if (pending) event.preventDefault()
+              }}
+            >
+              Создать аккаунт
+            </Link>
+          </div>
+        ) : null}
+        <Button type="submit" disabled={pending || cooldown.seconds > 0}>
           {pending
             ? isRegister
               ? 'Создаём аккаунт…'
               : 'Входим…'
-            : isRegister
-              ? 'Создать аккаунт'
-              : 'Войти'}
+            : cooldown.seconds
+              ? `Повторить через ${cooldownLabel(cooldown.seconds)}`
+              : isRegister
+                ? 'Создать аккаунт'
+                : 'Войти'}
         </Button>
+        {isRegister ? (
+          <div className={`text-caption ${styles.links}`}>
+            <Link
+              className={styles.link}
+              to={paths.login}
+              state={{ from: redirectTo, email: email.trim() }}
+              aria-disabled={pending || undefined}
+              onClick={(event) => {
+                if (pending) event.preventDefault()
+              }}
+            >
+              Уже есть аккаунт? Войти
+            </Link>
+          </div>
+        ) : null}
         {pending ? (
           <span className="visually-hidden" role="status">
             {isRegister ? 'Создаём аккаунт' : 'Выполняется вход'}
           </span>
         ) : null}
       </form>
-      <p className={`text-caption ${styles.privacy}`}>
-        <ShieldCheckIcon size={16} />
-        <span>
-          {isRegister
-            ? 'Пришлём письмо для подтверждения почты. Данные передаются в зашифрованном виде.'
-            : 'Новый аккаунт? Пришлём письмо для подтверждения почты. Данные передаются в зашифрованном виде.'}
-        </span>
-      </p>
+      {isRegister ? (
+        <p className={styles.secondary}>
+          После регистрации отправим письмо для подтверждения почты.
+        </p>
+      ) : (
+        <p className={`text-caption ${styles.privacy}`}>
+          <ShieldCheckIcon size={16} />
+          <span>
+            Данные передаются в зашифрованном виде. Ваши настройки и задачи доступны только вам.
+          </span>
+        </p>
+      )}
+      {recovery ? <RecoveryDialog initialEmail={email} onClose={() => setRecovery(false)} /> : null}
     </>
   )
 }

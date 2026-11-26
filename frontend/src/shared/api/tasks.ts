@@ -1,4 +1,10 @@
-import type { TaskCreateRequest, TaskListQuery, TaskUpdateRequest } from '@/shared/model/task'
+import type {
+  TaskCreateRequest,
+  TaskListQuery,
+  TaskUpdateRequest,
+  TaskPlacementRequest,
+  TaskStartRequest,
+} from '@/shared/model/task'
 import { http } from './http'
 import { readTask, readTaskList } from './planningValidation'
 
@@ -81,3 +87,48 @@ export const skipTask = (id: string, version: number, signal?: AbortSignal) =>
   changeStatus(id, version, 'skip', signal)
 export const reopenTask = (id: string, version: number, signal?: AbortSignal) =>
   changeStatus(id, version, 'reopen', signal)
+
+async function placeTask(
+  id: string,
+  command: 'pin' | 'move',
+  body: TaskPlacementRequest,
+  signal?: AbortSignal,
+) {
+  return readTask(
+    await http<unknown>(`/tasks/${encodeURIComponent(id)}/${command}`, {
+      method: 'POST',
+      body,
+      signal,
+    }),
+  )
+}
+
+export const pinTask = (id: string, body: TaskPlacementRequest, signal?: AbortSignal) =>
+  placeTask(id, 'pin', body, signal)
+export const moveTask = (id: string, body: TaskPlacementRequest, signal?: AbortSignal) =>
+  placeTask(id, 'move', body, signal)
+
+export async function unpinTask(
+  id: string,
+  version: number,
+  scheduleVersion: number,
+  signal?: AbortSignal,
+) {
+  return readTask(
+    await http<unknown>(`/tasks/${encodeURIComponent(id)}/pin`, {
+      method: 'DELETE',
+      query: { version, schedule_version: scheduleVersion },
+      signal,
+    }),
+  )
+}
+
+export async function startTask(id: string, body: TaskStartRequest, signal?: AbortSignal) {
+  return readTask(
+    await http<unknown>(`/tasks/${encodeURIComponent(id)}/start-now`, {
+      method: 'POST',
+      body,
+      signal,
+    }),
+  )
+}

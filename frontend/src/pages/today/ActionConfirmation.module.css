@@ -1,0 +1,92 @@
+.dialog {
+  position: fixed;
+  inset: auto 0 auto;
+  top: calc(var(--dialog-viewport-top, 0px) + var(--dialog-viewport-height, 100dvh) / 2);
+  transform: translateY(-50%);
+  width: min(432px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(var(--dialog-viewport-height, 100dvh) - 32px);
+  margin: 0 auto;
+  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+.dialog::backdrop {
+  background: var(--bg-scrim);
+  backdrop-filter: blur(4px);
+}
+.dialog h2 {
+  font: 600 22px / 28px var(--font-sans);
+  letter-spacing: -0.22px;
+}
+.dialog > * + * {
+  margin-top: 12px;
+}
+.dialog p {
+  font: 400 15px / 22px var(--font-sans);
+  overflow-wrap: anywhere;
+}
+.secondary {
+  color: var(--text-secondary);
+}
+.stack {
+  display: grid;
+  gap: 12px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.actions > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+}
+.stack > button {
+  width: 100%;
+  min-height: 44px;
+}
+.actions .danger[data-variant='primary'] {
+  background: var(--status-danger);
+  color: var(--text-on-accent);
+}
+.actions .danger[data-variant='primary']:hover:enabled {
+  background: var(--status-danger);
+  filter: brightness(0.9);
+}
+.dialog[data-wide] {
+  width: min(680px, calc(100% - 32px));
+  padding: 28px;
+}
+.changes {
+  display: grid;
+}
+.changes li {
+  padding: 16px 0;
+  border-top: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+.changes strong {
+  display: block;
+  font: 500 15px / 22px var(--font-sans);
+}
+.changes p {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.changes time {
+  font: 400 13px / 20px var(--font-mono);
+}
+@media (max-width: 560px) {
+  .dialog[data-wide] {
+    padding: 20px;
+  }
+  .actions {
+    flex-direction: column-reverse;
+  }
+}

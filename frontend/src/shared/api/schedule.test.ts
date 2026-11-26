@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 import type { SavedSchedule } from '@/shared/model/schedule'
 import { HttpError } from './http'
 import { apiProblem } from './errors'
-import { getSchedule } from './schedule'
+import { getSchedule, getScheduleDetails, replanSchedule } from './schedule'
+import { planningDetails } from '@/test/planningDetails'
 
 const fixtures = JSON.parse(
   readFileSync(
@@ -24,6 +25,47 @@ const fixtures = JSON.parse(
 }
 
 describe('saved schedule API contract', () => {
+  it('reads explanations and recommendations together from the details endpoint', async () => {
+    const details = planningDetails(fixtures.day_with_tasks)
+    const request = vi.fn<typeof fetch>(async () => Response.json(details))
+    vi.stubGlobal('fetch', request)
+    expect(await getScheduleDetails(details.schedule.planned_date)).toEqual(details)
+    expect(new URL(String(request.mock.calls[0][0])).pathname).toMatch(/\/schedule\/details$/)
+    expect(request.mock.calls[0][1]?.cache).toBe('no-store')
+  })
+
+  it.each([
+    'missing_explanations',
+    'wrong_date',
+    'unknown_task',
+    'same_target',
+    'duplicate_placement',
+    'wrong_interval',
+  ])('rejects inconsistent planner details: %s', async (error) => {
+    const details = planningDetails(fixtures.day_with_tasks)
+    const task = details.placement_explanations[0]
+    if (error === 'missing_explanations') details.placement_explanations = []
+    if (error === 'wrong_date') task.planned_date = '2026-11-01'
+    if (error === 'duplicate_placement') details.placement_explanations.push({ ...task })
+    if (error === 'wrong_interval') task.end_at = task.start_at
+    if (error === 'unknown_task' || error === 'same_target')
+      details.recommendations = [
+        {
+          task_id: error === 'unknown_task' ? '10000000-0000-4000-8000-000000000099' : task.task_id,
+          from_date: details.schedule.planned_date,
+          to_date: error === 'same_target' ? details.schedule.planned_date : '2026-12-01',
+          reason_code: 'DAY_OVERLOADED',
+          explanation: 'Проверенное предложение переноса.',
+        },
+      ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(details)),
+    )
+    await expect(getScheduleDetails(details.schedule.planned_date)).rejects.toThrow(
+      'некорректные данные',
+    )
+  })
   it.each([fixtures.day_with_tasks, fixtures.empty_day])(
     'reads a backend contract example: $planned_date',
     async (saved) => {
@@ -93,5 +135,22 @@ describe('saved schedule API contract', () => {
       vi.fn(async () => Response.json(fixtures.day_with_tasks)),
     )
     await expect(getSchedule('2026-11-19')).rejects.toThrow('другую дату')
+  })
+
+  it.each([
+    { ...fixtures.day_with_tasks, planned_date: '2026-11-19' },
+    { ...fixtures.day_with_tasks, version: 1 },
+    { ...fixtures.day_with_tasks, slots: null },
+  ])('rejects an unrelated, stale or malformed replan result %#', async (saved) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ schedule: saved })),
+    )
+    await expect(replanSchedule('2026-11-18', 1)).rejects.toThrow()
+  })
+
+  it.each([-1, 1.5, NaN])('does not submit an invalid replan version %s', async (version) => {
+    await expect(replanSchedule('2026-11-18', version)).rejects.toThrow(RangeError)
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

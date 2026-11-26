@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   CalendarIcon,
   CheckIcon,
+  ClockIcon,
   ChevronDownIcon,
   CoffeeIcon,
   GripVerticalIcon,
@@ -17,6 +18,7 @@ import {
 } from '@/shared/ui/icon/icons'
 import { buildTimeline, SYSTEM_SLOT_LABELS, timelineClock, timelineDuration } from './timelineModel'
 import styles from './DailyTimeline.module.css'
+import type { TodayWindow } from './todayWindowsModel'
 
 type DailyTimelineProps = {
   day: DailySchedule
@@ -25,6 +27,7 @@ type DailyTimelineProps = {
   selectedTaskId?: string | null
   onCreateTask?: (date: string, preferredStart?: string) => void
   onImportCalendar?: () => void
+  windows?: TodayWindow[]
 }
 
 function taskCount(count: number) {
@@ -58,6 +61,7 @@ function TimelineContent({
   selectedTaskId,
   onCreateTask,
   onImportCalendar,
+  windows = [],
 }: DailyTimelineProps) {
   const now = useTimelineClock(fixedNow)
   const [showCompleted, setShowCompleted] = useState(false)
@@ -65,6 +69,8 @@ function TimelineContent({
   let timeline: ReturnType<typeof buildTimeline>
   try {
     timeline = buildTimeline(day, showCompleted, now)
+    if (!day.tasks.length && !day.slots.some((slot) => slot.kind === 'history'))
+      timeline = buildTimeline({ ...day, slots: [] }, showCompleted, now)
   } catch (error) {
     return (
       <section className={styles.error} role="alert">
@@ -84,7 +90,9 @@ function TimelineContent({
   const completedCount = day.tasks.filter((task) => task.status === 'done').length
   const completedPlural = new Intl.PluralRules('ru-RU').select(completedCount)
   const completedLabel = `${taskCount(completedCount)} ${completedPlural === 'one' ? 'выполнена' : completedPlural === 'few' ? 'выполнены' : 'выполнено'}`
-  const empty = day.slots.length === 0
+  const empty =
+    (!day.tasks.length && !day.slots.some((slot) => slot.kind === 'history')) ||
+    day.slots.length === 0
   const withoutSlots = day.tasks.filter((task) => !taskIds.has(task.id))
   const unplaced = withoutSlots.filter(
     (task) => task.status !== 'done' && task.status !== 'skipped',
@@ -104,28 +112,32 @@ function TimelineContent({
             План на день
           </h2>
           <p className={styles.subtitle}>
-            {taskCount(day.tasks.length)} · {timelineDuration(timeline.scheduledMinutes)}{' '}
-            запланировано
+            {taskCount(day.tasks.length)}
+            {day.tasks.length
+              ? ` · ${timelineDuration(timeline.scheduledMinutes)} запланировано`
+              : ''}
           </p>
         </div>
-        <div className={styles.legend} aria-label="Обозначения на шкале">
-          <span>
-            <SparklesIcon size={14} /> поставлено алгоритмом
-          </span>
-          <span>
-            <LockIcon size={14} /> закреплено
-          </span>
-          <span>
-            <span className={styles.cycleKey} aria-hidden="true">
-              <i />
-              <i />
-              <i />
+        {day.tasks.length ? (
+          <div className={styles.legend} aria-label="Обозначения на шкале">
+            <span>
+              <SparklesIcon size={14} /> поставлено алгоритмом
             </span>
-            окна по циклам
-          </span>
-        </div>
+            <span>
+              <LockIcon size={14} /> закреплено
+            </span>
+            <span>
+              <span className={styles.cycleKey} aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              окна по циклам
+            </span>
+          </div>
+        ) : null}
       </header>
-      {firstCompleted && lastCompleted ? (
+      {!day.tasks.length ? null : firstCompleted && lastCompleted ? (
         <button
           className={styles.completed}
           type="button"
@@ -152,6 +164,19 @@ function TimelineContent({
       )}
       <div id={`${id}-scale`} className={styles.scale} style={{ height: timeline.height + 24 }}>
         <div className={styles.rail} aria-hidden="true" style={{ height: timeline.height }}>
+          {!day.tasks.length
+            ? windows.map((window, index) => (
+                <span
+                  key={index}
+                  className={styles.railSegment}
+                  data-type={window.type}
+                  style={{
+                    top: timeline.position(window.start),
+                    height: timeline.position(window.end) - timeline.position(window.start),
+                  }}
+                />
+              ))
+            : null}
           {timeline.rows.map(({ slot, task, top, height }) => (
             <span
               key={slot.id}
@@ -239,18 +264,20 @@ function TimelineContent({
                   : slot.is_pinned
                     ? 'Время закреплено'
                     : 'Поставлена алгоритмом'
-            const accessible = `${label}. ${range(start, end)}. ${timelineDuration(duration)}. ${task ? `${TASK_TYPES[task.type]}. ${state}.` : 'Системный интервал.'}`
+            const accessible = `${label}. ${range(start, end)}. ${timelineDuration(duration)}. ${task ? `${TASK_TYPES[task.type]}. ${state}.` : slot.kind === 'history' ? 'Прошедший интервал сохранён в истории дня.' : 'Системный интервал.'}`
             const Marker = task
               ? task.status === 'done'
                 ? CheckIcon
                 : slot.is_pinned
                   ? LockIcon
                   : SparklesIcon
-              : slot.kind === 'rest'
-                ? MoonIcon
-                : slot.kind === 'lunch'
-                  ? PlusIcon
-                  : CoffeeIcon
+              : slot.kind === 'history'
+                ? ClockIcon
+                : slot.kind === 'rest'
+                  ? MoonIcon
+                  : slot.kind === 'lunch'
+                    ? PlusIcon
+                    : CoffeeIcon
             const content = (
               <>
                 <div className={styles.cardContent}>
@@ -264,7 +291,9 @@ function TimelineContent({
                         ? TASK_TYPES[task.type].toLowerCase()
                         : slot.kind === 'lunch'
                           ? 'рутина'
-                          : 'отдых'}
+                          : slot.kind === 'history'
+                            ? 'история дня'
+                            : 'отдых'}
                     </span>
                   </span>
                 </div>
@@ -320,18 +349,26 @@ function TimelineContent({
           })}
         </ol>
         {empty ? (
-          <div className={styles.empty} role="status">
+          <div
+            className={styles.empty}
+            role="status"
+            style={
+              timeline.now && timeline.now.top < timeline.height - 400
+                ? { top: Math.max(96, timeline.now.top + 38) }
+                : undefined
+            }
+          >
             <CalendarIcon size={24} />
             <h3 className="text-heading">
               {unplaced.length
                 ? 'Задачи пока не распределены'
                 : finished.length
                   ? 'Нет запланированных интервалов'
-                  : 'На этот день задач нет'}
+                  : 'На сегодня задач нет'}
             </h3>
             <p>
               {unplaced.length
-                ? 'Найдите задачу через поиск, чтобы изменить параметры планирования.'
+                ? 'Задачи без времени — под расписанием. Откройте задачу, чтобы увидеть причину и изменить параметры.'
                 : finished.length
                   ? 'Выполненные и пропущенные задачи доступны через поиск.'
                   : 'Добавьте задачу — подберём для неё подходящее время в течение дня.'}

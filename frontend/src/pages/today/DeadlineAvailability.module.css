@@ -1,0 +1,12 @@
+.warning h3 {
+  font: 600 17px / 24px var(--font-sans);
+}
+.warning p {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+  overflow-wrap: anywhere;
+}
+.warning p + p {
+  margin-top: 8px;
+}

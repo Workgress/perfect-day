@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { cx } from '@/shared/lib/cx'
 import { localDate } from '@/shared/lib/dateTime'
+import { plannerExplanation } from '@/shared/lib/plannerText'
 import {
   TASK_TYPES,
   type TaskDraft,
@@ -37,6 +38,8 @@ import {
 } from '@/shared/ui/icon/icons'
 import * as Segment from '@/shared/ui/segment/Segment'
 import { Toggle } from '@/shared/ui/toggle/Toggle'
+import { TaskTimeChooser } from './TaskTimeChooser'
+import { DeadlineAvailability } from './DeadlineAvailability'
 import {
   DURATION_PRESETS,
   TASK_TYPE_HINTS,
@@ -75,6 +78,7 @@ type TaskFormProps = {
   suggestion?: TaskTimeSuggestion | null
   onChange?: () => void
   apiConnected?: boolean
+  allowPinning?: boolean
   isSubmitting?: boolean
   submissionError?: string | null
   serverErrors?: TaskFormErrors
@@ -203,6 +207,7 @@ export function TaskForm({
   suggestion,
   onChange,
   apiConnected = false,
+  allowPinning = false,
   isSubmitting = false,
   submissionError,
   feedback,
@@ -219,10 +224,14 @@ export function TaskForm({
   const [touched, setTouched] = useState<Partial<Record<keyof TaskFormValues, boolean>>>({})
   const [nativeErrors, setNativeErrors] = useState<TaskFormErrors>({})
   const [expandedByUser, setExpanded] = useState(false)
+  const [choosingTime, setChoosingTime] = useState(false)
   const expanded =
     expandedByUser ||
     Boolean(
-      serverErrors?.priority || serverErrors?.plannedDate || (mobile && serverErrors?.description),
+      serverErrors?.priority ||
+      serverErrors?.plannedDate ||
+      (allowPinning && serverErrors?.pinnedStartLocal) ||
+      (mobile && serverErrors?.description),
     )
   const [settings, setSettings] = useState(
     () =>
@@ -292,8 +301,15 @@ export function TaskForm({
     if (submitted || dirtyFields.current.has(field))
       setTouched((current) => ({ ...current, [field]: true }))
   }
-  const update = <K extends keyof TaskFormValues>(field: K, value: TaskFormValues[K]) => {
-    if (field === 'priority' || field === 'plannedDate' || (mobile && field === 'description'))
+  const update = <K extends keyof TaskFormValues>(
+    field: K,
+    value: TaskFormValues[K],
+    revealAdditional = true,
+  ) => {
+    if (
+      revealAdditional &&
+      (field === 'priority' || field === 'plannedDate' || (mobile && field === 'description'))
+    )
       setExpanded(true)
     dirtyFields.current.add(field)
     setValues((current) => ({
@@ -341,7 +357,7 @@ export function TaskForm({
         result.errors.priority ||
         result.errors.preferredStart ||
         result.errors.plannedDate ||
-        (mobile && result.errors.pinnedStartLocal) ||
+        ((mobile || allowPinning) && result.errors.pinnedStartLocal) ||
         Object.keys(settingsResult.errors).length
       )
         setExpanded(true)
@@ -639,6 +655,84 @@ export function TaskForm({
     </fieldset>
   )
 
+  const setPinning = (checked: boolean) => {
+    if (checked && apiConnected && allowPinning) {
+      setExpanded(true)
+      setChoosingTime(true)
+      return
+    }
+    update('isPinned', checked)
+    if (!checked) setChoosingTime(false)
+    if (checked && !values.pinnedStartLocal)
+      setValues((current) => ({ ...current, pinnedStartLocal: `${current.plannedDate}T` }))
+  }
+
+  const exactTimeField = (
+    <div className={styles.field}>
+      <p id={`${id}-desired-label`} className={styles.label}>
+        Желаемое время <span>необязательно</span>
+      </p>
+      <button
+        type="button"
+        data-task-time-trigger
+        className={styles.timeTrigger}
+        aria-labelledby={`${id}-desired-label ${id}-desired-value`}
+        aria-expanded={choosingTime}
+        onClick={() => setChoosingTime((current) => !current)}
+      >
+        <ClockIcon size={18} />
+        <span id={`${id}-desired-value`}>
+          {values.isPinned && values.pinnedStartLocal
+            ? values.pinnedStartLocal.replace('T', ' · ')
+            : 'Не важно — подберём сами'}
+        </span>
+        <ChevronRightIcon size={16} />
+      </button>
+      {choosingTime ? (
+        <TaskTimeChooser
+          context={context}
+          date={values.plannedDate}
+          duration={values.durationMin}
+          type={values.type}
+          deadline={values.deadlineLocal}
+          value={values.isPinned ? values.pinnedStartLocal : ''}
+          mobile={mobile}
+          onClose={() => setChoosingTime(false)}
+          onSelect={(value) => {
+            update('plannedDate', value.slice(0, 10), false)
+            update('pinnedStartLocal', value)
+            update('isPinned', true)
+          }}
+        />
+      ) : values.isPinned ? (
+        <>
+          <DateTimeField
+            label="Начало задачи"
+            dateLabel="Дата начала"
+            timeLabel="Время начала"
+            field="pinnedStartLocal"
+            value={values.pinnedStartLocal}
+            min={today}
+            required
+            error={error('pinnedStartLocal')}
+            onChange={(value) => {
+              update('pinnedStartLocal', value)
+              if (value.slice(0, 10) && value.slice(0, 10) !== values.plannedDate)
+                update('plannedDate', value.slice(0, 10), false)
+            }}
+            onBlur={() => touch('pinnedStartLocal')}
+          />
+          <p className={styles.hint}>
+            Выбранное время будет закреплено. Рабочий день: {context.workStart}–{context.workEnd}.
+          </p>
+          <button type="button" className={styles.chooseTime} onClick={() => setPinning(false)}>
+            Подобрать время автоматически
+          </button>
+        </>
+      ) : null}
+    </div>
+  )
+
   const pinField = (
     <div className={styles.pinning}>
       <div className={styles.pinRow}>
@@ -649,38 +743,42 @@ export function TaskForm({
           </p>
           <p id={`${id}-pin-hint`} className={styles.hint}>
             {apiConnected
-              ? 'Закрепление времени пока недоступно.'
+              ? allowPinning
+                ? 'Задача начнётся в выбранное время и не будет сдвигаться при пересчёте.'
+                : 'Закрепить или изменить время можно в открытой карточке сохранённой задачи.'
               : 'Алгоритм не будет сдвигать задачу при пересчёте дня'}
           </p>
         </div>
         <Toggle
           checked={values.isPinned}
-          disabled={apiConnected}
+          disabled={apiConnected && !allowPinning}
           aria-labelledby={`${id}-pin-label`}
           aria-describedby={`${id}-pin-hint`}
-          onCheckedChange={(checked) => {
-            update('isPinned', checked)
-            if (checked && !values.pinnedStartLocal)
-              setValues((current) => ({ ...current, pinnedStartLocal: `${current.plannedDate}T` }))
-          }}
+          onCheckedChange={setPinning}
         />
       </div>
-      {values.isPinned ? (
-        <DateTimeField
-          label="Начало задачи"
-          dateLabel="Дата закрепления"
-          timeLabel="Время закрепления"
-          field="pinnedStartLocal"
-          value={values.pinnedStartLocal}
-          min={today}
-          required
-          error={error('pinnedStartLocal')}
-          onChange={(value) => {
-            update('pinnedStartLocal', value)
-            if (value.slice(0, 10)) update('plannedDate', value.slice(0, 10))
-          }}
-          onBlur={() => touch('pinnedStartLocal')}
-        />
+      {values.isPinned && !(apiConnected && allowPinning) ? (
+        <>
+          <DateTimeField
+            label="Начало задачи"
+            dateLabel="Дата закрепления"
+            timeLabel="Время закрепления"
+            field="pinnedStartLocal"
+            value={values.pinnedStartLocal}
+            min={today}
+            required
+            error={error('pinnedStartLocal')}
+            onChange={(value) => {
+              update('pinnedStartLocal', value)
+              if (value.slice(0, 10) && value.slice(0, 10) !== values.plannedDate)
+                update('plannedDate', value.slice(0, 10), false)
+            }}
+            onBlur={() => touch('pinnedStartLocal')}
+          />
+          <p className={styles.hint}>
+            Рабочий день: {context.workStart}–{context.workEnd}. Часовой пояс: {context.timezone}.
+          </p>
+        </>
       ) : null}
     </div>
   )
@@ -813,6 +911,7 @@ export function TaskForm({
             />
           ) : null}
           {deadlineField}
+          {mobile && apiConnected && allowPinning ? pinField : null}
           {!mobile ? (
             <>
               {repeatField}
@@ -825,17 +924,22 @@ export function TaskForm({
               className={styles.disclosure}
               aria-expanded={expanded}
               aria-controls={`${id}-additional`}
-              onClick={() => setExpanded((current) => !current)}
+              onClick={() => {
+                setExpanded((current) => !current)
+                setChoosingTime(false)
+              }}
             >
               <ChevronDownIcon size={mobile ? 18 : 16} />
               <span>
                 {mobile
                   ? 'Дополнительно'
-                  : `${expanded ? 'Свернуть' : 'Ещё'}: ${apiConnected ? 'приоритет, день задачи' : 'приоритет, время, напоминание'}`}
+                  : `${expanded ? 'Свернуть' : 'Ещё'}: ${apiConnected ? (allowPinning ? 'приоритет, день задачи, время' : 'приоритет, день задачи') : 'приоритет, время, напоминание'}`}
                 {mobile && !expanded ? (
                   <span className={styles.disclosureHint}>
                     {apiConnected
-                      ? 'Приоритет, день задачи, описание'
+                      ? allowPinning
+                        ? 'Приоритет, день задачи, желаемое время, описание'
+                        : 'Приоритет, день задачи, описание'
                       : 'Приоритет, желаемое время, повтор, закрепление'}
                   </span>
                 ) : null}
@@ -857,18 +961,34 @@ export function TaskForm({
                   onBlur={() => touch('plannedDate')}
                 />
               ) : null}
-              {preferredField}
+              {apiConnected && allowPinning ? exactTimeField : preferredField}
               {mobile ? (
                 <>
                   {repeatField}
-                  {pinField}
+                  {apiConnected && allowPinning ? null : pinField}
                 </>
               ) : null}
               {reminderField}
               {mobile ? descriptionField : null}
             </div>
           </div>
-          {mode === 'create' ? (
+          {mode === 'create' &&
+          apiConnected &&
+          values.deadlineLocal &&
+          values.durationMin &&
+          values.type &&
+          !values.isPinned ? (
+            <DeadlineAvailability
+              context={context}
+              date={values.plannedDate}
+              duration={values.durationMin}
+              deadline={values.deadlineLocal}
+              now={clock}
+            />
+          ) : null}
+          {mode === 'create' &&
+          !(apiConnected && values.deadlineLocal) &&
+          !(apiConnected && allowPinning && values.isPinned) ? (
             <section
               className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
               aria-label="Предложенное время"
@@ -885,7 +1005,9 @@ export function TaskForm({
                         minute: '2-digit',
                       }).format(new Date(suggestion.endsAt))}
                     </p>
-                    <p className={styles.suggestionText}>{suggestion.explanation}</p>
+                    <p className={styles.suggestionText}>
+                      {plannerExplanation(suggestion.explanation)}
+                    </p>
                     <button
                       type="button"
                       className={styles.chooseTime}
@@ -907,7 +1029,7 @@ export function TaskForm({
                     {!mobile ? <p className="text-label">Подберём лучшее окно</p> : null}
                     <p className={styles.suggestionText}>
                       {apiConnected
-                        ? 'Укажите название, тип и длительность — подберём время с учётом биоритмов и свободных окон.'
+                        ? 'Подберём время с учётом биоритмов и свободных окон. Если в выбранный день нет места, попробуем перенести задачу на другой день с учётом срока.'
                         : values.title.trim() && values.type && values.durationMin
                           ? 'Время ещё не рассчитано. Подберём окно по вашим биоритмам и хронотипу и покажем изменения перед применением.'
                           : 'Укажите название, тип и длительность — подберём лучшее окно по вашим биоритмам и хронотипу.'}
@@ -1008,10 +1130,16 @@ export function TaskForm({
           )}
           {isSubmitting ? (
             <span role="status">
-              {mode === 'edit' ? 'Сохраняем изменения…' : 'Добавляем задачу…'}
+              {mode === 'edit'
+                ? 'Сохраняем изменения…'
+                : values.isPinned && allowPinning
+                  ? 'Добавляем и закрепляем…'
+                  : 'Добавляем задачу…'}
             </span>
           ) : mode === 'edit' ? (
             (submitLabel ?? 'Сохранить изменения')
+          ) : values.isPinned && allowPinning ? (
+            'Добавить и закрепить'
           ) : (
             'Добавить и распределить'
           )}
@@ -1019,7 +1147,9 @@ export function TaskForm({
         {mobile && mode === 'create' ? (
           <p className={styles.actionHint}>
             {apiConnected
-              ? 'Распределим по свободным окнам вашего дня.'
+              ? values.isPinned && allowPinning
+                ? 'Проверим выбранный интервал и закрепим время.'
+                : 'Подберём свободное окно, при необходимости — в другой день.'
               : 'Перед применением покажем, что изменится в плане.'}
           </p>
         ) : null}
