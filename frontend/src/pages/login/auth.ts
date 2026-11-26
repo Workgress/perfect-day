@@ -1,12 +1,12 @@
 import { paths } from '@/app/router/paths'
 import type { SessionUser } from '@/stores/session'
-import { requestTokens } from '@/shared/api/auth'
+import { requestTokens, withSessionLock } from '@/shared/api/auth'
 import { http, HttpError } from '@/shared/api/http'
 import { apiError } from '@/shared/api/errors'
 
 export type AuthMode = 'login' | 'register'
 export type AuthCredentials = { email: string; password: string }
-export type AuthFieldErrors = Partial<Record<keyof AuthCredentials, string>>
+export type AuthFieldErrors = Partial<Record<keyof AuthCredentials | 'confirmPassword', string>>
 export type AuthResult =
   | {
       status: 'authenticated'
@@ -28,7 +28,11 @@ export class AuthError extends Error {
   }
 }
 
-export function validateCredentials(credentials: AuthCredentials, mode: AuthMode): AuthFieldErrors {
+export function validateCredentials(
+  credentials: AuthCredentials,
+  mode: AuthMode,
+  confirmation?: string,
+): AuthFieldErrors {
   const errors: AuthFieldErrors = {}
   const email = credentials.email.trim()
 
@@ -42,6 +46,10 @@ export function validateCredentials(credentials: AuthCredentials, mode: AuthMode
     else if (length > 128) errors.password = 'Используйте не более 128 символов'
     else if (!/\p{L}/u.test(credentials.password) || !/\p{N}/u.test(credentials.password))
       errors.password = 'Добавьте хотя бы одну букву и одну цифру'
+  }
+  if (mode === 'register' && confirmation !== undefined) {
+    if (!confirmation) errors.confirmPassword = 'Повторите пароль.'
+    else if (credentials.password !== confirmation) errors.confirmPassword = 'Пароли не совпадают.'
   }
 
   return errors
@@ -57,7 +65,15 @@ export function getAuthRedirectPath(from: unknown): string {
     return paths.today
   }
   const pathname = from.split(/[?#]/u)[0]
-  return pathname === paths.login || pathname === paths.register ? paths.today : from
+  return [
+    paths.login,
+    paths.register,
+    paths.verifyEmail,
+    paths.verificationSent,
+    paths.resetPassword,
+  ].some((path) => path === pathname)
+    ? paths.today
+    : from
 }
 
 export async function submitAuth(
@@ -116,13 +132,48 @@ export function normalizeAuthError(error: unknown): Error {
   for (const field of body?.error?.details?.fields ?? []) {
     const key = field.field.split('.').at(-1)
     if (key === 'email' || key === 'username') fields.email = field.message
-    if (key === 'password') fields.password = field.message
+    if (key === 'password' || key === 'new_password') fields.password = field.message
   }
-  const retryAfter = error instanceof HttpError ? Number(error.headers.get('Retry-After')) : 0
+  const header = error instanceof HttpError ? error.headers.get('Retry-After') : null
+  const retryAfter =
+    header === null
+      ? 0
+      : /^\d+$/.test(header)
+        ? Number(header)
+        : Math.ceil((Date.parse(header) - Date.now()) / 1000)
   return new AuthError(
     apiError(error),
     fields,
     body?.error?.code,
     Number.isFinite(retryAfter) ? Math.max(0, retryAfter) : 0,
   )
+}
+
+export async function requestPasswordRecovery(email: string, signal: AbortSignal) {
+  try {
+    await http('/auth/password/forgot', {
+      method: 'POST',
+      body: { email: email.trim() },
+      auth: false,
+      signal,
+    })
+  } catch (error) {
+    throw normalizeAuthError(error)
+  }
+}
+
+export async function resetPassword(token: string, password: string, signal: AbortSignal) {
+  try {
+    await withSessionLock(() => {
+      signal.throwIfAborted()
+      return http<void>('/auth/password/reset', {
+        method: 'POST',
+        body: { token, new_password: password },
+        auth: false,
+        signal,
+      })
+    })
+  } catch (error) {
+    throw normalizeAuthError(error)
+  }
 }

@@ -10,7 +10,31 @@
 }
 
 .form {
-  gap: 28px;
+  gap: 20px;
+}
+.form.register {
+  gap: 24px;
+}
+.form > button {
+  min-height: 44px;
+}
+.feedback > [data-tone] {
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: 400 15px / 22px var(--font-sans);
+}
+.feedback[data-limited] > [data-tone] {
+  background: var(--bg-surface);
+}
+@media (max-width: 560px) {
+  .form input {
+    font-size: 16px;
+  }
+  .link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 .divider {

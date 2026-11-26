@@ -40,8 +40,20 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: paths.resetPassword,
+        lazy: async () => ({
+          Component: (await import('@/pages/login/ResetPasswordPage')).ResetPasswordPage,
+        }),
+      },
+      {
         element: <GuestOnly />,
         children: [
+          {
+            path: paths.verificationSent,
+            lazy: async () => ({
+              Component: (await import('@/pages/login/EmailSentPage')).EmailSentPage,
+            }),
+          },
           {
             path: paths.login,
             lazy: async () => ({ Component: (await import('@/pages/login/LoginPage')).LoginPage }),

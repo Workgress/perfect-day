@@ -85,6 +85,20 @@
 .description {
   color: var(--text-secondary);
 }
+.page[data-account] .content {
+  margin-top: 0;
+}
+.page[data-account] .body {
+  gap: 24px;
+  margin-top: 24px;
+}
+.page[data-account] .intro {
+  gap: 12px;
+  padding-top: 24px;
+}
+.page[data-auth]:not([data-account]) .body {
+  gap: 20px;
+}
 
 @media (max-width: 960px) {
   .page,
@@ -135,5 +149,30 @@
     font-size: 30px;
     line-height: 36px;
     letter-spacing: -1px;
+  }
+  .page[data-auth] {
+    padding: 64px 16px 32px;
+  }
+  .page[data-auth] .brand {
+    padding-left: 8px;
+  }
+  .page[data-auth] .header {
+    gap: 0;
+  }
+  .page[data-auth] .progress {
+    justify-content: flex-start;
+  }
+  .page[data-auth] .intro {
+    padding-top: 0;
+  }
+  .page[data-auth] .body {
+    margin-top: 28px;
+  }
+  .page[data-auth] .intro .title {
+    font: 600 22px / 28px var(--font-sans);
+    letter-spacing: -0.22px;
+  }
+  .page[data-auth] .preview {
+    display: none;
   }
 }

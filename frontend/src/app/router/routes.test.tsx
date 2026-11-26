@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+﻿import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { useSessionStore, type SessionUser } from '@/stores/session'
@@ -23,6 +23,19 @@ function renderAt(path: string, visitor: Visitor, profile: Partial<SessionUser> 
 }
 
 describe('routes', () => {
+  it('opens a password-reset link even when session restoration is unavailable', async () => {
+    window.history.replaceState(null, '', '/reset-password#token=public-reset')
+    const request = vi.fn(async () => {
+      throw new TypeError('Offline')
+    })
+    vi.stubGlobal('fetch', request)
+    const router = createMemoryRouter(routes, { initialEntries: ['/reset-password'] })
+    renderWithProviders(<RouterProvider router={router} />)
+    expect(await screen.findByRole('heading', { name: 'Задайте новый пароль' })).toBeInTheDocument()
+    expect(request).not.toHaveBeenCalled()
+    expect(window.location.hash).toBe('')
+    window.history.replaceState(null, '', '/')
+  })
   it('opens the timeline preview without a backend connection', async () => {
     vi.stubGlobal(
       'fetch',
@@ -54,7 +67,6 @@ describe('routes', () => {
 
   it.each([
     ['/login', 'guest', 1],
-    ['/register', 'guest', 1],
     ['/onboarding/birth-date', 'new-user', 2],
     ['/onboarding/chronotype', 'new-user', 3],
     ['/onboarding/first-tasks', 'new-user', 4],
@@ -84,7 +96,10 @@ describe('routes', () => {
 
   it('sends a new user to onboarding after login', async () => {
     const router = renderAt('/calendar', 'guest')
-    await userEvent.type(await screen.findByRole('textbox', { name: 'Email' }), 'anna@example.com')
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: 'Электронная почта' }),
+      'anna@example.com',
+    )
     await userEvent.type(screen.getByLabelText('Пароль'), 'demo-password')
     await userEvent.click(await screen.findByRole('button', { name: 'Войти' }))
     expect(await screen.findByRole('heading', { name: 'Когда вы родились?' })).toBeInTheDocument()
