@@ -99,8 +99,6 @@ export function TodayPage() {
           </Button>
         </div>
       </header>
-      <TodayEnergyProfile date={date} />
-      <TodayCriticalDays date={date} />
       {created?.generation === generation ? (
         <div className={styles.notice} role="status">
           <CheckIcon size={18} />
@@ -139,6 +137,8 @@ export function TodayPage() {
         </div>
       ) : null}
       <TodayTimeline date={date} search={search} />
+      <TodayEnergyProfile date={date} />
+      <TodayCriticalDays date={date} />
       <Outlet />
       {notice?.generation === generation ? (
         <div className={styles.notice} role="status">

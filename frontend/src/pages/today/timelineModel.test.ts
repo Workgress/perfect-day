@@ -6,6 +6,16 @@ const now = new Date('2026-11-11T04:42:00Z')
 const normal = DAILY_SCHEDULE_FIXTURES.normal
 
 describe('daily timeline geometry', () => {
+  it.each(['2026-11-10T22:34:00Z', '2026-11-11T18:34:00Z'])(
+    'keeps the current-time line on today even outside the work window: %s',
+    (at) => {
+      const instant = new Date(at)
+      const result = buildTimeline(DAILY_SCHEDULE_FIXTURES.empty, false, instant)
+      expect(result.now?.label).toBe(timelineClock(instant.getTime(), normal.timezone))
+      expect(result.start).toBeLessThanOrEqual(instant.getTime())
+      expect(result.end).toBeGreaterThanOrEqual(instant.getTime())
+    },
+  )
   it('positions slots using their actual instants at 72 pixels per hour', () => {
     const result = buildTimeline(normal, true, now)
     const exam = result.rows.find((row) => row.task?.title === 'Подготовка к экзамену')!

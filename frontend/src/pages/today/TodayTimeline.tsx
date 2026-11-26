@@ -9,6 +9,8 @@ import { useTodaySchedule } from './useTodaySchedule'
 import styles from './TodayPage.module.css'
 import dashboardStyles from './TodayDashboard.module.css'
 import { TodayPlanSummary } from './TodayPlanSummary'
+import { TodayEmptyWindows } from './TodayEmptyWindows'
+import { todayWindows } from './todayWindowsModel'
 
 export function TodayTimeline({ date, search = '' }: { date: string; search?: string }) {
   const generation = useSessionStore((state) => state.generation)
@@ -77,7 +79,7 @@ function TodayTimelineContent({
             selectedTaskId={selected}
           />
         </section>
-      ) : state.absent ? (
+      ) : state.absent && state.tasks.length ? (
         <>
           <section className={styles.planState} role="status">
             <h2 className="text-heading">Расписание на этот день ещё не сохранено</h2>
@@ -96,12 +98,19 @@ function TodayTimelineContent({
           <div className={dashboardStyles.planMain}>
             <DailyTimeline
               day={state.day}
+              windows={
+                !state.day.tasks.length ? todayWindows(state.day, user?.chronotype) : undefined
+              }
               selectedTaskId={selected}
               onTaskSelect={open}
               onCreateTask={create}
             />
           </div>
-          <TodayPlanSummary day={state.day} warnings={state.warnings} />
+          {state.day.tasks.length ? (
+            <TodayPlanSummary day={state.day} warnings={state.warnings} />
+          ) : (
+            <TodayEmptyWindows day={state.day} />
+          )}
         </div>
       ) : null}
     </div>

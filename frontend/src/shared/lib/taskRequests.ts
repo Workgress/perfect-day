@@ -12,7 +12,7 @@ const WRITABLE_FIELDS = [
 
 export class UnsupportedTaskPlacementError extends Error {
   constructor() {
-    super('Сервер пока не поддерживает изменение закрепления и желаемого времени задачи.')
+    super('Закрепление меняется в карточке задачи. Желаемое время пока недоступно.')
     this.name = 'UnsupportedTaskPlacementError'
   }
 }

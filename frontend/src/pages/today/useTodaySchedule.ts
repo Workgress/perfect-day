@@ -84,15 +84,26 @@ export function useTodaySchedule(
     (absent ? null : schedule.error) ??
     references.find((query) => query.isError)?.error
   let day: DailySchedule | undefined
-  if (!loading && !error && tasks.data && schedule.data) {
+  if (!loading && !error && tasks.data && (schedule.data || (absent && !tasks.data.length))) {
     try {
       if (!work.work_start || !work.work_end)
         throw new Error('Не удалось получить рабочее время профиля. Обновите страницу.')
-      day = dailySchedule(
-        schedule.data,
-        [...tasks.data, ...references.flatMap((query) => (query.data ? [query.data] : []))],
-        { timezone: work.timezone, work_start: work.work_start, work_end: work.work_end },
-      )
+      day = absent
+        ? {
+            date,
+            timezone: work.timezone,
+            work_start: work.work_start,
+            work_end: work.work_end,
+            schedule: null,
+            tasks: [],
+            slots: [],
+            unscheduled_task_ids: [],
+          }
+        : dailySchedule(
+            schedule.data!,
+            [...tasks.data, ...references.flatMap((query) => (query.data ? [query.data] : []))],
+            { timezone: work.timezone, work_start: work.work_start, work_end: work.work_end },
+          )
     } catch (cause) {
       error = cause
     }
@@ -110,6 +121,6 @@ export function useTodaySchedule(
         schedule.refetch(),
         ...references.map((query) => query.refetch()),
       ]),
-    warnings: schedule.data?.warnings ?? [],
+    warnings: absent ? [] : (schedule.data?.warnings ?? []),
   }
 }

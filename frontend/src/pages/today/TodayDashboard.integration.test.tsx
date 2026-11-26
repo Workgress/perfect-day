@@ -58,7 +58,25 @@ function setup(
     transferConflict: false,
     transferWait: undefined as Promise<void> | undefined,
   }
-  if (options.overloaded) state.tasks[5].type = 'creative'
+  if (options.overloaded) {
+    state.tasks[5].type = 'creative'
+    const meeting = {
+      ...state.tasks[5],
+      id: '10000000-0000-4000-8000-000000000098',
+      title: 'Рабочая встреча',
+      type: 'routine' as const,
+      priority: 'high' as const,
+    }
+    state.tasks.push(meeting)
+    state.saved.slots.push({
+      ...state.saved.slots[2],
+      id: '20000000-0000-4000-8000-000000000098',
+      task_id: meeting.id,
+      kind: 'task',
+      start_at: '2026-11-11T07:00:00Z',
+      end_at: '2026-11-11T08:00:00Z',
+    })
+  }
   if (options.noCandidate)
     state.tasks = state.tasks.map((task) => ({ ...task, deadline: '2026-11-11T18:00:00Z' }))
   const request = vi.fn<typeof fetch>(async (input, init) => {
@@ -110,6 +128,35 @@ function setup(
       const tasks = state.tasks.filter((task) => task.planned_date === url.searchParams.get('date'))
       return Response.json({ items: tasks, total: tasks.length, offset: 0, limit: 100 })
     }
+    const actionTask = state.tasks.find((item) => url.pathname.includes(`/tasks/${item.id}/`))
+    if (actionTask && (url.pathname.endsWith('/pin') || url.pathname.endsWith('/start-now'))) {
+      await state.transferWait
+      const body = init?.body ? JSON.parse(String(init.body)) : {}
+      const updated = { ...actionTask, version: actionTask.version + 1 }
+      if (url.pathname.endsWith('/pin')) {
+        updated.is_pinned = init?.method !== 'DELETE'
+        updated.pinned_start = updated.is_pinned ? body.start_at : null
+      } else updated.actual_start = new Date().toISOString()
+      state.tasks = state.tasks.map((item) => (item.id === updated.id ? updated : item))
+      state.saved.slots = state.saved.slots.map((slot) =>
+        slot.task_id === updated.id
+          ? {
+              ...slot,
+              is_pinned: updated.is_pinned,
+              ...(updated.actual_start
+                ? {
+                    start_at: updated.actual_start,
+                    end_at: new Date(
+                      Date.parse(updated.actual_start) + updated.duration_min * 60_000,
+                    ).toISOString(),
+                  }
+                : {}),
+            }
+          : slot,
+      )
+      state.saved.version++
+      return Response.json(updated)
+    }
     const task = state.tasks.find((item) => url.pathname.endsWith(`/${item.id}`))
     if (task && init?.method === 'PATCH') {
       await state.transferWait
@@ -159,6 +206,39 @@ describe('assembled Today dashboard', () => {
   })
   afterEach(() => vi.useRealTimers())
 
+  it('pins, unpins and starts directly from the nearest task card and refreshes the dashboard', async () => {
+    const { client, state, request } = setup()
+    const summary = () => screen.getByRole('complementary', { name: 'Сводка дня' })
+    await screen.findByRole('list', { name: 'Интервалы расписания' })
+    await userEvent.click(within(summary()).getByRole('button', { name: 'Закрепить' }))
+    await screen.findByText('Время закреплено')
+    expect(state.tasks[2].is_pinned).toBe(true)
+    await userEvent.click(within(summary()).getByRole('button', { name: 'Открепить' }))
+    await screen.findByText('Время откреплено')
+    await userEvent.click(within(summary()).getByRole('button', { name: 'Начать' }))
+    await waitFor(() =>
+      expect(within(summary()).getByRole('button', { name: 'Задача начата' })).toBeDisabled(),
+    )
+    expect(state.tasks[2].actual_start).toBe('2026-11-11T04:42:00.000Z')
+    const writes = request.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')
+    expect(writes).toHaveLength(3)
+    expect(JSON.parse(String(writes[0][1]?.body))).toEqual({
+      planned_date: fixture.date,
+      start_at: fixture.slots.find((slot) => slot.task_id === fixture.tasks[2].id)!.start_at,
+      version: 1,
+      schedule_versions: { [fixture.date]: 1 },
+    })
+    expect(Object.fromEntries(new URL(String(writes[1][0])).searchParams)).toEqual({
+      version: '2',
+      schedule_version: '2',
+    })
+    expect(JSON.parse(String(writes[2][1]?.body))).toEqual({
+      version: 3,
+      schedule_versions: { [fixture.date]: 3 },
+    })
+    client.clear()
+  })
+
   it('combines three API charts, warning, real load and next task with panel and editing routes', async () => {
     const { client, router, request } = setup()
     await screen.findByRole('list', { name: 'Интервалы расписания' })
@@ -173,10 +253,14 @@ describe('assembled Today dashboard', () => {
     ).toHaveTextContent(/Критический день — .*30 ноября/)
     expect(energy).not.toHaveTextContent('Классическая модель биоритмов.')
     expect(screen.getByRole('region', { name: /Впереди критический день/ })).toBeInTheDocument()
+    const plan = screen.getByRole('region', { name: 'План на день' })
+    const critical = screen.getByRole('region', { name: /Впереди критический день/ })
+    expect(plan.compareDocumentPosition(energy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(energy.compareDocumentPosition(critical) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const summary = screen.getByRole('complementary', { name: 'Сводка дня' })
     expect(within(summary).getByText('Далее через 18 минут')).toBeInTheDocument()
     expect(
-      within(summary).getByRole('img', { name: 'Нагрузка: 480 из 600 минут, 80 %' }),
+      within(summary).getByRole('img', { name: 'Нагрузка: 420 из 600 минут, 70 %' }),
     ).toBeInTheDocument()
     const bioRequest = request.mock.calls.find(([url]) =>
       new URL(String(url)).pathname.endsWith('/biorhythms'),
@@ -215,12 +299,12 @@ describe('assembled Today dashboard', () => {
     toggle.focus()
     await userEvent.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(load).toHaveTextContent('из 10 ч рабочего окна · запас 2 ч')
+    expect(load).toHaveTextContent('из 10 ч рабочего окна · запас 3 ч')
     const legend = within(load).getByRole('list', { name: 'Нагрузка по типам задач' })
     expect(legend).toHaveTextContent('Интеллектуальная 2 ч 30 мин')
     expect(legend).toHaveTextContent('Физическая 1 ч')
     expect(legend).toHaveTextContent('Творческая 1 ч')
-    expect(legend).toHaveTextContent('Рутина 2 ч 30 мин')
+    expect(legend).toHaveTextContent('Рутина 1 ч 30 мин')
     expect(legend).toHaveTextContent('Отдых 1 ч')
     expect(load).toHaveTextContent('Загрузка показывает долю задач в рабочем окне.')
     expect(load).not.toHaveTextContent('доступного времени')
@@ -252,7 +336,7 @@ describe('assembled Today dashboard', () => {
       ),
     )
     expect(
-      screen.getByRole('img', { name: 'Нагрузка: 390 из 600 минут, 65 %' }),
+      screen.getByRole('img', { name: 'Нагрузка: 330 из 600 минут, 55 %' }),
     ).toBeInTheDocument()
     await act(async () => {
       vi.setSystemTime(new Date('2026-11-11T17:00:00Z'))

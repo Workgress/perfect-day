@@ -28,6 +28,8 @@ function localInstant(date: string, clock: string, timezone: string) {
 }
 
 export function buildTimeline(day: DailySchedule, showCompleted: boolean, now: Date) {
+  const nowAt = now.getTime()
+  const isToday = localDate(now, day.timezone) === day.date
   const workStart = localInstant(day.date, day.work_start, day.timezone)
   const workEnd = localInstant(day.date, day.work_end, day.timezone)
   if (workEnd <= workStart) throw new Error('Окончание рабочего дня должно быть позже начала.')
@@ -64,12 +66,17 @@ export function buildTimeline(day: DailySchedule, showCompleted: boolean, now: D
   const start = Math.min(
     showCompleted ? workStart : Math.max(workStart, collapsedStart),
     ...visible.map((item) => item.start),
+    isToday ? nowAt : Infinity,
   )
   const nextDate = new Date(Date.parse(`${day.date}T12:00:00Z`) + 86_400_000)
     .toISOString()
     .slice(0, 10)
   const dayEnd = localInstant(nextDate, '00:00', day.timezone)
-  const end = Math.max(Math.min(workEnd + 60 * MINUTE, dayEnd), ...visible.map((item) => item.end))
+  const end = Math.max(
+    Math.min(workEnd + 60 * MINUTE, dayEnd),
+    ...visible.map((item) => item.end),
+    isToday ? Math.min(nowAt + MINUTE, dayEnd) : -Infinity,
+  )
   const position = (at: number) => ((at - start) / MINUTE) * TIMELINE_PIXELS_PER_MINUTE
   const ticks: { at: number; label: string; offset: string | null; top: number }[] = []
   const minutePart = Number(
@@ -137,7 +144,6 @@ export function buildTimeline(day: DailySchedule, showCompleted: boolean, now: D
     (sum, item) => sum + (item.task && item.task.status !== 'skipped' ? item.duration : 0),
     0,
   )
-  const nowAt = now.getTime()
   return {
     start,
     end,
@@ -156,7 +162,7 @@ export function buildTimeline(day: DailySchedule, showCompleted: boolean, now: D
     })),
     height: position(end),
     now:
-      localDate(now, day.timezone) === day.date && nowAt >= start && nowAt <= end
+      isToday && nowAt >= start && nowAt <= end
         ? { top: position(nowAt), label: timelineClock(nowAt, day.timezone) }
         : null,
   }

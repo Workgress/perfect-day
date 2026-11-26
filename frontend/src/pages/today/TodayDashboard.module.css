@@ -110,6 +110,34 @@
   flex-direction: column;
   gap: 24px;
 }
+.emptyWindows {
+  min-width: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.emptyWindows h2 {
+  font: 600 16px / 24px var(--font-sans);
+}
+.windowContext {
+  margin-top: var(--space-8);
+  color: var(--text-secondary);
+  font: 400 13px / 18px var(--font-sans);
+}
+.emptyWindows ul {
+  display: grid;
+  gap: var(--space-16);
+  margin-top: var(--space-16);
+}
+.emptyWindows li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  font: 400 14px / 20px var(--font-sans);
+}
+.emptyWindows li > svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
 .nextTask {
   padding: 24px 20px;
   border: 1px solid var(--border-subtle);
@@ -444,6 +472,9 @@
     order: 30;
     margin-top: 0;
   }
+  .emptyWindows {
+    order: 25;
+  }
   .desktopTitle,
   .energyHeader .context {
     display: none;
@@ -494,7 +525,8 @@
     justify-content: flex-end;
   }
   .reading strong {
-    font-size: 24px;
+    font-size: clamp(18px, 5.6vw, 22px);
+    white-space: nowrap;
   }
   .reading span {
     display: none;
@@ -527,6 +559,6 @@
     grid-template-columns: minmax(0, 1fr) 72px 76px;
   }
   .reading strong {
-    font-size: 21px;
+    font-size: 18px;
   }
 }

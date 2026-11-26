@@ -307,8 +307,40 @@ describe('today with the saved schedule API', () => {
     api(state)
     const { client } = setup()
     await ready()
-    expect(screen.getByText('На этот день задач нет')).toBeInTheDocument()
+    expect(screen.getByText('На сегодня задач нет')).toBeInTheDocument()
     expect(screen.queryByText('Расписание на этот день ещё не сохранено')).not.toBeInTheDocument()
+    client.clear()
+  })
+
+  it('restores the empty timeline and day windows when there are no tasks and no saved plan', async () => {
+    const state = data()
+    state.tasks = []
+    api(state, { scheduleError: 'SCHEDULE_NOT_FOUND' })
+    const { client } = setup()
+    await ready()
+    expect(screen.getByText('На сегодня задач нет')).toBeInTheDocument()
+    expect(screen.getByText('08:00')).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Окна сегодня' })).toHaveTextContent(
+      '10:00–12:00 · сложная учёба',
+    )
+    expect(screen.queryByRole('complementary', { name: 'Сводка дня' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Расписание на этот день ещё не сохранено')).not.toBeInTheDocument()
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'План на день' })).getByRole('button', {
+        name: 'Добавить задачу',
+      }),
+    )
+    expect(await screen.findByRole('dialog', { name: 'Новая задача' })).toBeInTheDocument()
+    client.clear()
+  })
+
+  it('does not treat a schedule failure as an empty day', async () => {
+    const state = data()
+    state.tasks = []
+    api(state, { scheduleError: 'PLANNER_UNAVAILABLE' })
+    const { client } = setup()
+    expect(await screen.findByRole('alert')).toHaveTextContent('PLANNER_UNAVAILABLE')
+    expect(screen.queryByText('На сегодня задач нет')).not.toBeInTheDocument()
     client.clear()
   })
 

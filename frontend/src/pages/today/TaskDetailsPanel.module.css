@@ -190,6 +190,25 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-8);
 }
+.statusActions,
+.placementButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.statusActions > button,
+.placementButtons > button {
+  flex: 1 1 auto;
+  min-height: 44px;
+}
+.placementForm {
+  display: grid;
+  gap: var(--space-12);
+}
+.placementForm input {
+  min-width: 0;
+  font-size: 16px;
+}
 .panel .actions > button {
   min-width: 0;
   min-height: 44px;

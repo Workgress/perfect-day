@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router'
-import { editTaskPath, taskPath } from '@/app/router/paths'
+import { taskPath } from '@/app/router/paths'
 import type { DailySchedule, SavedSchedule } from '@/shared/model/schedule'
 import { TASK_TYPES, type TaskType } from '@/shared/model/task'
 import { useCurrentTime } from '@/shared/lib/useCurrentTime'
@@ -19,6 +19,7 @@ import { useSessionStore } from '@/stores/session'
 import { taskPlacementExplanation } from './taskPlacementExplanation'
 import { todayLoad } from './todayLoadModel'
 import { TodayLoadWarning } from './TodayLoadWarning'
+import { useTaskActions } from './useTaskActions'
 import styles from './TodayDashboard.module.css'
 
 export function TodayPlanSummary({
@@ -44,6 +45,11 @@ export function TodayPlanSummary({
     )
     .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))[0]
   const task = next?.kind === 'task' ? tasks.get(next.task_id) : undefined
+  const actions = useTaskActions(
+    task,
+    day.schedule ? { ...day.schedule, planned_date: day.date, timezone: day.timezone } : null,
+    day.timezone,
+  )
   const explanation =
     task && next ? taskPlacementExplanation(task, next, day.timezone, chronotype) : null
   const remaining = next ? Math.max(0, Math.ceil((Date.parse(next.start_at) - now) / 60_000)) : 0
@@ -130,19 +136,55 @@ export function TodayPlanSummary({
               </p>
             ) : null}
             <div className={styles.nextActions}>
-              <Button size="s" variant="secondary" disabled title="Запуск задачи пока недоступен">
+              <Button
+                size="s"
+                variant="secondary"
+                disabled={
+                  actions.pending ||
+                  actions.blocked ||
+                  !!task.actual_start ||
+                  day.date !== localDate(new Date(now), day.timezone)
+                }
+                onClick={() => void actions.execute({ kind: 'start' })}
+              >
                 <ArrowRightIcon />
-                Начать
+                {task.actual_start ? 'Задача начата' : 'Начать'}
               </Button>
-              <Link to={editTaskPath(task.id)}>
+              <Link to={taskPath(task.id)} state={{ taskPlacement: 'move' }}>
                 <ClockIcon size={16} />
                 Перенести
               </Link>
-              <Button size="s" variant="ghost" disabled title="Закрепление времени пока недоступно">
+              <Button
+                size="s"
+                variant="ghost"
+                disabled={actions.pending || actions.blocked}
+                onClick={() =>
+                  void actions.execute(
+                    task.is_pinned
+                      ? { kind: 'unpin' }
+                      : { kind: 'pin', date: day.date, start: next.start_at },
+                  )
+                }
+              >
                 <LockIcon />
-                Закрепить
+                {task.is_pinned ? 'Открепить' : 'Закрепить'}
               </Button>
             </div>
+            {actions.notice ? (
+              <p className={styles.context} role="status">
+                {actions.notice}
+              </p>
+            ) : null}
+            {actions.blocked ? (
+              <Button
+                variant="secondary"
+                size="s"
+                disabled={actions.pending}
+                onClick={() => void actions.execute({ kind: 'refresh' })}
+              >
+                Обновить данные задачи
+              </Button>
+            ) : null}
           </>
         ) : (
           <p className={styles.context}>На сегодня больше нет запланированных задач.</p>

@@ -25,7 +25,8 @@ export function dailySchedule(
     tasks: tasks.filter(
       (task) => task.planned_date === saved.planned_date || referenced.has(task.id),
     ),
-    slots: [...saved.slots],
+    // Older saved plans may contain the retired automatic lunch reservation.
+    slots: saved.slots.filter((slot) => slot.kind !== 'lunch'),
     unscheduled_task_ids: saved.unscheduled.map((item) => item.task_id),
   }
 }

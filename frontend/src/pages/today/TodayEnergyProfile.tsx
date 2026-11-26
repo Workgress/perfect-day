@@ -1,8 +1,7 @@
-import { useId } from 'react'
-import { skipToken, useQuery } from '@tanstack/react-query'
+import { useId, useSyncExternalStore } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { paths } from '@/app/router/paths'
-import { getBiorhythmCriticalDays, getBiorhythmSeries } from '@/shared/api/biorhythm'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
 import type { SavedSchedule } from '@/shared/model/schedule'
 import type { Task } from '@/shared/model/task'
@@ -11,78 +10,38 @@ import { BIORHYTHM_CYCLES, BIORHYTHM_PHASES } from '@/shared/model/biorhythm'
 import { Button } from '@/shared/ui/button/Button'
 import { ChevronRightIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
-import {
-  addDays,
-  CYCLE_ORDER,
-  formatDate,
-  formatPercent,
-} from '@/pages/biorhythms/biorhythmChartModel'
-import { taskSessionRequest } from './taskSessionRequest'
+import { CYCLE_ORDER, formatDate, formatPercent } from '@/pages/biorhythms/biorhythmChartModel'
+import { useTodayBiorhythms } from './useTodayBiorhythms'
 import { cycleTaskHint, daysSinceBirthLabel } from './todayEnergyModel'
 import styles from './TodayDashboard.module.css'
 
 export function TodayEnergyProfile({ date }: { date: string }) {
   const id = useId()
   const generation = useSessionStore((state) => state.generation)
-  const owner = useSessionStore((state) => state.ownerId)
   const timezone = useSessionStore((state) => state.timezone)
   const user = useSessionStore((state) => state.user)
   const status = useSessionStore((state) => state.status)
   const enabled = status === 'authenticated' && Boolean(user?.birthDate)
-  const saved = useQuery<SavedSchedule>({
-    queryKey: scheduleKeys.day(generation, date),
-    queryFn: skipToken,
-    enabled: false,
-  })
-  const tasks = useQuery<Task[]>({
-    queryKey: taskKeys.day(generation, date),
-    queryFn: skipToken,
-    enabled: false,
-  })
+  const cache = useQueryClient().getQueryCache()
+  const saved = useSyncExternalStore(
+    (listener) => cache.subscribe(listener),
+    () =>
+      cache.find<SavedSchedule>({ queryKey: scheduleKeys.day(generation, date), exact: true })
+        ?.state,
+  )
+  const tasks = useSyncExternalStore(
+    (listener) => cache.subscribe(listener),
+    () => cache.find<Task[]>({ queryKey: taskKeys.day(generation, date), exact: true })?.state,
+  )
   const schedule =
-    !saved.isFetching &&
-    !saved.isError &&
-    !tasks.isFetching &&
-    !tasks.isError &&
+    saved?.fetchStatus === 'idle' &&
+    saved.status !== 'error' &&
+    tasks?.fetchStatus === 'idle' &&
+    tasks.status !== 'error' &&
     saved.data?.timezone === timezone
       ? saved.data
       : undefined
-  const query = useQuery({
-    queryKey: [
-      'biorhythms',
-      'today-profile',
-      'v2',
-      generation,
-      owner,
-      timezone,
-      user?.birthDate,
-      user?.birthTime,
-      date,
-    ],
-    enabled,
-    queryFn: ({ signal }) =>
-      taskSessionRequest(
-        generation,
-        async (requestSignal) => {
-          const [series, critical] = await Promise.all([
-            getBiorhythmSeries(
-              { from: addDays(date, -10), to: addDays(date, 10), step: 'day' },
-              requestSignal,
-            ),
-            getBiorhythmCriticalDays({ from: date, to: addDays(date, 32) }, requestSignal),
-          ])
-          if (series.timezone !== timezone || critical.timezone !== timezone)
-            throw new Error('Часовой пояс профиля изменился. Обновите страницу.')
-          if (series.algorithm_version !== critical.algorithm_version)
-            throw new Error('Параметры расчёта изменились. Повторите запрос.')
-          return { series, critical }
-        },
-        signal,
-      ),
-    retry: false,
-    staleTime: 60_000,
-    gcTime: 0,
-  })
+  const query = useTodayBiorhythms(date)
   const data = !query.isError && !query.isFetching ? query.data : undefined
   const series = data?.series
   const today = series?.points.find((point) => point.date === date)
@@ -130,7 +89,7 @@ export function TodayEnergyProfile({ date }: { date: string }) {
                 point.date >= date && point.crossings.some((crossing) => crossing.cycle === cycle),
             )
             const taskHint =
-              schedule && tasks.data ? cycleTaskHint(cycle, tasks.data, schedule) : ''
+              schedule && tasks?.data ? cycleTaskHint(cycle, tasks.data, schedule) : ''
             return (
               <article
                 key={cycle}

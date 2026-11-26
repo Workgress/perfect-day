@@ -51,7 +51,9 @@ function task(value: unknown): value is Task {
       (text(value.preferred_start) &&
         /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?$/.test(value.preferred_start))) &&
     typeof value.is_pinned === 'boolean' &&
-    nullableTimestamp(value.pinned_start)
+    nullableTimestamp(value.pinned_start) &&
+    typeof value.is_date_locked === 'boolean' &&
+    nullableTimestamp(value.actual_start)
   )
 }
 

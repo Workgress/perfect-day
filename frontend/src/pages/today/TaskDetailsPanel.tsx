@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { localDate } from '@/shared/lib/dateTime'
 import type { ScheduleSlot } from '@/shared/model/schedule'
 import { TASK_TYPES, type Task } from '@/shared/model/task'
@@ -28,6 +28,12 @@ type TaskDetailsPanelProps = {
   onMove?: () => void
   onPin?: () => void
   onStart?: () => void
+  onComplete?: () => void
+  onSkip?: () => void
+  onReopen?: () => void
+  placementAction?: ReactNode
+  recoveryAction?: ReactNode
+  actionsDisabled?: boolean
   notice?: string | null
   deleteAction?: ReactNode
   exampleExplanation?: boolean
@@ -63,6 +69,12 @@ export function TaskDetailsPanel({
   onMove,
   onPin,
   onStart,
+  onComplete,
+  onSkip,
+  onReopen,
+  placementAction,
+  recoveryAction,
+  actionsDisabled = false,
   notice,
   deleteAction,
   exampleExplanation = false,
@@ -72,6 +84,13 @@ export function TaskDetailsPanel({
   const [openedAt] = useState(() => new Date())
   const now = suppliedNow ?? openedAt
   const titleId = useId()
+  const moveButton = useRef<HTMLButtonElement>(null)
+  const hadPlacement = useRef(false)
+  const placementOpen = !!placementAction
+  useEffect(() => {
+    if (hadPlacement.current && !placementOpen) moveButton.current?.focus()
+    hadPlacement.current = placementOpen
+  }, [placementOpen])
   const { dialogRef, onKeyDown } = useTaskDialog(
     onClose,
     '[data-task-details-trigger]',
@@ -96,15 +115,17 @@ export function TaskDetailsPanel({
       ? 'выполнена'
       : task.status === 'skipped'
         ? 'пропущена'
-        : task.is_pinned
-          ? 'время закреплено'
-          : first
-            ? 'поставлено алгоритмом'
-            : placementMessage
-              ? task.status === 'scheduled'
-                ? 'запланирована'
-                : 'ожидает размещения'
-              : 'не распределено'
+        : task.actual_start
+          ? 'начата'
+          : task.is_pinned
+            ? 'время закреплено'
+            : first
+              ? 'поставлено алгоритмом'
+              : placementMessage
+                ? task.status === 'scheduled'
+                  ? 'запланирована'
+                  : 'ожидает размещения'
+                : 'не распределено'
   const dateLabel = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'UTC',
     weekday: 'short',
@@ -210,6 +231,18 @@ export function TaskDetailsPanel({
           </div>
         </div>
         <dl className={styles.facts}>
+          {task.actual_start ? (
+            <div>
+              <dt>Начата</dt>
+              <dd>{clock(task.actual_start)}</dd>
+            </div>
+          ) : null}
+          {task.is_date_locked ? (
+            <div>
+              <dt>Дата</dt>
+              <dd>Автоматический перенос запрещён</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Срок</dt>
             <dd>{deadline}</dd>
@@ -260,7 +293,7 @@ export function TaskDetailsPanel({
         <>
           <Button
             className={styles.start}
-            disabled={busy || finished || !first || !onStart}
+            disabled={busy || actionsDisabled || finished || !!task.actual_start || !onStart}
             title={!onStart ? 'Запуск задачи пока недоступен' : undefined}
             onClick={onStart}
           >
@@ -269,15 +302,53 @@ export function TaskDetailsPanel({
               ? 'Выполнена'
               : task.status === 'skipped'
                 ? 'Пропущена'
-                : 'Начать сейчас'}
+                : task.actual_start
+                  ? 'Задача начата'
+                  : 'Начать сейчас'}
           </Button>
+          {onComplete || onSkip || onReopen ? (
+            <div className={styles.statusActions}>
+              {finished ? (
+                <Button
+                  variant="secondary"
+                  disabled={busy || actionsDisabled || !onReopen}
+                  onClick={onReopen}
+                >
+                  Вернуть в работу
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    disabled={busy || actionsDisabled || !onComplete}
+                    onClick={onComplete}
+                  >
+                    <CheckIcon size={16} />
+                    Выполнить
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={busy || actionsDisabled || !onSkip}
+                    onClick={onSkip}
+                  >
+                    Пропустить
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : null}
           <div className={styles.actions}>
-            <Button variant="secondary" disabled={busy || !onMove} onClick={onMove}>
+            <Button
+              ref={moveButton}
+              variant="secondary"
+              disabled={busy || actionsDisabled || finished || !!task.actual_start || !onMove}
+              onClick={onMove}
+            >
               Перенести
             </Button>
             <Button
               variant="secondary"
-              disabled={busy || finished || !onPin || !first}
+              disabled={busy || actionsDisabled || finished || !onPin}
               title={!onPin ? 'Закрепление времени пока недоступно' : undefined}
               onClick={onPin}
             >
@@ -288,12 +359,14 @@ export function TaskDetailsPanel({
             </Button>
           </div>
         </>
+        {placementAction}
         {deleteAction}
         {notice ? (
           <p className={styles.notice} role="status">
             {notice}
           </p>
         ) : null}
+        {recoveryAction}
         <p className={styles.hint}>
           <GripVerticalIcon size={14} />
           Название, срок и длительность доступны по кнопке «Изменить».

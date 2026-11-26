@@ -79,7 +79,8 @@ describe('daily timeline', () => {
     const { container } = render(
       <DailyTimeline day={DAILY_SCHEDULE_FIXTURES.empty} now={now} onCreateTask={create} />,
     )
-    expect(screen.getByRole('status')).toHaveTextContent('На этот день задач нет')
+    expect(screen.getByRole('status')).toHaveTextContent('На сегодня задач нет')
+    expect(screen.getByLabelText('Сейчас 09:42')).toBeInTheDocument()
     expect(screen.getByText('08:00')).toBeInTheDocument()
     expect(screen.getByText('18:00')).toBeInTheDocument()
     expect(container.querySelectorAll('[data-slot-id]')).toHaveLength(0)

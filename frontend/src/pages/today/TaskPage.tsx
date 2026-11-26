@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { editTaskPath, paths, taskPath } from '@/app/router/paths'
 import { apiError, apiProblem } from '@/shared/api/errors'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
@@ -13,6 +13,10 @@ import { useSessionStore } from '@/stores/session'
 import { SavedTaskEditor } from './SavedTaskEditor'
 import { TaskDetailsPanel } from './TaskDetailsPanel'
 import { TaskDialog } from './TaskDialog'
+import { TaskPlacementForm } from './TaskPlacementForm'
+import { useTaskActions, type TaskAction } from './useTaskActions'
+import { localDate } from '@/shared/lib/dateTime'
+import { useCurrentTime } from '@/shared/lib/useCurrentTime'
 import { taskSessionRequest } from './taskSessionRequest'
 import styles from './TaskDetailsPanel.module.css'
 
@@ -45,12 +49,17 @@ function TaskContent({
   editing: boolean
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const client = useQueryClient()
   const timezone = useSessionStore((state) => state.timezone)
   const user = useSessionStore((state) => state.user)
   const sending = useRef(false)
   const mounted = useRef(false)
   const [notice, setNotice] = useState('')
+  const [placement, setPlacement] = useState<'pin' | 'move' | null>(
+    location.state?.taskPlacement === 'move' ? 'move' : null,
+  )
+  const now = useCurrentTime()
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -81,6 +90,14 @@ function TaskContent({
     void client.invalidateQueries({ queryKey: taskKeys.lists(generation) })
     void client.invalidateQueries({ queryKey: scheduleKeys.all(generation) })
   }
+  const source = schedule.isFetching
+    ? undefined
+    : apiProblem(schedule.error)?.code === 'SCHEDULE_NOT_FOUND'
+      ? null
+      : schedule.isError
+        ? undefined
+        : schedule.data
+  const actions = useTaskActions(task, source, timezone)
   const fresh = (value: Task) => {
     if (current()) client.setQueryData(taskKeys.detail(generation, id), value)
   }
@@ -114,12 +131,16 @@ function TaskContent({
         state: { taskNotice: { generation, message: 'Задача удалена' } },
       })
     },
+    onError: (error) => {
+      if (current() && mounted.current && apiProblem(error)?.code !== 'TASK_VERSION_CONFLICT')
+        setNotice(apiError(error))
+    },
     onSettled: () => {
       sending.current = false
     },
   })
   const close = () => {
-    if (!sending.current) navigate(paths.today, { replace: true })
+    if (!sending.current && !actions.pending) navigate(paths.today, { replace: true })
   }
   if (!task || !query.isFetchedAfterMount || query.isError)
     return (
@@ -159,18 +180,33 @@ function TaskContent({
       />
     )
   const remove = () => {
-    if (sending.current) return
+    if (sending.current || actions.pending) return
     sending.current = true
     setNotice('')
     mutation.mutate()
   }
   const validSchedule = !schedule.isError && schedule.data?.timezone === timezone
+  const busy = mutation.isPending || actions.pending
+  const first = validSchedule
+    ? schedule
+        .data!.slots.filter((slot) => slot.kind === 'task' && slot.task_id === task.id)
+        .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))[0]
+    : undefined
+  const run = (action: TaskAction) => {
+    setNotice('')
+    if (sending.current) return Promise.resolve(false)
+    return actions.execute(action)
+  }
+  const pin = () => {
+    if (task.is_pinned) void run({ kind: 'unpin' })
+    else if (first) void run({ kind: 'pin', date: task.planned_date, start: first.start_at })
+    else setPlacement('pin')
+  }
   return (
     <TaskDetailsPanel
-      exampleExplanation
       task={task}
       timezone={timezone}
-      slots={validSchedule ? schedule.data!.slots : []}
+      slots={validSchedule ? schedule.data!.slots.filter((slot) => slot.kind !== 'lunch') : []}
       placementMessage={
         schedule.isPending
           ? 'Загружаем расписание…'
@@ -178,14 +214,49 @@ function TaskContent({
             ? 'Расписание недоступно. Размещение не подтверждено.'
             : undefined
       }
-      busy={mutation.isPending}
+      busy={busy}
+      actionsDisabled={actions.blocked}
       onClose={close}
       onEdit={() => navigate(editTaskPath(id))}
-      onMove={() => navigate(editTaskPath(id))}
+      onMove={actions.placementReady ? () => setPlacement('move') : undefined}
+      onPin={actions.placementReady ? pin : undefined}
+      onStart={
+        actions.placementReady && task.planned_date === localDate(now, timezone)
+          ? () => void run({ kind: 'start' })
+          : undefined
+      }
+      onComplete={() => void run({ kind: 'complete' })}
+      onSkip={() => void run({ kind: 'skip' })}
+      onReopen={() => void run({ kind: 'reopen' })}
+      placementAction={
+        placement ? (
+          <TaskPlacementForm
+            key={placement}
+            date={task.planned_date}
+            start={task.pinned_start ?? first?.start_at}
+            timezone={timezone}
+            busy={busy}
+            disabled={actions.blocked || !actions.placementReady}
+            onCancel={() => setPlacement(null)}
+            onSave={async (date, start) => {
+              const saved = await run({ kind: placement, date, start })
+              if (saved && current() && mounted.current) setPlacement(null)
+              return saved
+            }}
+          />
+        ) : null
+      }
+      recoveryAction={
+        actions.blocked || !actions.placementReady ? (
+          <Button variant="secondary" disabled={busy} onClick={() => void run({ kind: 'refresh' })}>
+            Обновить данные задачи
+          </Button>
+        ) : null
+      }
       notice={
-        mutation.isPending
+        busy
           ? 'Сохраняем…'
-          : notice || (mutation.error ? apiError(mutation.error) : null)
+          : notice || actions.notice || (mutation.error ? apiError(mutation.error) : null)
       }
       deleteAction={
         <div className={styles.deleteAction}>
@@ -193,7 +264,7 @@ function TaskContent({
             variant="ghost"
             size="s"
             className={styles.deleteButton}
-            disabled={mutation.isPending}
+            disabled={busy || actions.blocked}
             onClick={remove}
           >
             Удалить задачу
