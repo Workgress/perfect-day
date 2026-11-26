@@ -241,7 +241,8 @@ describe('planner journey across creation, dashboard and task routes', () => {
     expect(
       await screen.findByRole('region', { name: 'Почему задача без времени' }),
     ).toHaveTextContent('Дата задачи сохранена')
-    expect(writes()).toHaveLength(1)
+    expect(writes()).toHaveLength(2)
+    expect(JSON.parse(String(writes()[1][1]?.body))).toMatchObject({ allow_date_change: true })
     client.clear()
   })
 

@@ -15,13 +15,18 @@ export async function getSchedule(date: string, signal?: AbortSignal) {
   return result
 }
 
-export async function replanSchedule(date: string, version: number, signal?: AbortSignal) {
+export async function replanSchedule(
+  date: string,
+  version: number,
+  signal?: AbortSignal,
+  allowDateChange = false,
+) {
   if (date < '0001-01-01' || !isCalendarDate(date)) throw new RangeError('Укажите дату YYYY-MM-DD.')
   if (!Number.isSafeInteger(version) || version < 0)
     throw new RangeError('Не удалось определить версию расписания.')
   const result = await http<{ schedule: unknown }>('/schedule/replan', {
     method: 'POST',
-    body: { planned_date: date, schedule_version: version, allow_date_change: false },
+    body: { planned_date: date, schedule_version: version, allow_date_change: allowDateChange },
     signal,
   })
   const saved = readSavedSchedule(result?.schedule)

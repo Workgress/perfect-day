@@ -8,6 +8,7 @@ import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
 import { localDate } from '@/shared/lib/dateTime'
 import { useSessionStore } from '@/stores/session'
 import { mockMatchMedia } from '@/test/matchMedia'
+import { savedFixture } from '@/test/planningDetails'
 import { NewTaskPage } from './NewTaskPage'
 import { TodayPage } from './TodayPage'
 
@@ -84,6 +85,64 @@ function deferredResponse() {
 }
 
 describe('task creation with the API', () => {
+  it('automatically moves a newly unplaced task to a future day and explains it without a second creation', async () => {
+    const day = today()
+    const tomorrow = new Date(Date.parse(`${day}T12:00:00Z`) + 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+    let task = taskResponse({ planned_date: day, title: 'Подготовиться к экзамену' })
+    const saved = { ...savedFixture(DAILY_SCHEDULE_FIXTURES.normal), planned_date: day, version: 6 }
+    const request = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input))
+      if (url.pathname.endsWith('/tasks') && init?.method === 'POST') {
+        task = { ...taskResponse(JSON.parse(String(init.body))), status: 'pending' }
+        return Response.json(task, { status: 201 })
+      }
+      if (url.pathname.endsWith('/schedule/replan')) {
+        task = { ...task, planned_date: tomorrow, status: 'scheduled', version: task.version + 1 }
+        return Response.json({
+          schedule: {
+            ...saved,
+            version: 7,
+            slots: [],
+            moves: [
+              {
+                task_id: task.id,
+                from_date: day,
+                to_date: tomorrow,
+                reason_code: 'NO_AVAILABLE_TIME',
+              },
+            ],
+          },
+        })
+      }
+      if (url.pathname.endsWith('/schedule')) return Response.json(saved)
+      return Response.json(task)
+    })
+    vi.stubGlobal('fetch', request)
+    const { client, router } = setup()
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    await screen.findByText('Задача добавлена')
+    expect(screen.getByText(/В выбранный день не нашлось подходящего окна/)).toHaveTextContent(
+      tomorrow.split('-').reverse().join('.'),
+    )
+    expect(router.state.location.state.taskCreated.task.planned_date).toBe(tomorrow)
+    expect(
+      request.mock.calls.filter(
+        ([input, init]) =>
+          new URL(String(input)).pathname.endsWith('/tasks') && init?.method === 'POST',
+      ),
+    ).toHaveLength(1)
+    const replan = request.mock.calls.find(([input]) =>
+      new URL(String(input)).pathname.endsWith('/schedule/replan'),
+    )!
+    expect(JSON.parse(String(replan[1]?.body))).toMatchObject({
+      allow_date_change: true,
+      schedule_version: 6,
+    })
+    client.clear()
+  })
   afterEach(() => onlineManager.setOnline(true))
 
   it('reports an offline creation immediately and never sends a queued write after reconnection', async () => {
@@ -386,7 +445,10 @@ describe('task creation with the API', () => {
     const request = vi.fn<typeof fetch>(async (_url, init) =>
       init?.method === 'POST'
         ? Response.json(taskResponse(JSON.parse(String(init.body))), { status: 201 })
-        : Response.json({ error: { code: 'SCHEDULE_NOT_FOUND', message: 'Нет расписания' } }, { status: 404 }),
+        : Response.json(
+            { error: { code: 'SCHEDULE_NOT_FOUND', message: 'Нет расписания' } },
+            { status: 404 },
+          ),
     )
     vi.stubGlobal('fetch', request)
     const { client } = setup()
@@ -398,7 +460,9 @@ describe('task creation with the API', () => {
     fireEvent.change(screen.getByLabelText('Время дедлайна'), { target: { value: '18:00' } })
     await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
     expect(await screen.findByText('Задача добавлена')).toBeInTheDocument()
-    expect(JSON.parse(String(request.mock.calls.find(([, init]) => init?.method === 'POST')![1]?.body))).toMatchObject({
+    expect(
+      JSON.parse(String(request.mock.calls.find(([, init]) => init?.method === 'POST')![1]?.body)),
+    ).toMatchObject({
       planned_date: '2099-11-19',
       deadline: '2099-11-19T13:00:00.000Z',
     })

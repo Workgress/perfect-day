@@ -65,7 +65,7 @@ export function TodayPage() {
   }, [])
   const created = (
     location.state as {
-      taskCreated?: { task: Task; generation: number; requestedDate?: string }
+      taskCreated?: { task: Task; generation: number; requestedDate?: string; explanation?: string }
     } | null
   )?.taskCreated
   const notice = (
@@ -168,7 +168,9 @@ export function TodayPage() {
             <p className="text-caption">
               {created.task.title} · {created.task.planned_date.split('-').reverse().join('.')}
             </p>
-            {created.requestedDate && created.requestedDate !== created.task.planned_date ? (
+            {created.explanation ? (
+              <p className="text-caption">{created.explanation}</p>
+            ) : created.requestedDate && created.requestedDate !== created.task.planned_date ? (
               <p className="text-caption">
                 Планировщик перенёс задачу с {created.requestedDate.split('-').reverse().join('.')}{' '}
                 на {created.task.planned_date.split('-').reverse().join('.')}.

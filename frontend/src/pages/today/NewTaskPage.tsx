@@ -15,6 +15,7 @@ import { FormMessage } from '@/shared/ui/form-field/FormField'
 import { TaskPlacementForm } from './TaskPlacementForm'
 import { taskSessionRequest } from './taskSessionRequest'
 import { pinNewTask } from './pinNewTask'
+import { placeCreatedTask, type CreatedTaskPlacement } from './placeCreatedTask'
 import styles from './TaskForm.module.css'
 
 type Command = { kind: 'create'; draft: TaskDraft } | { kind: 'pin'; date: string; start: string }
@@ -39,11 +40,11 @@ function NewTaskContent({ generation }: { generation: number }) {
     void client.invalidateQueries({ queryKey: taskKeys.all(generation) })
     void client.invalidateQueries({ queryKey: scheduleKeys.all(generation) })
   }
-  const finish = (task: Task, requestedDate: string) => {
+  const finish = (task: Task, requestedDate: string, explanation?: string) => {
     if (current() && mounted.current)
       navigate(paths.today, {
         replace: true,
-        state: { taskCreated: { task, generation, requestedDate } },
+        state: { taskCreated: { task, generation, requestedDate, explanation } },
       })
   }
   useEffect(() => {
@@ -53,7 +54,7 @@ function NewTaskContent({ generation }: { generation: number }) {
     }
   }, [])
   const mutation = useMutation({
-    mutationFn: (command: Command) =>
+    mutationFn: (command: Command): Promise<CreatedTaskPlacement> =>
       taskSessionRequest(generation, async (signal) => {
         if (command.kind === 'create') {
           if (createdTask.current)
@@ -68,7 +69,7 @@ function NewTaskContent({ generation }: { generation: number }) {
             signal,
           )
           signal.throwIfAborted()
-          if (!command.draft.is_pinned) return task
+          if (!command.draft.is_pinned) return placeCreatedTask(task, timezone, signal)
           createdTask.current = task
           requestedPin.current = {
             date: command.draft.planned_date,
@@ -77,20 +78,25 @@ function NewTaskContent({ generation }: { generation: number }) {
         } else requestedPin.current = { date: command.date, start: command.start }
         if (!createdTask.current || !requestedPin.current)
           throw new Error('Не удалось определить созданную задачу.')
-        return pinNewTask(
+        const task = await pinNewTask(
           createdTask.current.id,
           requestedPin.current.date,
           requestedPin.current.start,
           timezone,
           signal,
         )
+        return { task }
       }),
     retry: false,
-    onSuccess: (task, command) => {
+    onSuccess: ({ task, explanation }, command) => {
       if (!current()) return
       client.setQueryData(taskKeys.detail(generation, task.id), task)
       invalidate()
-      finish(task, command.kind === 'create' ? command.draft.planned_date : command.date)
+      finish(
+        task,
+        command.kind === 'create' ? command.draft.planned_date : command.date,
+        explanation,
+      )
     },
     onError: (error) => {
       if (!current()) return
