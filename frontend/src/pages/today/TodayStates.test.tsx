@@ -54,12 +54,10 @@ function occupied(start: string, end: string): SavedSchedule['slots'][number] {
   }
 }
 function setup(element: React.ReactNode) {
-  useSessionStore
-    .getState()
-    .signIn({
-      accessToken: 'states-test',
-      user: { name: 'Анна', birthDate: '2003-09-20', chronotype: 'lark' },
-    })
+  useSessionStore.getState().signIn({
+    accessToken: 'states-test',
+    user: { name: 'Анна', birthDate: '2003-09-20', chronotype: 'lark' },
+  })
   const client = createQueryClient()
   const view = render(
     <QueryClientProvider client={client}>

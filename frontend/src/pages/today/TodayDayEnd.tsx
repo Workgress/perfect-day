@@ -52,13 +52,17 @@ function DayEndContent({
   const done = tasks.filter((task) => task.planned_date === day.date && task.status === 'done')
   const moved = new Set([
     ...tasks.filter((task) => task.planned_date !== day.date).map((task) => task.id),
-    ...(day.planning?.schedule.moves.filter((move) => move.from_date === day.date && move.to_date !== day.date).map((move) => move.task_id) ?? []),
+    ...(day.planning?.schedule.moves
+      .filter((move) => move.from_date === day.date && move.to_date !== day.date)
+      .map((move) => move.task_id) ?? []),
   ])
   const total = new Set([...tasks.map((task) => task.id), ...moved]).size
   const pending = tasks.filter(
     (task) => task.planned_date === day.date && !['done', 'skipped'].includes(task.status),
   )
-  const skipped = tasks.filter((task) => task.planned_date === day.date && task.status === 'skipped')
+  const skipped = tasks.filter(
+    (task) => task.planned_date === day.date && task.status === 'skipped',
+  )
   const reading = !rhythms.isError
     ? rhythms.data?.series.points.find((point) => point.date === tomorrow)
     : undefined

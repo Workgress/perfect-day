@@ -31,7 +31,11 @@ export function TodayLoading() {
             <i />
             <i />
           </div>
-          <div className={styles.outside} style={{ top: (hours.length - 2) * 72 + 8 }} aria-hidden="true">
+          <div
+            className={styles.outside}
+            style={{ top: (hours.length - 2) * 72 + 8 }}
+            aria-hidden="true"
+          >
             Вне рабочего окна · после {user?.workEnd?.slice(0, 5) ?? '18:00'}
           </div>
         </div>

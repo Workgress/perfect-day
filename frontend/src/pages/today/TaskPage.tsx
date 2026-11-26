@@ -284,7 +284,13 @@ function TaskContent({
               onCancel={() => setPlacement(null)}
               onSave={async (date, start) => {
                 if (placement === 'move') {
-                  setConfirmation({ kind: 'move', version: task.version, scheduleVersion: source?.version ?? 0, date, start })
+                  setConfirmation({
+                    kind: 'move',
+                    version: task.version,
+                    scheduleVersion: source?.version ?? 0,
+                    date,
+                    start,
+                  })
                   return false
                 }
                 const saved = await run({ kind: placement, date, start })
@@ -343,7 +349,10 @@ function TaskContent({
           </p>
           <p className={confirmationStyles.secondary}>
             {first
-              ? schedule.data!.slots.filter((slot) => slot.kind === 'task' && slot.task_id === task.id).map((slot) => taskTimeLabel(slot.start_at, slot.end_at, timezone, now)).join(', ')
+              ? schedule
+                  .data!.slots.filter((slot) => slot.kind === 'task' && slot.task_id === task.id)
+                  .map((slot) => taskTimeLabel(slot.start_at, slot.end_at, timezone, now))
+                  .join(', ')
               : `${task.planned_date.split('-').reverse().join('.')} · время не назначено`}
           </p>
           <p className={confirmationStyles.secondary}>
@@ -351,8 +360,13 @@ function TaskContent({
               ? 'Задача исчезнет из плана. Восстановление после удаления недоступно.'
               : `Новое время: ${placementLabel(confirmation.start)}`}
           </p>
-          {confirmation.version !== task.version || (confirmation.kind === 'move' && source !== undefined && confirmation.scheduleVersion !== (source?.version ?? 0)) ? (
-            <p role="alert">Задача или расписание изменились. Закройте окно и проверьте актуальные данные.</p>
+          {confirmation.version !== task.version ||
+          (confirmation.kind === 'move' &&
+            source !== undefined &&
+            confirmation.scheduleVersion !== (source?.version ?? 0)) ? (
+            <p role="alert">
+              Задача или расписание изменились. Закройте окно и проверьте актуальные данные.
+            </p>
           ) : null}
           {notice || actions.notice ? <p role="status">{notice || actions.notice}</p> : null}
           <div
@@ -373,8 +387,13 @@ function TaskContent({
             <Button
               className={confirmation.kind === 'delete' ? confirmationStyles.danger : undefined}
               disabled={
-                busy || actions.blocked || query.isError || confirmation.version !== task.version ||
-                (confirmation.kind === 'move' && (!actions.placementReady || confirmation.scheduleVersion !== (source?.version ?? 0)))
+                busy ||
+                actions.blocked ||
+                query.isError ||
+                confirmation.version !== task.version ||
+                (confirmation.kind === 'move' &&
+                  (!actions.placementReady ||
+                    confirmation.scheduleVersion !== (source?.version ?? 0)))
               }
               onClick={async () => {
                 if (confirmation.kind === 'delete') {

@@ -167,7 +167,9 @@ describe('task actions through the saved task panel', () => {
     const { client, writes } = setup()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Перенести' })).toBeEnabled())
     await userEvent.click(screen.getByRole('button', { name: 'Перенести' }))
-    fireEvent.change(screen.getByLabelText('Начало задачи'), { target: { value: '2026-11-12T11:15' } })
+    fireEvent.change(screen.getByLabelText('Начало задачи'), {
+      target: { value: '2026-11-12T11:15' },
+    })
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
     const confirmation = screen.getByRole('dialog', { name: 'Перенести задачу' })
     expect(confirmation).toHaveTextContent('11:15–12:45')
