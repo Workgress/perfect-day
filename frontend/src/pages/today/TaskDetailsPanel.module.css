@@ -226,6 +226,7 @@
   margin-top: 2px;
 }
 .notice {
+  overflow-wrap: anywhere;
   padding: var(--space-12);
   border-radius: var(--radius-sm);
   background: var(--bg-base);
@@ -237,7 +238,11 @@
     inset: auto 0 0;
     width: 100%;
     height: auto;
-    max-height: calc(100dvh - 32px);
+    bottom: max(
+      0px,
+      calc(100dvh - var(--dialog-viewport-height, 100dvh) - var(--dialog-viewport-top, 0px))
+    );
+    max-height: calc(var(--dialog-viewport-height, 100dvh) - 32px);
     margin: 0;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
@@ -247,7 +252,7 @@
   .panel {
     gap: var(--space-16);
     min-height: 0;
-    padding: 32px var(--space-20) calc(34px + env(safe-area-inset-bottom));
+    padding: 48px var(--space-20) calc(34px + env(safe-area-inset-bottom));
   }
   .header .close {
     display: none;
@@ -260,7 +265,7 @@
     align-items: flex-start;
     justify-content: center;
     width: 72px;
-    height: 28px;
+    height: 44px;
     padding-top: 12px;
     transform: translateX(-50%);
   }

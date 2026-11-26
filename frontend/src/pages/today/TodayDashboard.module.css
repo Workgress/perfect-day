@@ -552,6 +552,12 @@
   }
   .forecastLink {
     font-size: 13px;
+    min-height: 44px;
+    align-items: center;
+  }
+  .hintDetails summary {
+    min-height: 44px;
+    padding-block: 12px;
   }
   .cycles {
     grid-template-columns: 1fr;

@@ -18,7 +18,8 @@
   color: var(--status-success);
 }
 
-.notice > div {
+.notice > div,
+.notice > p {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -240,6 +241,20 @@
   .search {
     width: 100%;
     height: 44px;
+  }
+  .search input {
+    height: 100%;
+    font-size: 16px;
+  }
+  .search:has(.clearSearch) {
+    padding-right: 0;
+  }
+  .clearSearch {
+    width: 44px;
+    height: 44px;
+  }
+  .search kbd {
+    display: none;
   }
   .headerActions .replan,
   .headerActions .addTask {

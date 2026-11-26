@@ -23,7 +23,9 @@ export function TaskDialog({
 }: TaskDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
-  const { dialogRef, onKeyDown } = useTaskDialog(close, returnFocusSelector)
+  const { dialogRef, onKeyDown } = useTaskDialog(() => {
+    if (!busy) close()
+  }, returnFocusSelector)
 
   return (
     <dialog

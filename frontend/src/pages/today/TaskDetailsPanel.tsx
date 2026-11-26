@@ -98,7 +98,9 @@ export function TaskDetailsPanel({
     hadPlacement.current = placementOpen
   }, [placementOpen])
   const { dialogRef, onKeyDown } = useTaskDialog(
-    onClose,
+    () => {
+      if (!busy) onClose()
+    },
     '[data-task-details-trigger]',
     '[data-panel-title]',
   )
@@ -176,7 +178,7 @@ export function TaskDetailsPanel({
       onKeyDown={onKeyDown}
       onCancel={(event) => {
         event.preventDefault()
-        onClose()
+        if (!busy) onClose()
       }}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return
@@ -187,7 +189,7 @@ export function TaskDetailsPanel({
           event.clientY < bounds.top ||
           event.clientY > bounds.bottom
         )
-          onClose()
+          if (!busy) onClose()
       }}
     >
       <div className={styles.panel}>
