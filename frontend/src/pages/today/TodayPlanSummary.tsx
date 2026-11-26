@@ -15,7 +15,6 @@ import {
   SparklesIcon,
 } from '@/shared/ui/icon/icons'
 import { timelineClock, timelineDuration } from './timelineModel'
-import { useSessionStore } from '@/stores/session'
 import { taskPlacementExplanation } from './taskPlacementExplanation'
 import { todayLoad } from './todayLoadModel'
 import { TodayLoadWarning } from './TodayLoadWarning'
@@ -32,7 +31,6 @@ export function TodayPlanSummary({
   const now = useCurrentTime().getTime()
   const [loadExpanded, setLoadExpanded] = useState(false)
   const loadId = useId()
-  const chronotype = useSessionStore((state) => state.user?.chronotype)
   const tasks = new Map(
     day.tasks.filter((task) => task.planned_date === day.date).map((task) => [task.id, task]),
   )
@@ -50,8 +48,7 @@ export function TodayPlanSummary({
     day.schedule ? { ...day.schedule, planned_date: day.date, timezone: day.timezone } : null,
     day.timezone,
   )
-  const explanation =
-    task && next ? taskPlacementExplanation(task, next, day.timezone, chronotype) : null
+  const explanation = task && next ? taskPlacementExplanation(task, next, day.timezone) : null
   const remaining = next ? Math.max(0, Math.ceil((Date.parse(next.start_at) - now) / 60_000)) : 0
   const minutePlural = new Intl.PluralRules('ru-RU').select(remaining)
   const remainingLabel = `${remaining} ${minutePlural === 'one' ? 'минуту' : minutePlural === 'few' ? 'минуты' : 'минут'}`

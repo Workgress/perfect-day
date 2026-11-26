@@ -18,6 +18,7 @@ function setup(
     timezone?: string
     overloaded?: boolean
     noCandidate?: boolean
+    placementExplanation?: string
   } = {},
 ) {
   useSessionStore.getState().signIn({
@@ -40,7 +41,13 @@ function setup(
       version: 1,
       algorithm_version: 'test',
       generated_at: new Date().toISOString(),
-      slots: fixture.slots.map((slot) => ({ ...slot, reason_codes: [] })),
+      slots: fixture.slots.map((slot) => ({
+        ...slot,
+        reason_codes: [],
+        ...(slot.task_id === fixture.tasks[2].id && options.placementExplanation
+          ? { explanation: options.placementExplanation }
+          : {}),
+      })),
       unscheduled: [],
       warnings: [],
       moves: [],
@@ -205,6 +212,23 @@ describe('assembled Today dashboard', () => {
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
   })
   afterEach(() => vi.useRealTimers())
+
+  it('uses the same readable server explanation in the nearest task and its details panel', async () => {
+    const { client } = setup({
+      placementExplanation:
+        '10:00 +0500–11:30 +0500. Время выбрано по оценке энергии и ограничениям расписания. Интеллектуальный биоритм: среднее за интервал -6.5%. Длительность: 90 мин.',
+    })
+    const summary = await screen.findByRole('complementary', { name: 'Сводка дня' })
+    const text =
+      'Учтены биоритмы, режим дня и свободное время. Интеллектуальный биоритм за это время: −6,5 %.'
+    expect(within(summary).getByText(text)).toBeInTheDocument()
+    await userEvent.click(within(summary).getByRole('link', { name: 'Подготовка к экзамену' }))
+    const reasons = await screen.findByRole('region', { name: 'Почему в это время' })
+    expect(within(reasons).getByText(text)).toBeInTheDocument()
+    expect(reasons).not.toHaveTextContent('+0500')
+    expect(reasons).not.toHaveTextContent('Спад')
+    client.clear()
+  })
 
   it('pins, unpins and starts directly from the nearest task card and refreshes the dashboard', async () => {
     const { client, state, request } = setup()

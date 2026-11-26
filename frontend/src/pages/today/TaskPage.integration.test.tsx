@@ -12,6 +12,10 @@ import { TaskPage, EditTaskPage } from './TaskPage'
 import { TodayPage } from './TodayPage'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => null }))
+vi.mock('./useTodaySchedule', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./useTodaySchedule')>()),
+  useTodaySchedule: () => ({ version: undefined }),
+}))
 vi.mock('./TodayCriticalDays', () => ({ TodayCriticalDays: () => null }))
 vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 

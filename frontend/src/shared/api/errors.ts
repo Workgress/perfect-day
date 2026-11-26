@@ -1,4 +1,5 @@
 import { HttpError } from './http'
+import { plannerMessage } from '@/shared/lib/plannerText'
 
 export type ApiProblem = {
   code: string
@@ -40,7 +41,7 @@ export function apiError(error: unknown): string {
             ),
           ]
         : []
-      return [body.error.message, ...details].join('. ')
+      return plannerMessage([body.error.message, ...details].join('. '))
     }
     if (error.status === 404) return 'Эта функция пока недоступна на сервере.'
     if (error.status >= 500) return 'Сервис временно недоступен. Попробуйте ещё раз.'
@@ -48,6 +49,6 @@ export function apiError(error: unknown): string {
   return error instanceof TypeError
     ? 'Нет связи с сервером. Проверьте подключение и повторите попытку.'
     : error instanceof Error
-      ? error.message
+      ? plannerMessage(error.message)
       : 'Не удалось выполнить запрос.'
 }

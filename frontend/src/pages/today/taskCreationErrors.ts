@@ -1,6 +1,7 @@
 import { apiError, apiProblem } from '@/shared/api/errors'
 import { HttpError } from '@/shared/api/http'
 import type { TaskFormErrors } from './taskFormModel'
+import { plannerMessage } from '@/shared/lib/plannerText'
 
 const FIELDS = {
   title: 'title',
@@ -19,7 +20,8 @@ export function taskWriteFields(error: unknown): TaskFormErrors {
     for (const item of details) {
       if (!item || typeof item.field !== 'string' || typeof item.message !== 'string') continue
       const field = item.field.replace(/^body\./, '')
-      if (Object.hasOwn(FIELDS, field)) fields[FIELDS[field as keyof typeof FIELDS]] = item.message
+      if (Object.hasOwn(FIELDS, field))
+        fields[FIELDS[field as keyof typeof FIELDS]] = plannerMessage(item.message)
     }
   }
   return fields

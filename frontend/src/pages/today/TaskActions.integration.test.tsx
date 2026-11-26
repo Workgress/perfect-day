@@ -10,23 +10,36 @@ import type { Task } from '@/shared/model/task'
 import { TaskPage } from './TaskPage'
 
 const fixture = DAILY_SCHEDULE_FIXTURES.normal
-const failure = (code: string, status = 409) =>
-  Response.json({ error: { code, message: code } }, { status })
+const failure = (code: string, status = 409, message = code) =>
+  Response.json({ error: { code, message } }, { status })
 
-function setup(options: { absent?: boolean; scheduleFailure?: boolean; unplaced?: boolean } = {}) {
-  useSessionStore
-    .getState()
-    .signIn({
-      accessToken: 'actions-token',
-      user: { name: 'Анна', birthDate: '2003-09-20', chronotype: 'lark' },
-    })
+function setup(
+  options: {
+    absent?: boolean
+    scheduleFailure?: boolean
+    unplaced?: boolean
+    explanation?: string
+    pinned?: boolean
+  } = {},
+) {
+  useSessionStore.getState().signIn({
+    accessToken: 'actions-token',
+    user: { name: 'Анна', birthDate: '2003-09-20', chronotype: 'lark' },
+  })
   useSessionStore.setState({ timezone: fixture.timezone, isOnboarded: true })
   const generation = useSessionStore.getState().generation
   const state = {
-    task: { ...fixture.tasks[2], version: 3, actual_start: null } as Task,
+    task: {
+      ...fixture.tasks[2],
+      version: 3,
+      actual_start: null,
+      is_pinned: options.pinned ?? false,
+      pinned_start: options.pinned ? '2026-11-11T05:00:00Z' : null,
+    } as Task,
     absent: options.absent ?? false,
     scheduleFailure: options.scheduleFailure ?? false,
     commandError: '',
+    commandMessage: '',
     failRead: false,
     loseResponse: false,
     wait: undefined as Promise<void> | undefined,
@@ -45,6 +58,7 @@ function setup(options: { absent?: boolean; scheduleFailure?: boolean; unplaced?
       : [
           {
             ...fixture.slots.find((slot) => slot.task_id === state.task.id)!,
+            ...(options.explanation ? { explanation: options.explanation } : {}),
             start_at: state.start,
             end_at: new Date(Date.parse(state.start) + 90 * 60_000).toISOString(),
             is_pinned: state.task.is_pinned,
@@ -77,7 +91,7 @@ function setup(options: { absent?: boolean; scheduleFailure?: boolean; unplaced?
     if (state.commandError) {
       state.task = { ...state.task, version: 8 }
       state.scheduleVersion = 9
-      return failure(state.commandError)
+      return failure(state.commandError, 409, state.commandMessage || state.commandError)
     }
     const command = url.pathname.split('/').at(-1)
     const body = init.body ? JSON.parse(String(init.body)) : {}
@@ -140,6 +154,30 @@ describe('task actions through the saved task panel', () => {
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
   })
   afterEach(() => vi.useRealTimers())
+
+  it('shows readable server reasons and occupied times while preserving the move draft', async () => {
+    const { state, client, writes } = setup({
+      pinned: true,
+      explanation:
+        '10:00 +0500–11:30 +0500. Начало закреплено пользователем. Длительность: 90 мин.',
+    })
+    state.commandError = 'INTERVAL_OCCUPIED'
+    state.commandMessage = 'Интервал занят задачей с 14:45 +0500 до 15:45 +0500.'
+    await screen.findByText('Время закреплено вами.')
+    await userEvent.click(screen.getByRole('button', { name: 'Перенести' }))
+    fireEvent.change(screen.getByLabelText('Начало задачи'), {
+      target: { value: '2026-11-11T14:45' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    await screen.findByText(/Интервал занят задачей с 14:45 до 15:45\./)
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('+0500')
+    expect(screen.getByRole('region', { name: 'Почему в это время' })).not.toHaveTextContent(
+      'Длительность:',
+    )
+    expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-11T14:45')
+    expect(writes()).toHaveLength(1)
+    client.clear()
+  })
 
   it('pins and unpins the confirmed interval using the latest returned task and plan versions', async () => {
     const { state, client, writes, generation } = setup()

@@ -12,6 +12,7 @@ import { AlertTriangleIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
 import { formatDate } from '@/pages/biorhythms/biorhythmChartModel'
 import { taskSessionRequest } from './taskSessionRequest'
+import { useReplanLock } from './useScheduleReplan'
 import { transferProposal } from './todayTransferModel'
 import { timelineDuration } from './timelineModel'
 import styles from './TodayDashboard.module.css'
@@ -20,6 +21,7 @@ export function TodayLoadWarning({ day, now }: { day: DailySchedule; now: number
   const proposal = transferProposal(day, now)
   const [dismissed, setDismissed] = useState<string | null>(null)
   const generation = useSessionStore((state) => state.generation)
+  const replanLocked = useReplanLock(generation)
   const sending = useRef(false)
   const client = useQueryClient()
   const navigate = useNavigate()
@@ -113,9 +115,14 @@ export function TodayLoadWarning({ day, now }: { day: DailySchedule; now: number
         <Button
           variant="secondary"
           size="s"
-          disabled={mutation.isPending || mutation.isError}
+          disabled={mutation.isPending || mutation.isError || replanLocked}
           onClick={() => {
-            if (sending.current) return
+            if (
+              sending.current ||
+              replanLocked ||
+              client.isMutating({ mutationKey: ['schedule-replan', generation] })
+            )
+              return
             sending.current = true
             mutation.mutate(proposal)
           }}

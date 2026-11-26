@@ -12,39 +12,16 @@ import { TodayPlanSummary } from './TodayPlanSummary'
 import { TodayEmptyWindows } from './TodayEmptyWindows'
 import { todayWindows } from './todayWindowsModel'
 
-export function TodayTimeline({ date, search = '' }: { date: string; search?: string }) {
-  const generation = useSessionStore((state) => state.generation)
-  const timezone = useSessionStore((state) => state.timezone)
-  return (
-    <TodayTimelineContent
-      key={`${generation}:${date}:${timezone}`}
-      date={date}
-      generation={generation}
-      timezone={timezone}
-      search={search}
-    />
-  )
-}
-
-function TodayTimelineContent({
-  date,
-  generation,
-  timezone,
-  search,
+export function TodayTimeline({
+  state,
+  search = '',
 }: {
-  date: string
-  generation: number
-  timezone: string
-  search: string
+  state: ReturnType<typeof useTodaySchedule>
+  search?: string
 }) {
   const navigate = useNavigate()
   const user = useSessionStore((state) => state.user)
   const selected = useMatch(`${paths.taskDetails}/*`)?.params.taskId
-  const state = useTodaySchedule(date, generation, {
-    timezone,
-    work_start: user?.workStart,
-    work_end: user?.workEnd,
-  })
   const open = (task: { id: string }) => navigate(taskPath(task.id))
   const create = () => navigate(paths.newTask)
   const query = search.trim().toLocaleLowerCase('ru-RU')
@@ -83,7 +60,7 @@ function TodayTimelineContent({
         <>
           <section className={styles.planState} role="status">
             <h2 className="text-heading">Расписание на этот день ещё не сохранено</h2>
-            <p>При добавлении или изменении задачи планировщик обновит расписание.</p>
+            <p>Нажмите «Перепланировать», чтобы составить план из задач этого дня.</p>
             {!state.tasks.length ? <p>Задач на этот день пока нет.</p> : null}
           </section>
           <TaskDayList

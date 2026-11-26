@@ -15,6 +15,8 @@ import {
 import { REMINDER_OPTIONS, WEEKDAYS, type TaskFormOptions } from './taskFormSettings'
 import { timelineClock, timelineDuration } from './timelineModel'
 import { useTaskDialog } from './useTaskDialog'
+import { taskPlacementExplanation } from './taskPlacementExplanation'
+import { plannerMessage } from '@/shared/lib/plannerText'
 import styles from './TaskDetailsPanel.module.css'
 
 type TaskDetailsPanelProps = {
@@ -137,7 +139,7 @@ export function TaskDetailsPanel({
     ? `${localDate(new Date(task.deadline), timezone) === localDate(now, timezone) ? 'сегодня' : new Intl.DateTimeFormat('ru-RU', { timeZone: timezone, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(task.deadline))}, до ${clock(task.deadline)}`
     : 'Без срока'
   const reasons = [
-    ...new Set(placements.flatMap((slot) => (slot.explanation ? [slot.explanation] : []))),
+    ...new Set(placements.map((slot) => taskPlacementExplanation(task, slot, timezone))),
   ]
   const nextRest = last
     ? slots.find(
@@ -363,7 +365,7 @@ export function TaskDetailsPanel({
         {deleteAction}
         {notice ? (
           <p className={styles.notice} role="status">
-            {notice}
+            {plannerMessage(notice)}
           </p>
         ) : null}
         {recoveryAction}

@@ -11,7 +11,7 @@ import { useSessionStore } from '@/stores/session'
 import { CHRONOTYPES, dayTicks, dayWindows } from './chronotype'
 import { formatTime, isTime, minutes, validateTasks } from './model'
 import { localPlanPreview } from './planPreview'
-import { previewExplanation } from './previewExplanation'
+import { plannerExplanation } from '@/shared/lib/plannerText'
 import styles from './StepPreview.module.css'
 
 export function DayWindowsPreview() {
@@ -107,7 +107,7 @@ export function FirstTasksPreview() {
           task: body.tasks[slot.task_index],
           index: slot.task_index,
           time: `${slot.start_time.slice(0, 5)}–${slot.end_time.slice(0, 5)}`,
-          explanation: previewExplanation(slot.explanation),
+          explanation: plannerExplanation(slot.explanation),
         })),
         ...preview.unscheduled_task_indexes.map((index) => ({
           task: body.tasks[index],

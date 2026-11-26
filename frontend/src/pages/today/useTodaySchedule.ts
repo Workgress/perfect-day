@@ -109,6 +109,10 @@ export function useTodaySchedule(
     }
   }
   return {
+    version:
+      !loading && !error && tasks.isSuccess && (schedule.isSuccess || absent)
+        ? (schedule.data?.version ?? 0)
+        : undefined,
     day,
     metrics: schedule.data?.metrics,
     tasks: tasks.data ?? [],

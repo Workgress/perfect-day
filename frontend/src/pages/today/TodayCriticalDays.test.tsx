@@ -10,6 +10,10 @@ import { TodayPage } from './TodayPage'
 import { criticalDayCopy } from './todayHeaderModel'
 
 vi.mock('./TodayTimeline', () => ({ TodayTimeline: () => <p>План доступен</p> }))
+vi.mock('./useTodaySchedule', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./useTodaySchedule')>()),
+  useTodaySchedule: () => ({ version: undefined }),
+}))
 vi.mock('./TodayEnergyProfile', () => ({ TodayEnergyProfile: () => null }))
 
 const days = ['2026-11-21', '2026-11-22']

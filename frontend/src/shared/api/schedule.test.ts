@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { SavedSchedule } from '@/shared/model/schedule'
 import { HttpError } from './http'
 import { apiProblem } from './errors'
-import { getSchedule } from './schedule'
+import { getSchedule, replanSchedule } from './schedule'
 
 const fixtures = JSON.parse(
   readFileSync(
@@ -93,5 +93,22 @@ describe('saved schedule API contract', () => {
       vi.fn(async () => Response.json(fixtures.day_with_tasks)),
     )
     await expect(getSchedule('2026-11-19')).rejects.toThrow('другую дату')
+  })
+
+  it.each([
+    { ...fixtures.day_with_tasks, planned_date: '2026-11-19' },
+    { ...fixtures.day_with_tasks, version: 1 },
+    { ...fixtures.day_with_tasks, slots: null },
+  ])('rejects an unrelated, stale or malformed replan result %#', async (saved) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ schedule: saved })),
+    )
+    await expect(replanSchedule('2026-11-18', 1)).rejects.toThrow()
+  })
+
+  it.each([-1, 1.5, NaN])('does not submit an invalid replan version %s', async (version) => {
+    await expect(replanSchedule('2026-11-18', version)).rejects.toThrow(RangeError)
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

@@ -12,15 +12,24 @@ import { TodayTimeline } from './TodayTimeline'
 import { TodayCriticalDays } from './TodayCriticalDays'
 import { TodayEnergyProfile } from './TodayEnergyProfile'
 import { todayDateLabel, todayGreeting } from './todayHeaderModel'
+import { useTodaySchedule } from './useTodaySchedule'
+import { useScheduleReplan } from './useScheduleReplan'
 
 export function TodayPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const generation = useSessionStore((state) => state.generation)
   const timezone = useSessionStore((state) => state.timezone)
-  const name = useSessionStore((state) => state.user?.name)
+  const user = useSessionStore((state) => state.user)
+  const name = user?.name
   const now = useCurrentTime()
   const date = localDate(now, timezone)
+  const plan = useTodaySchedule(date, generation, {
+    timezone,
+    work_start: user?.workStart,
+    work_end: user?.workEnd,
+  })
+  const replan = useScheduleReplan(date, generation, timezone)
   const [searchState, setSearchState] = useState({ generation, date, value: '' })
   const search =
     searchState.generation === generation && searchState.date === date ? searchState.value : ''
@@ -83,15 +92,26 @@ export function TodayPage() {
             ) : null}
             <kbd aria-hidden="true">⌘</kbd>
           </div>
-          <span title="Перепланирование вручную пока недоступно в API. План пересчитывается при изменении задач.">
-            <Button variant="secondary" className={styles.replan} disabled>
-              <RefreshIcon />
-              Перепланировать
-            </Button>
-          </span>
+          <Button
+            variant="secondary"
+            className={styles.replan}
+            disabled={
+              plan.version === undefined ||
+              replan.pending ||
+              replan.taskPending ||
+              replan.blocked ||
+              location.pathname !== paths.today
+            }
+            aria-busy={replan.pending}
+            onClick={() => plan.version !== undefined && void replan.execute(plan.version)}
+          >
+            <RefreshIcon />
+            {replan.pending ? 'Обновляем план…' : 'Перепланировать'}
+          </Button>
           <Button
             className={styles.addTask}
             data-new-task-trigger
+            disabled={replan.pending || replan.blocked}
             onClick={() => navigate(paths.newTask)}
           >
             <PlusIcon />
@@ -99,6 +119,21 @@ export function TodayPage() {
           </Button>
         </div>
       </header>
+      {replan.message ? (
+        <div className={styles.replanFeedback} role={replan.blocked ? 'alert' : 'status'}>
+          <p>{replan.message}</p>
+          {replan.blocked ? (
+            <Button
+              variant="secondary"
+              size="s"
+              disabled={replan.pending}
+              onClick={() => void replan.execute(0, true)}
+            >
+              Обновить данные плана
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {created?.generation === generation ? (
         <div className={styles.notice} role="status">
           <CheckIcon size={18} />
@@ -136,7 +171,7 @@ export function TodayPage() {
           </Button>
         </div>
       ) : null}
-      <TodayTimeline date={date} search={search} />
+      <TodayTimeline key={`${generation}:${date}:${timezone}`} state={plan} search={search} />
       <TodayEnergyProfile date={date} />
       <TodayCriticalDays date={date} />
       <Outlet />

@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { cx } from '@/shared/lib/cx'
 import { localDate } from '@/shared/lib/dateTime'
+import { plannerExplanation } from '@/shared/lib/plannerText'
 import {
   TASK_TYPES,
   type TaskDraft,
@@ -885,7 +886,9 @@ export function TaskForm({
                         minute: '2-digit',
                       }).format(new Date(suggestion.endsAt))}
                     </p>
-                    <p className={styles.suggestionText}>{suggestion.explanation}</p>
+                    <p className={styles.suggestionText}>
+                      {plannerExplanation(suggestion.explanation)}
+                    </p>
                     <button
                       type="button"
                       className={styles.chooseTime}

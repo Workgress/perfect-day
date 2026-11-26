@@ -157,6 +157,15 @@
 .planState > p {
   color: var(--text-secondary);
 }
+.replanFeedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  margin-top: var(--space-16);
+  color: var(--text-secondary);
+  font: 400 14px / 20px var(--font-sans);
+}
 .warnings {
   display: grid;
   gap: var(--space-8);
@@ -232,7 +241,7 @@
     width: 100%;
     height: 44px;
   }
-  .headerActions > span,
+  .headerActions .replan,
   .headerActions .addTask {
     flex: 1;
     min-width: 150px;

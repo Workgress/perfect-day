@@ -208,7 +208,7 @@ describe('today with the saved schedule API', () => {
     await ready()
     await userEvent.type(input, 'несуществующая задача')
     expect(screen.getByRole('status')).toHaveTextContent('На этот день ничего не найдено.')
-    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeEnabled()
     client.clear()
   })
 

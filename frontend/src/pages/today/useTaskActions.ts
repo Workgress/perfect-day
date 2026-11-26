@@ -15,6 +15,7 @@ import {
 import type { Task } from '@/shared/model/task'
 import { useSessionStore } from '@/stores/session'
 import { taskSessionRequest } from './taskSessionRequest'
+import { useReplanLock } from './useScheduleReplan'
 
 export type TaskAction =
   | { kind: 'complete' }
@@ -53,6 +54,7 @@ export function useTaskActions(task: Task | undefined, schedule: ActionSchedule,
   const generation = useSessionStore((state) => state.generation)
   const key = ['task-actions', generation]
   const pending = useIsMutating({ mutationKey: key }) > 0
+  const replanLocked = useReplanLock(generation)
   // Keep feedback through the dashboard's loading/unmount cycle after invalidation.
   const history = useMutationState({
     filters: { mutationKey: key },
@@ -176,7 +178,7 @@ export function useTaskActions(task: Task | undefined, schedule: ActionSchedule,
     },
   })
   return {
-    pending,
+    pending: pending || replanLocked,
     blocked,
     placementReady:
       schedule !== undefined &&
@@ -192,6 +194,8 @@ export function useTaskActions(task: Task | undefined, schedule: ActionSchedule,
       if (
         !task ||
         client.isMutating({ mutationKey: key }) ||
+        client.isMutating({ mutationKey: ['schedule-replan', generation] }) ||
+        replanLocked ||
         (blocked && action.kind !== 'refresh')
       )
         return false
