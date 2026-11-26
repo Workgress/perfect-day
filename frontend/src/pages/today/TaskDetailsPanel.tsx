@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { localDate } from '@/shared/lib/dateTime'
-import type { ScheduleSlot } from '@/shared/model/schedule'
+import type { ScheduleSlot, SchedulePlanningDetails } from '@/shared/model/schedule'
 import { TASK_TYPES, type Task } from '@/shared/model/task'
 import { Button } from '@/shared/ui/button/Button'
 import {
@@ -16,12 +16,13 @@ import { REMINDER_OPTIONS, WEEKDAYS, type TaskFormOptions } from './taskFormSett
 import { timelineClock, timelineDuration } from './timelineModel'
 import { useTaskDialog } from './useTaskDialog'
 import { taskPlacementExplanation } from './taskPlacementExplanation'
-import { plannerMessage } from '@/shared/lib/plannerText'
+import { plannerMessage, plannerExplanation } from '@/shared/lib/plannerText'
 import styles from './TaskDetailsPanel.module.css'
 
 type TaskDetailsPanelProps = {
   task: Task
   slots: ScheduleSlot[]
+  planning?: SchedulePlanningDetails
   timezone: string
   now?: Date
   options?: TaskFormOptions
@@ -35,6 +36,7 @@ type TaskDetailsPanelProps = {
   onReopen?: () => void
   placementAction?: ReactNode
   recoveryAction?: ReactNode
+  explanationState?: ReactNode
   actionsDisabled?: boolean
   notice?: string | null
   deleteAction?: ReactNode
@@ -63,6 +65,7 @@ function repeatLabel(options?: TaskFormOptions) {
 export function TaskDetailsPanel({
   task,
   slots,
+  planning,
   timezone,
   now: suppliedNow,
   options,
@@ -76,6 +79,7 @@ export function TaskDetailsPanel({
   onReopen,
   placementAction,
   recoveryAction,
+  explanationState,
   actionsDisabled = false,
   notice,
   deleteAction,
@@ -139,8 +143,12 @@ export function TaskDetailsPanel({
     ? `${localDate(new Date(task.deadline), timezone) === localDate(now, timezone) ? 'сегодня' : new Intl.DateTimeFormat('ru-RU', { timeZone: timezone, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(task.deadline))}, до ${clock(task.deadline)}`
     : 'Без срока'
   const reasons = [
-    ...new Set(placements.map((slot) => taskPlacementExplanation(task, slot, timezone))),
+    ...new Set(placements.map((slot) => taskPlacementExplanation(task, slot, timezone, planning))),
   ]
+  const unplaced = planning?.unscheduled_explanations.find(
+    (item) => item.task_id === task.id && item.planned_date === task.planned_date,
+  )
+  if (!placements.length && unplaced) reasons.push(plannerExplanation(unplaced.explanation))
   const nextRest = last
     ? slots.find(
         (slot) => slot.kind !== 'task' && Date.parse(slot.start_at) === Date.parse(last.end_at),
@@ -265,9 +273,11 @@ export function TaskDetailsPanel({
         <section
           className={styles.reasons}
           data-example={exampleExplanation || undefined}
-          aria-label="Почему в это время"
+          aria-label={unplaced && !first ? 'Почему задача без времени' : 'Почему в это время'}
         >
-          <h3 className="text-label">Почему в это время</h3>
+          <h3 className="text-label">
+            {unplaced && !first ? 'Почему задача без времени' : 'Почему в это время'}
+          </h3>
           {displayedReasons.length ? (
             <ul>
               {displayedReasons.map((reason, index) => (
@@ -285,6 +295,7 @@ export function TaskDetailsPanel({
                   : 'Задача пока не размещена на шкале. Выберите день и время в форме редактирования.')}
             </p>
           )}
+          {explanationState}
         </section>
         {task.description ? (
           <section className={styles.description} aria-label="Описание задачи">

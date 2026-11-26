@@ -41,6 +41,7 @@ export type SavedSchedule = {
 
 /** View model assembled from a saved schedule, task responses and work clocks. */
 export type DailySchedule = {
+  planning?: SchedulePlanningDetails
   /** Local date YYYY-MM-DD; work clocks are local HH:mm:ss. */
   date: string
   timezone: string
@@ -52,4 +53,32 @@ export type DailySchedule = {
   slots: ScheduleSlot[]
   /** Pending tasks that did not fit, excluding done and skipped tasks. */
   unscheduled_task_ids: string[]
+}
+
+export type TaskMoveRecommendation = {
+  task_id: string
+  from_date: string
+  to_date: string
+  reason_code: string
+  explanation: string
+}
+
+export type SchedulePlanningDetails = {
+  schedule: SavedSchedule
+  recommendations: TaskMoveRecommendation[]
+  placement_explanations: {
+    task_id: string
+    planned_date: string
+    start_at: string
+    end_at: string
+    preservation: 'pinned' | 'done' | 'started' | 'past' | 'system' | null
+    reason_codes: string[]
+    explanation: string
+  }[]
+  unscheduled_explanations: {
+    task_id: string
+    planned_date: string
+    reason_codes: string[]
+    explanation: string
+  }[]
 }

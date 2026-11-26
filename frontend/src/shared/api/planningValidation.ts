@@ -1,6 +1,6 @@
 import { isCalendarDate } from '@/shared/lib/dateTime'
 import { TASK_TYPES, type Task, type TaskList } from '@/shared/model/task'
-import type { SavedSchedule } from '@/shared/model/schedule'
+import type { SavedSchedule, SchedulePlanningDetails } from '@/shared/model/schedule'
 
 type RecordValue = Record<string, unknown>
 const record = (value: unknown): value is RecordValue =>
@@ -151,4 +151,72 @@ export function readSavedSchedule(value: unknown): SavedSchedule {
     return invalid()
   }
   return value as SavedSchedule
+}
+
+export function readSchedulePlanningDetails(value: unknown): SchedulePlanningDetails {
+  if (!record(value)) return invalid()
+  const saved = readSavedSchedule(value.schedule)
+  const reason = (value: unknown) => text(value) && /^[A-Z][A-Z0-9_]*$/.test(value)
+  const reasons = (value: unknown) =>
+    Array.isArray(value) && value.length > 0 && value.every(reason)
+  const explained = (item: unknown): item is RecordValue =>
+    record(item) && uuid(item.task_id) && text(item.explanation) && !!item.explanation.trim()
+  if (
+    !Array.isArray(value.recommendations) ||
+    !value.recommendations.every(
+      (item) =>
+        explained(item) &&
+        item.from_date === saved.planned_date &&
+        date(item.to_date) &&
+        item.to_date > saved.planned_date &&
+        reason(item.reason_code),
+    ) ||
+    !Array.isArray(value.placement_explanations) ||
+    !value.placement_explanations.every(
+      (item) =>
+        explained(item) &&
+        item.planned_date === saved.planned_date &&
+        timestamp(item.start_at) &&
+        timestamp(item.end_at) &&
+        (item.preservation === null ||
+          member(item.preservation, ['pinned', 'done', 'started', 'past', 'system'])) &&
+        reasons(item.reason_codes) &&
+        saved.slots.some(
+          (slot) =>
+            slot.kind === 'task' &&
+            slot.task_id === item.task_id &&
+            Date.parse(slot.start_at) === Date.parse(item.start_at as string) &&
+            Date.parse(slot.end_at) === Date.parse(item.end_at as string),
+        ),
+    ) ||
+    !Array.isArray(value.unscheduled_explanations) ||
+    !value.unscheduled_explanations.every(
+      (item) =>
+        explained(item) &&
+        item.planned_date === saved.planned_date &&
+        reasons(item.reason_codes) &&
+        saved.unscheduled.some((task) => task.task_id === item.task_id),
+    )
+  )
+    return invalid()
+  const placed = saved.slots.filter((slot) => slot.kind === 'task')
+  const referenced = new Set([
+    ...placed.map((slot) => slot.task_id),
+    ...saved.unscheduled.map((item) => item.task_id),
+  ])
+  const placements = new Set(
+    value.placement_explanations.map((item) => `${item.task_id}:${Date.parse(item.start_at)}`),
+  )
+  if (
+    placements.size !== placed.length ||
+    placements.size !== value.placement_explanations.length ||
+    new Set(value.unscheduled_explanations.map((item) => item.task_id)).size !==
+      saved.unscheduled.length ||
+    value.unscheduled_explanations.length !== saved.unscheduled.length ||
+    new Set(value.recommendations.map((item) => item.task_id)).size !==
+      value.recommendations.length ||
+    value.recommendations.some((item) => !referenced.has(item.task_id))
+  )
+    return invalid()
+  return value as SchedulePlanningDetails
 }

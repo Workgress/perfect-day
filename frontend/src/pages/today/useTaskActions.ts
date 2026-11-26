@@ -11,6 +11,7 @@ import {
   skipTask,
   startTask,
   unpinTask,
+  updateTask,
 } from '@/shared/api/tasks'
 import type { Task } from '@/shared/model/task'
 import { useSessionStore } from '@/stores/session'
@@ -25,6 +26,7 @@ export type TaskAction =
   | { kind: 'unpin' }
   | { kind: 'refresh' }
   | { kind: 'pin' | 'move'; date: string; start: string }
+  | { kind: 'recommend'; date: string }
 
 export type ActionSchedule =
   { planned_date: string; timezone: string; version: number } | null | undefined
@@ -39,6 +41,7 @@ const labels = {
   unpin: 'Время откреплено',
   move: 'Задача перенесена, время закреплено',
   refresh: 'Данные обновлены. Проверьте план перед повторным действием.',
+  recommend: 'Предложение переноса применено',
 }
 
 class ActionError extends Error {
@@ -128,6 +131,16 @@ export function useTaskActions(task: Task | undefined, schedule: ActionSchedule,
           )
             throw new Error('Сначала загрузите актуальное расписание задачи.')
           const versions: Record<string, number> = { [selected.planned_date]: source?.version ?? 0 }
+          if (action.kind === 'recommend') {
+            const currentPlan = await readSchedule(selected.planned_date)
+            if (!source || currentPlan?.version !== source.version)
+              throw new Error('План изменился. Обновите подсказки перед переносом.')
+            return updateTask(
+              selected.id,
+              { version: selected.version, planned_date: action.date },
+              signal,
+            )
+          }
           if (action.kind === 'unpin')
             return unpinTask(selected.id, selected.version, versions[selected.planned_date], signal)
           if (action.kind === 'start')

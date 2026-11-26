@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { cx } from '@/shared/lib/cx'
-import { BIORHYTHM_CYCLES, BIORHYTHM_PHASES, type BiorhythmCycle } from '@/shared/model/biorhythm'
+import { BIORHYTHM_CYCLES, type BiorhythmCycle } from '@/shared/model/biorhythm'
+import { biorhythmStateLabel } from '@/shared/lib/biorhythmStateLabel'
 import { Button } from '@/shared/ui/button/Button'
 import { AlertTriangleIcon, CheckIcon } from '@/shared/ui/icon/icons'
 import { Toggle } from '@/shared/ui/toggle/Toggle'
@@ -347,7 +348,7 @@ export function BiorhythmChart({ data, selectedAt, onSelect, referenceDate }: Bi
                     <span>{BIORHYTHM_CYCLES[cycle].label}</span>
                     <span>
                       {formatPercent(selected.cycles[cycle].percent)} ·{' '}
-                      {BIORHYTHM_PHASES[selected.cycles[cycle].phase].toLowerCase()}
+                      {biorhythmStateLabel(selected.cycles[cycle]).toLowerCase()}
                     </span>
                   </div>
                 ))}
@@ -391,7 +392,7 @@ export function BiorhythmChart({ data, selectedAt, onSelect, referenceDate }: Bi
                     {BIORHYTHM_CYCLES[cycle].label} · {BIORHYTHM_CYCLES[cycle].periodDays}{' '}
                     {cycle === 'emotional' ? 'дней' : 'дня'}
                   </p>
-                  <h2 className={styles.phase}>{BIORHYTHM_PHASES[reading.phase]}</h2>
+                  <h2 className={styles.phase}>{biorhythmStateLabel(reading)}</h2>
                   <p className={styles.muted}>
                     {formatPercent(reading.percent)} ·{' '}
                     {reading.trend === 'up' ? 'значение растёт' : 'значение снижается'}
@@ -412,7 +413,8 @@ export function BiorhythmChart({ data, selectedAt, onSelect, referenceDate }: Bi
             })}
             <section className={styles.readingGuide}>
               <h2 className="text-label">Как читать график</h2>
-              <p>Выше нуля — подъём, ниже — спад.</p>
+              <p>Выше нуля — положительное значение, ниже — отрицательное.</p>
+              <p>Подъём и спад показывают направление изменения линии.</p>
               <p>Жёлтая колонка — критический день: цикл пересекает ноль.</p>
               <p>Цвета линий соответствуют трём циклам. Значения показаны в процентах.</p>
             </section>

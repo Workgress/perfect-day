@@ -7,6 +7,8 @@ import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
 import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
 import { createBiorhythmDemoPoints } from '@/shared/fixtures/biorhythms'
 import { useSessionStore } from '@/stores/session'
+import { planningDetails } from '@/test/planningDetails'
+import type { SavedSchedule } from '@/shared/model/schedule'
 import { TodayPage } from './TodayPage'
 import { TaskPage, EditTaskPage } from './TaskPage'
 
@@ -19,6 +21,11 @@ function setup(
     overloaded?: boolean
     noCandidate?: boolean
     placementExplanation?: string
+    detailsError?: boolean
+    detailsVersion?: number
+    recommendationDate?: string
+    unplaced?: boolean
+    detailedExplanation?: string
   } = {},
 ) {
   useSessionStore.getState().signIn({
@@ -60,7 +67,9 @@ function setup(
         load_factor: 1,
         moved_min: 0,
       },
-    },
+    } as SavedSchedule,
+    detailsError: options.detailsError ?? false,
+    detailsVersion: options.detailsVersion,
     bioError: options.bioError ?? false,
     transferConflict: false,
     transferWait: undefined as Promise<void> | undefined,
@@ -86,6 +95,13 @@ function setup(
   }
   if (options.noCandidate)
     state.tasks = state.tasks.map((task) => ({ ...task, deadline: '2026-11-11T18:00:00Z' }))
+  if (options.unplaced) {
+    state.tasks[5].status = 'pending'
+    state.saved.slots = state.saved.slots.filter((slot) => slot.task_id !== state.tasks[5].id)
+    state.saved.unscheduled = [
+      { task_id: state.tasks[5].id, reason_codes: ['NO_CONTIGUOUS_WINDOW'] },
+    ]
+  }
   const request = vi.fn<typeof fetch>(async (input, init) => {
     const url = new URL(String(input))
     if (url.pathname.endsWith('/biorhythms')) {
@@ -130,6 +146,40 @@ function setup(
             day.date >= url.searchParams.get('from')! && day.date <= url.searchParams.get('to')!,
         ),
       })
+    if (url.pathname.endsWith('/schedule/details')) {
+      if (state.detailsError)
+        return Response.json(
+          { error: { code: 'PLANNER_UNAVAILABLE', message: 'Сервис подсказок недоступен' } },
+          { status: 503 },
+        )
+      const details = planningDetails(
+        { ...state.saved, version: state.detailsVersion ?? state.saved.version },
+        {
+          recommendations:
+            options.overloaded &&
+            !options.noCandidate &&
+            state.tasks[5].planned_date === fixture.date
+              ? [
+                  {
+                    task_id: state.tasks[5].id,
+                    from_date: fixture.date,
+                    to_date: options.recommendationDate ?? '2026-11-12',
+                    reason_code: 'DAY_OVERLOADED',
+                    explanation:
+                      'На исходную дату превышен рекомендуемый уровень нагрузки. На 12 ноября задача помещается целиком.',
+                  },
+                ]
+              : [],
+        },
+      )
+      if (options.detailedExplanation) {
+        const reason = details.placement_explanations.find(
+          (item) => item.task_id === fixture.tasks[2].id,
+        )!
+        reason.explanation = options.detailedExplanation
+      }
+      return Response.json(details)
+    }
     if (url.pathname.endsWith('/schedule')) return Response.json(state.saved)
     if (url.pathname.endsWith('/tasks')) {
       const tasks = state.tasks.filter((task) => task.planned_date === url.searchParams.get('date'))
@@ -212,6 +262,66 @@ describe('assembled Today dashboard', () => {
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
   })
   afterEach(() => vi.useRealTimers())
+
+  it('uses detailed server reasons in both the next task and task panel', async () => {
+    const text =
+      'Учтено предпочтительное время начала. Сохранён обязательный перерыв перед задачей.'
+    const { client } = setup({ detailedExplanation: text })
+    const summary = await screen.findByRole('complementary', { name: 'Сводка дня' })
+    await within(summary).findByText(text)
+    await userEvent.click(within(summary).getByRole('link', { name: 'Подготовка к экзамену' }))
+    expect(
+      await within(screen.getByRole('region', { name: 'Почему в это время' })).findByText(text),
+    ).toBeInTheDocument()
+    client.clear()
+  })
+
+  it('shows a server recommendation for a later date and explains its consequences without writing', async () => {
+    const { client, request } = setup({ overloaded: true, recommendationDate: '2026-11-16' })
+    const move = await screen.findByRole('button', { name: 'Перенести на пн 16' })
+    expect(move).toBeEnabled()
+    const load = screen.getByRole('region', { name: /^Нагрузка/ })
+    await userEvent.click(within(load).getByText('Почему так?'))
+    expect(load).toHaveTextContent('На исходную дату превышен рекомендуемый уровень нагрузки.')
+    expect(load).toHaveTextContent('Время на выбранный день не забронировано')
+    expect(request.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0)
+    client.clear()
+  })
+
+  it('keeps the plan and load on details failure and recovers suggestions independently', async () => {
+    const { client, state } = setup({ overloaded: true, detailsError: true })
+    await screen.findByText(/Подсказки временно недоступны/)
+    expect(screen.getByRole('list', { name: 'Интервалы расписания' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Нагрузка:/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Перенести на/ })).not.toBeInTheDocument()
+    state.detailsError = false
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить подсказки и план' }))
+    expect(await screen.findByRole('button', { name: /^Перенести на/ })).toBeEnabled()
+    client.clear()
+  })
+
+  it('rejects advice from another version until the displayed plan is refreshed', async () => {
+    const { client, state, request } = setup({ overloaded: true, detailsVersion: 2 })
+    await screen.findByText(/План изменился. Обновите расписание/)
+    expect(screen.queryByRole('button', { name: /^Перенести на/ })).not.toBeInTheDocument()
+    state.saved.version = 2
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить подсказки и план' }))
+    expect(await screen.findByRole('button', { name: /^Перенести на/ })).toBeEnabled()
+    expect(request.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0)
+    client.clear()
+  })
+
+  it('shows why an unplaced task could not fit, in the list and its panel', async () => {
+    const { client } = setup({ unplaced: true })
+    const list = await screen.findByRole('region', { name: 'Без времени' })
+    await within(list).findByText(
+      'Не найдено непрерывного окна нужной длительности. Дата задачи сохранена.',
+    )
+    await userEvent.click(within(list).getByRole('button', { name: /Оформить список литературы/ }))
+    const reason = await screen.findByRole('region', { name: 'Почему задача без времени' })
+    expect(reason).toHaveTextContent('Не найдено непрерывного окна нужной длительности.')
+    client.clear()
+  })
 
   it('uses the same readable server explanation in the nearest task and its details panel', async () => {
     const { client } = setup({
@@ -396,9 +506,9 @@ describe('assembled Today dashboard', () => {
     await screen.findByRole('list', { name: 'Интервалы расписания' })
     const load = screen.getByRole('region', { name: /^Нагрузка/ })
     expect(load).toHaveTextContent('Можно разгрузить день')
-    expect(load).toHaveTextContent('Перенести «Оформить список литературы»')
+    await waitFor(() => expect(load).toHaveTextContent('Перенести «Оформить список литературы»'))
     expect(load).toHaveTextContent('Так сегодня освободится 1 ч.')
-    expect(load).toHaveTextContent('Свободное время на выбранный день ещё не подтверждено.')
+    expect(load).toHaveTextContent('Время на выбранный день не забронировано')
     await userEvent.click(within(load).getByRole('button', { name: 'Оставить' }))
     expect(load).toHaveTextContent('Сегодняшний план оставлен без изменений.')
     expect(request.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(0)
@@ -413,14 +523,14 @@ describe('assembled Today dashboard', () => {
     state.transferWait = new Promise<void>((resolve) => {
       finish = resolve
     })
-    const move = screen.getByRole('button', { name: /^Перенести на/ })
+    const move = await screen.findByRole('button', { name: /^Перенести на/ })
     await userEvent.click(move)
     expect(move).toBeDisabled()
     await userEvent.click(move)
     await act(async () => {
       finish()
     })
-    await screen.findByText(`«${task.title}» (Творческая, 1 ч) перенесена на 12 ноября.`)
+    await screen.findByText(`«${task.title}» перенесена на 12 ноября.`)
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /^Перенести на/ })).not.toBeInTheDocument(),
     )
@@ -439,10 +549,8 @@ describe('assembled Today dashboard', () => {
     await screen.findByRole('list', { name: 'Интервалы расписания' })
     state.transferConflict = true
     state.tasks[5].version++
-    await userEvent.click(screen.getByRole('button', { name: /^Перенести на/ }))
-    expect(
-      await screen.findByText('Задача изменилась. Проверьте актуальный план перед переносом.'),
-    ).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /^Перенести на/ }))
+    expect(await screen.findByText(/Задача или расписание изменились/)).toBeInTheDocument()
     await screen.findByRole('list', { name: 'Интервалы расписания' })
     expect(request.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(1)
     client.clear()
@@ -451,11 +559,7 @@ describe('assembled Today dashboard', () => {
   it('does not propose a task whose deadline cannot accommodate tomorrow', async () => {
     const { client } = setup({ overloaded: true, noCandidate: true })
     await screen.findByRole('list', { name: 'Интервалы расписания' })
-    expect(
-      screen.getByText(
-        /Подходящей задачи для переноса на завтра без нарушения дедлайна не найдено/,
-      ),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Проверенного предложения переноса пока нет/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Перенести на/ })).not.toBeInTheDocument()
     client.clear()
   })

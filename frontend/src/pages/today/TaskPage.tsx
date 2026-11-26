@@ -19,6 +19,7 @@ import { localDate } from '@/shared/lib/dateTime'
 import { useCurrentTime } from '@/shared/lib/useCurrentTime'
 import { taskSessionRequest } from './taskSessionRequest'
 import styles from './TaskDetailsPanel.module.css'
+import { usePlannerDetails } from './usePlannerDetails'
 
 export function TaskPage() {
   return <TaskRoute editing={false} />
@@ -97,6 +98,7 @@ function TaskContent({
       : schedule.isError
         ? undefined
         : schedule.data
+  const planner = usePlannerDetails(editing ? null : source)
   const actions = useTaskActions(task, source, timezone)
   const fresh = (value: Task) => {
     if (current()) client.setQueryData(taskKeys.detail(generation, id), value)
@@ -205,6 +207,26 @@ function TaskContent({
   return (
     <TaskDetailsPanel
       task={task}
+      planning={planner.isSuccess && !planner.isFetching ? planner.data : undefined}
+      explanationState={
+        source && (planner.isPending || planner.isFetching) ? (
+          <p>Загружаем подробные пояснения…</p>
+        ) : source && planner.isError ? (
+          <>
+            <p>Подробные пояснения временно недоступны.</p>
+            <Button
+              size="s"
+              variant="ghost"
+              onClick={() => {
+                void planner.refetch()
+                void schedule.refetch()
+              }}
+            >
+              Повторить загрузку пояснений
+            </Button>
+          </>
+        ) : null
+      }
       timezone={timezone}
       slots={validSchedule ? schedule.data!.slots.filter((slot) => slot.kind !== 'lunch') : []}
       placementMessage={

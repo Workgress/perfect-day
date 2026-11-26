@@ -6,7 +6,8 @@ import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
 import type { SavedSchedule } from '@/shared/model/schedule'
 import type { Task } from '@/shared/model/task'
 import { apiError } from '@/shared/api/errors'
-import { BIORHYTHM_CYCLES, BIORHYTHM_PHASES } from '@/shared/model/biorhythm'
+import { BIORHYTHM_CYCLES } from '@/shared/model/biorhythm'
+import { biorhythmStateLabel } from '@/shared/lib/biorhythmStateLabel'
 import { Button } from '@/shared/ui/button/Button'
 import { ChevronRightIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
@@ -102,7 +103,7 @@ export function TodayEnergyProfile({ date }: { date: string }) {
                   viewBox="0 0 354 44"
                   preserveAspectRatio="none"
                   role="img"
-                  aria-label={`${BIORHYTHM_CYCLES[cycle].label} цикл: ${formatPercent(reading.percent)}, ${BIORHYTHM_PHASES[reading.phase]}`}
+                  aria-label={`${BIORHYTHM_CYCLES[cycle].label} цикл: ${formatPercent(reading.percent)}, ${biorhythmStateLabel(reading)}`}
                 >
                   <path d="M0 22H354" className={styles.zero} />
                   <polyline
@@ -130,7 +131,7 @@ export function TodayEnergyProfile({ date }: { date: string }) {
                 </h3>
                 <div className={styles.reading}>
                   <strong>{formatPercent(reading.percent)}</strong>
-                  <span>{BIORHYTHM_PHASES[reading.phase]}</span>
+                  <span>{biorhythmStateLabel(reading)}</span>
                 </div>
                 <p className={styles.cycleHint}>
                   {taskHint ? `${taskHint} ` : ''}

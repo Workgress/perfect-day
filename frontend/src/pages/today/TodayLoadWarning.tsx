@@ -1,145 +1,127 @@
-import { useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { paths } from '@/app/router/paths'
-import { updateTask } from '@/shared/api/tasks'
-import { apiError, apiProblem } from '@/shared/api/errors'
-import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
+import { taskKeys } from '@/shared/api/planningKeys'
 import type { DailySchedule } from '@/shared/model/schedule'
-import { TASK_TYPES } from '@/shared/model/task'
+import type { Task } from '@/shared/model/task'
+import { plannerExplanation } from '@/shared/lib/plannerText'
 import { Button } from '@/shared/ui/button/Button'
-import { AlertTriangleIcon } from '@/shared/ui/icon/icons'
 import { useSessionStore } from '@/stores/session'
 import { formatDate } from '@/pages/biorhythms/biorhythmChartModel'
-import { taskSessionRequest } from './taskSessionRequest'
-import { useReplanLock } from './useScheduleReplan'
-import { transferProposal } from './todayTransferModel'
+import { transferProposals } from './todayTransferModel'
+import { useTaskActions } from './useTaskActions'
 import { timelineDuration } from './timelineModel'
 import styles from './TodayDashboard.module.css'
 
-export function TodayLoadWarning({ day, now }: { day: DailySchedule; now: number }) {
-  const proposal = transferProposal(day, now)
-  const [dismissed, setDismissed] = useState<string | null>(null)
+type Proposal = ReturnType<typeof transferProposals>[number]
+
+function MoveSuggestion({ day, proposal }: { day: DailySchedule; proposal: Proposal }) {
+  const [dismissed, setDismissed] = useState(false)
   const generation = useSessionStore((state) => state.generation)
-  const replanLocked = useReplanLock(generation)
-  const sending = useRef(false)
   const client = useQueryClient()
   const navigate = useNavigate()
-  const refresh = () =>
-    Promise.allSettled([
-      client.invalidateQueries({ queryKey: taskKeys.all(generation) }),
-      client.invalidateQueries({ queryKey: scheduleKeys.all(generation) }),
-    ])
-  const mutation = useMutation({
-    retry: false,
-    mutationFn: async (selected: NonNullable<ReturnType<typeof transferProposal>>) =>
-      taskSessionRequest(generation, (signal) =>
-        updateTask(
-          selected.task.id,
-          { version: selected.task.version, planned_date: selected.date },
-          signal,
-        ),
-      ),
-    onSuccess: (task) => {
-      if (useSessionStore.getState().generation !== generation) return
-      client.setQueryData(taskKeys.detail(generation, task.id), task)
-      navigate(paths.today, {
-        replace: true,
-        state: {
-          taskNotice: {
-            generation,
-            message: `«${task.title}» (${TASK_TYPES[task.type]}, ${timelineDuration(task.duration_min)}) перенесена на ${formatDate(task.planned_date, { day: 'numeric', month: 'long' })}.`,
-          },
-        },
-      })
-      void refresh()
-    },
-    onError: (error) => {
-      if (useSessionStore.getState().generation !== generation) return
-      if (apiProblem(error)?.code === 'TASK_VERSION_CONFLICT') {
-        navigate(paths.today, {
-          replace: true,
-          state: {
-            taskNotice: {
-              generation,
-              message: 'Задача изменилась. Проверьте актуальный план перед переносом.',
-            },
-          },
-        })
-        void refresh()
-      }
-    },
-    onSettled: () => {
-      sending.current = false
-    },
-  })
-  if (!proposal)
-    return (
-      <p className={styles.transferText} role="status">
-        День перегружен. Подходящей задачи для переноса на завтра без нарушения дедлайна не найдено.
-        Попробуйте изменить длительность или дату задач.
-      </p>
-    )
-  if (dismissed === proposal.key)
+  const actions = useTaskActions(
+    proposal.task,
+    day.schedule
+      ? {
+          ...day.schedule,
+          planned_date: day.date,
+          timezone: day.timezone,
+        }
+      : undefined,
+    day.timezone,
+  )
+  if (dismissed)
     return (
       <p className={styles.transferText} role="status">
         Перенос отклонён. Сегодняшний план оставлен без изменений.
       </p>
     )
-  const target = formatDate(proposal.date, { weekday: 'long', day: 'numeric', month: 'long' })
   return (
     <div className={styles.transfer}>
       <p className={styles.transferText}>
-        Перенести «{proposal.task.title}» ({TASK_TYPES[proposal.task.type]},{' '}
-        {timelineDuration(proposal.task.duration_min)}) на {target}?{' '}
+        Перенести «{proposal.task.title}» на{' '}
+        {formatDate(proposal.date, { weekday: 'long', day: 'numeric', month: 'long' })}?{' '}
         {proposal.released > 0
           ? `Так сегодня освободится ${timelineDuration(proposal.released)}.`
-          : `Задача на сегодня, ${formatDate(day.date, { day: 'numeric', month: 'long' })}, но время для неё не назначено. Перенос ещё не выполнен.`}
+          : 'Задача пока без времени. Перенос ещё не выполнен.'}
       </p>
+      <details className={styles.hintDetails}>
+        <summary>Почему так?</summary>
+        <p>{plannerExplanation(proposal.explanation)}</p>
+      </details>
       <p className={styles.transferCaution}>
-        <AlertTriangleIcon size={14} />
-        <span>
-          Свободное время на выбранный день ещё не подтверждено. После переноса задача может
-          остаться без времени в расписании.
-        </span>
+        Предложение проверено при расчёте плана. Время на выбранный день не забронировано; при
+        переносе расписание проверится заново.
       </p>
-      {mutation.isError ? (
-        <div className={styles.transferError} role="alert">
-          <p>Не удалось подтвердить перенос. {apiError(mutation.error)}</p>
-          <Button variant="ghost" size="s" onClick={() => void refresh()}>
-            Обновить план
-          </Button>
-        </div>
+      {actions.notice ? (
+        <p className={styles.transferError} role="status">
+          {actions.notice}
+        </p>
       ) : null}
       <div className={styles.transferActions}>
         <Button
           variant="secondary"
           size="s"
-          disabled={mutation.isPending || mutation.isError || replanLocked}
-          onClick={() => {
-            if (
-              sending.current ||
-              replanLocked ||
-              client.isMutating({ mutationKey: ['schedule-replan', generation] })
-            )
-              return
-            sending.current = true
-            mutation.mutate(proposal)
+          disabled={actions.pending || actions.blocked}
+          onClick={async () => {
+            const saved = await actions.execute({ kind: 'recommend', date: proposal.date })
+            if (!saved || useSessionStore.getState().generation !== generation) return
+            const task = client.getQueryData<Task>(taskKeys.detail(generation, proposal.task.id))
+            if (!task) return
+            navigate(paths.today, {
+              replace: true,
+              state: {
+                taskNotice: {
+                  generation,
+                  message: `«${task.title}» перенесена на ${formatDate(task.planned_date, { day: 'numeric', month: 'long' })}.${task.status === 'pending' ? ' Время пока не назначено.' : ''}`,
+                },
+              },
+            })
           }}
         >
-          {mutation.isPending
+          {actions.pending
             ? 'Переносим…'
             : `Перенести на ${formatDate(proposal.date, { weekday: 'short', day: 'numeric' }).replace(',', '')}`}
         </Button>
         <Button
           variant="ghost"
           size="s"
-          disabled={mutation.isPending}
-          onClick={() => setDismissed(proposal.key)}
+          disabled={actions.pending}
+          onClick={() => setDismissed(true)}
         >
           Оставить
         </Button>
+        {actions.blocked ? (
+          <Button
+            variant="secondary"
+            size="s"
+            disabled={actions.pending}
+            onClick={() => void actions.execute({ kind: 'refresh' })}
+          >
+            Обновить данные задачи
+          </Button>
+        ) : null}
       </div>
     </div>
+  )
+}
+
+export function TodayLoadWarning({ day, now }: { day: DailySchedule; now: number }) {
+  const proposals = transferProposals(day, now)
+  if (!proposals.length)
+    return (
+      <p className={styles.transferText}>
+        Проверенного предложения переноса пока нет. Можно изменить длительность или дату задачи
+        вручную.
+      </p>
+    )
+  return (
+    <>
+      {proposals.map((proposal) => (
+        <MoveSuggestion key={proposal.key} day={day} proposal={proposal} />
+      ))}
+    </>
   )
 }

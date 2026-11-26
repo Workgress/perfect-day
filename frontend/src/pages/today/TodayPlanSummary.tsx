@@ -20,13 +20,16 @@ import { todayLoad } from './todayLoadModel'
 import { TodayLoadWarning } from './TodayLoadWarning'
 import { useTaskActions } from './useTaskActions'
 import styles from './TodayDashboard.module.css'
+import { PlannerHints, type PlannerHintsState } from './PlannerHints'
 
 export function TodayPlanSummary({
   day,
   warnings = [],
+  plannerState,
 }: {
   day: DailySchedule
   warnings?: SavedSchedule['warnings']
+  plannerState?: PlannerHintsState
 }) {
   const now = useCurrentTime().getTime()
   const [loadExpanded, setLoadExpanded] = useState(false)
@@ -48,7 +51,8 @@ export function TodayPlanSummary({
     day.schedule ? { ...day.schedule, planned_date: day.date, timezone: day.timezone } : null,
     day.timezone,
   )
-  const explanation = task && next ? taskPlacementExplanation(task, next, day.timezone) : null
+  const explanation =
+    task && next ? taskPlacementExplanation(task, next, day.timezone, day.planning) : null
   const remaining = next ? Math.max(0, Math.ceil((Date.parse(next.start_at) - now) / 60_000)) : 0
   const minutePlural = new Intl.PluralRules('ru-RU').select(remaining)
   const remainingLabel = `${remaining} ${minutePlural === 'one' ? 'минуту' : minutePlural === 'few' ? 'минуты' : 'минут'}`
@@ -74,6 +78,7 @@ export function TodayPlanSummary({
     return task?.planned_date === day.date && task.status === 'pending'
   })
   const overloaded =
+    !!day.planning?.recommendations.length ||
     (percent !== null && percent > 85) ||
     hasUnplaced ||
     (warnings.some((warning) => warning.code === 'OVERLOAD') &&
@@ -267,6 +272,7 @@ export function TodayPlanSummary({
           <p className={styles.context}>Не удалось определить рабочее окно.</p>
         )}
       </section>
+      <PlannerHints day={day} warnings={warnings} state={plannerState} now={now} />
     </aside>
   )
 }

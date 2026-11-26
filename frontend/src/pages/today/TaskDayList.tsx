@@ -15,11 +15,13 @@ export function TaskDayList({
   tasks,
   onTaskSelect,
   selectedTaskId,
+  explanations,
 }: {
   title: string
   tasks: Task[]
   onTaskSelect?: (task: Task) => void
   selectedTaskId?: string | null
+  explanations?: Record<string, string>
 }) {
   const id = useId()
   if (!tasks.length) return null
@@ -37,6 +39,9 @@ export function TaskDayList({
                 {TASK_TYPES[task.type]} · {timelineDuration(task.duration_min)} ·{' '}
                 {STATUS[task.status]}
               </span>
+              {explanations?.[task.id] ? (
+                <span className={styles.meta}>{explanations[task.id]}</span>
+              ) : null}
             </>
           )
           return (

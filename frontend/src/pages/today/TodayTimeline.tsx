@@ -11,6 +11,8 @@ import dashboardStyles from './TodayDashboard.module.css'
 import { TodayPlanSummary } from './TodayPlanSummary'
 import { TodayEmptyWindows } from './TodayEmptyWindows'
 import { todayWindows } from './todayWindowsModel'
+import { usePlannerDetails } from './usePlannerDetails'
+import { plannerExplanation } from '@/shared/lib/plannerText'
 
 export function TodayTimeline({
   state,
@@ -21,6 +23,21 @@ export function TodayTimeline({
 }) {
   const navigate = useNavigate()
   const user = useSessionStore((state) => state.user)
+  const details = usePlannerDetails(
+    state.day?.schedule
+      ? {
+          ...state.day.schedule,
+          planned_date: state.day.date,
+          timezone: state.day.timezone,
+        }
+      : null,
+  )
+  const day = state.day
+    ? {
+        ...state.day,
+        planning: details.isSuccess && !details.isFetching ? details.data : undefined,
+      }
+    : undefined
   const selected = useMatch(`${paths.taskDetails}/*`)?.params.taskId
   const open = (task: { id: string }) => navigate(taskPath(task.id))
   const create = () => navigate(paths.newTask)
@@ -74,7 +91,7 @@ export function TodayTimeline({
         <div className={dashboardStyles.dashboard}>
           <div className={dashboardStyles.planMain}>
             <DailyTimeline
-              day={state.day}
+              day={day!}
               windows={
                 !state.day.tasks.length ? todayWindows(state.day, user?.chronotype) : undefined
               }
@@ -82,9 +99,34 @@ export function TodayTimeline({
               onTaskSelect={open}
               onCreateTask={create}
             />
+            <TaskDayList
+              title="Без времени"
+              tasks={day!.tasks.filter(
+                (task) => task.planned_date === day!.date && task.status === 'pending',
+              )}
+              explanations={Object.fromEntries(
+                day!.planning?.unscheduled_explanations.map((item) => [
+                  item.task_id,
+                  plannerExplanation(item.explanation),
+                ]) ?? [],
+              )}
+              onTaskSelect={open}
+              selectedTaskId={selected}
+            />
           </div>
           {state.day.tasks.length ? (
-            <TodayPlanSummary day={state.day} warnings={state.warnings} />
+            <TodayPlanSummary
+              day={day!}
+              warnings={state.warnings}
+              plannerState={{
+                loading: details.isPending || details.isFetching,
+                error: details.error,
+                refresh: () => {
+                  void details.refetch()
+                  void state.refresh()
+                },
+              }}
+            />
           ) : (
             <TodayEmptyWindows day={state.day} />
           )}

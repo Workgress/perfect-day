@@ -344,7 +344,7 @@ describe('today with the saved schedule API', () => {
     client.clear()
   })
 
-  it('keeps unplaced and completed tasks available through search without footer lists', async () => {
+  it('shows unplaced tasks below the plan and keeps completed tasks available through search', async () => {
     const state = data()
     state.saved.slots = []
     state.tasks[2] = { ...state.tasks[2], status: 'pending' }
@@ -354,7 +354,7 @@ describe('today with the saved schedule API', () => {
     await ready()
     expect(screen.queryByText(/^Время расписания:/)).not.toBeInTheDocument()
     expect(screen.queryByText('Все интервалы списком')).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Без времени' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Без времени' })).toBeInTheDocument()
     expect(
       screen.queryByRole('region', { name: 'Выполненные и пропущенные' }),
     ).not.toBeInTheDocument()
@@ -383,9 +383,9 @@ describe('today with the saved schedule API', () => {
       options.listError = false
       await userEvent.click(screen.getByRole('button', { name: 'Повторить загрузку плана' }))
       await ready()
-      expect(request.mock.calls.filter(([url]) => String(url).includes('/schedule'))).toHaveLength(
-        2,
-      )
+      expect(
+        request.mock.calls.filter(([url]) => new URL(String(url)).pathname.endsWith('/schedule')),
+      ).toHaveLength(2)
       client.clear()
     },
   )

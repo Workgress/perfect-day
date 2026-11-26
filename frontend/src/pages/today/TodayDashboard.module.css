@@ -252,6 +252,63 @@
   padding-top: 24px;
   border-top: 1px solid var(--border-subtle);
 }
+.hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  font: 400 14px / 20px var(--font-sans);
+}
+.hint > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.hint > div {
+  min-width: 0;
+  flex: 1;
+}
+.hint[data-level='critical'] > svg {
+  color: var(--status-danger);
+}
+.hint h3 {
+  font-weight: 500;
+}
+.hint p,
+.hintState {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hint a,
+.hintDetails summary {
+  color: var(--accent-text);
+}
+.hintDetails {
+  margin-top: 8px;
+  font: 400 13px / 20px var(--font-sans);
+}
+.hintDetails summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 32px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hintDetails summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.hintDetails p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hintState {
+  font: 400 13px / 20px var(--font-sans);
+}
 .loadToggle {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -416,6 +473,9 @@
 }
 .transferActions > button {
   min-height: 44px;
+}
+.transferActions > button:first-child {
+  flex: 1;
 }
 .transferError {
   margin-top: 8px;
