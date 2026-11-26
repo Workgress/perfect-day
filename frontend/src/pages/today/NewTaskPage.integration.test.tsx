@@ -373,9 +373,9 @@ describe('task creation with the API', () => {
   it('makes unavailable options read-only rather than silently discarding choices', async () => {
     const { client } = setup()
     expect(screen.getByRole('radio', { name: 'Каждый день' })).toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Закрепить время' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Закрепить время' })).toBeEnabled()
     await userEvent.click(screen.getByRole('button', { name: /Ещё:/ }))
-    expect(screen.getByRole('combobox', { name: /Желаемое время/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Желаемое время/ })).toBeEnabled()
     expect(screen.getByRole('combobox', { name: 'Напоминание' })).toBeDisabled()
     expect(screen.getByRole('combobox', { name: 'Напоминание' })).toHaveValue('')
     expect(fetch).not.toHaveBeenCalled()

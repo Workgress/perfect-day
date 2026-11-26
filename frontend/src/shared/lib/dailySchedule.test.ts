@@ -64,6 +64,21 @@ describe('saved schedule to timeline data', () => {
     )
   })
 
+  it('keeps confirmed deleted history occupied without creating a task or changing API data', () => {
+    const deleted = day.tasks[2].id
+    const tasks = day.tasks.filter((task) => task.id !== deleted)
+    const result = dailySchedule(saved, tasks, day, new Set([deleted]))
+    const source = saved.slots.find((slot) => slot.task_id === deleted)!
+    expect(result.slots.find((slot) => slot.id === source.id)).toMatchObject({
+      kind: 'history',
+      task_id: null,
+      start_at: source.start_at,
+      end_at: source.end_at,
+    })
+    expect(result.tasks.some((task) => task.id === deleted)).toBe(false)
+    expect(source.kind).toBe('task')
+  })
+
   it('represents an empty saved day with system intervals, not a missing schedule', () => {
     const system = saved.slots.filter((slot) => slot.kind !== 'task')
     const result = dailySchedule({ ...saved, slots: system }, [], day)

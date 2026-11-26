@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   CalendarIcon,
   CheckIcon,
+  ClockIcon,
   ChevronDownIcon,
   CoffeeIcon,
   GripVerticalIcon,
@@ -68,7 +69,8 @@ function TimelineContent({
   let timeline: ReturnType<typeof buildTimeline>
   try {
     timeline = buildTimeline(day, showCompleted, now)
-    if (!day.tasks.length) timeline = buildTimeline({ ...day, slots: [] }, showCompleted, now)
+    if (!day.tasks.length && !day.slots.some((slot) => slot.kind === 'history'))
+      timeline = buildTimeline({ ...day, slots: [] }, showCompleted, now)
   } catch (error) {
     return (
       <section className={styles.error} role="alert">
@@ -88,7 +90,9 @@ function TimelineContent({
   const completedCount = day.tasks.filter((task) => task.status === 'done').length
   const completedPlural = new Intl.PluralRules('ru-RU').select(completedCount)
   const completedLabel = `${taskCount(completedCount)} ${completedPlural === 'one' ? 'выполнена' : completedPlural === 'few' ? 'выполнены' : 'выполнено'}`
-  const empty = !day.tasks.length || day.slots.length === 0
+  const empty =
+    (!day.tasks.length && !day.slots.some((slot) => slot.kind === 'history')) ||
+    day.slots.length === 0
   const withoutSlots = day.tasks.filter((task) => !taskIds.has(task.id))
   const unplaced = withoutSlots.filter(
     (task) => task.status !== 'done' && task.status !== 'skipped',
@@ -260,18 +264,20 @@ function TimelineContent({
                   : slot.is_pinned
                     ? 'Время закреплено'
                     : 'Поставлена алгоритмом'
-            const accessible = `${label}. ${range(start, end)}. ${timelineDuration(duration)}. ${task ? `${TASK_TYPES[task.type]}. ${state}.` : 'Системный интервал.'}`
+            const accessible = `${label}. ${range(start, end)}. ${timelineDuration(duration)}. ${task ? `${TASK_TYPES[task.type]}. ${state}.` : slot.kind === 'history' ? 'Прошедший интервал сохранён в истории дня.' : 'Системный интервал.'}`
             const Marker = task
               ? task.status === 'done'
                 ? CheckIcon
                 : slot.is_pinned
                   ? LockIcon
                   : SparklesIcon
-              : slot.kind === 'rest'
-                ? MoonIcon
-                : slot.kind === 'lunch'
-                  ? PlusIcon
-                  : CoffeeIcon
+              : slot.kind === 'history'
+                ? ClockIcon
+                : slot.kind === 'rest'
+                  ? MoonIcon
+                  : slot.kind === 'lunch'
+                    ? PlusIcon
+                    : CoffeeIcon
             const content = (
               <>
                 <div className={styles.cardContent}>
@@ -285,7 +291,9 @@ function TimelineContent({
                         ? TASK_TYPES[task.type].toLowerCase()
                         : slot.kind === 'lunch'
                           ? 'рутина'
-                          : 'отдых'}
+                          : slot.kind === 'history'
+                            ? 'история дня'
+                            : 'отдых'}
                     </span>
                   </span>
                 </div>

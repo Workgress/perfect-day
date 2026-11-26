@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
+import { taskKeys } from '@/shared/api/planningKeys'
 import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
 import { localDate } from '@/shared/lib/dateTime'
 import type { SavedSchedule } from '@/shared/model/schedule'
@@ -102,11 +103,25 @@ function api(
     listError?: boolean
     missing?: Set<string>
     pageSize?: number
+    referenceError?: string
   } = {},
 ) {
   const request = vi.fn<typeof fetch>(async (url, init) => {
     const path = new URL(String(url))
     const method = init?.method ?? 'GET'
+    if (path.pathname.endsWith('/schedule/replan') && method === 'POST') {
+      const body = JSON.parse(String(init?.body))
+      if (body.schedule_version !== state.saved.version)
+        return failed('SCHEDULE_VERSION_CONFLICT', 409)
+      const ids = new Set(state.tasks.map((task) => task.id))
+      state.saved = {
+        ...state.saved,
+        version: state.saved.version + 1,
+        slots: state.saved.slots.filter((slot) => slot.task_id === null || ids.has(slot.task_id)),
+        unscheduled: state.saved.unscheduled.filter((item) => ids.has(item.task_id)),
+      }
+      return Response.json({ schedule: state.saved })
+    }
     if (path.pathname.endsWith('/schedule'))
       return options.scheduleError
         ? failed(options.scheduleError, options.scheduleError === 'SCHEDULE_NOT_FOUND' ? 404 : 500)
@@ -160,6 +175,7 @@ function api(
     const task = state.tasks.find(
       (item) => item.id === decodeURIComponent(path.pathname.split('/').at(-1)!),
     )
+    if (options.referenceError && method === 'GET') return failed(options.referenceError, 503)
     if (!task) return failed('TASK_NOT_FOUND', 404)
     if (method === 'PATCH') {
       Object.assign(task, JSON.parse(String(init?.body)), { version: task.version + 1 })
@@ -187,6 +203,7 @@ async function ready() {
 }
 
 describe('today with the saved schedule API', () => {
+  afterEach(() => vi.useRealTimers())
   it('searches loaded day tasks, opens a result and restores the timeline with Escape', async () => {
     api(data())
     const { client, router } = setup()
@@ -289,16 +306,102 @@ describe('today with the saved schedule API', () => {
     client.clear()
   })
 
-  it('rejects an incomplete schedule referencing a deleted task and recovers after refresh', async () => {
+  it('shows existing tasks and allows replanning a schedule referencing a deleted task', async () => {
     const state = data()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(`${state.date}T08:00:00+05:00`))
+    state.tasks = state.tasks.filter((task) => task.id !== fixture.tasks[2].id)
+    const request = api(state)
+    const { client } = setup()
+    await screen.findByText('Расписание устарело')
+    expect(screen.queryByText('Не удалось загрузить план дня')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Интервалы расписания' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Задачи на этот день' })).toHaveTextContent(
+      state.tasks[0].title,
+    )
+    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeEnabled()
+    const version = state.saved.version
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать расписание' }))
+    await ready()
+    expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument()
+    const writes = request.mock.calls.filter(([, init]) => init?.method === 'POST')
+    expect(writes).toHaveLength(1)
+    expect(JSON.parse(String(writes[0][1]?.body))).toEqual({
+      planned_date: state.date,
+      schedule_version: version,
+      allow_date_change: false,
+    })
+    expect(state.tasks.some((task) => task.id === fixture.tasks[2].id)).toBe(false)
+    client.clear()
+  })
+
+  it('offers recovery when deleting the last task leaves an orphaned unscheduled reference', async () => {
+    const state = data()
+    state.saved.slots = []
+    state.saved.unscheduled = [{ task_id: state.tasks[0].id, reason_codes: ['NO_CAPACITY'] }]
+    state.tasks = []
+    api(state)
+    const { client } = setup()
+    await screen.findByText('Расписание устарело')
+    expect(screen.getByText('Задач на этот день пока нет.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Пересчитать расписание' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать расписание' }))
+    await waitFor(() => expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument())
+    expect(screen.queryByText('Не удалось загрузить план дня')).not.toBeInTheDocument()
+    client.clear()
+  })
+
+  it('keeps real reference read failures fatal and disables replanning', async () => {
+    const state = data()
+    api(state, { missing: new Set([state.tasks[2].id]), referenceError: 'SERVICE_UNAVAILABLE' })
+    const { client } = setup()
+    expect(await screen.findByRole('alert')).toHaveTextContent('SERVICE_UNAVAILABLE')
+    expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeDisabled()
+    client.clear()
+  })
+
+  it('recovers from orphaned references when a read refresh returns a repaired plan', async () => {
+    const state = data()
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(`${state.date}T08:00:00+05:00`))
     state.tasks = state.tasks.filter((task) => task.id !== fixture.tasks[2].id)
     api(state)
     const { client } = setup()
-    expect(await screen.findByRole('alert')).toHaveTextContent('TASK_NOT_FOUND')
-    expect(screen.queryByRole('list', { name: 'Интервалы расписания' })).not.toBeInTheDocument()
+    await screen.findByText('Расписание устарело')
     state.saved.slots = state.saved.slots.filter((slot) => slot.task_id !== fixture.tasks[2].id)
     await userEvent.click(screen.getByRole('button', { name: 'Повторить загрузку плана' }))
     await ready()
+    expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument()
+    client.clear()
+  })
+
+  it('renders a deleted historical task as a non-interactive occupied interval', async () => {
+    const state = data()
+    const deleted = state.tasks[2]
+    const slot = state.saved.slots.find((item) => item.task_id === deleted.id)!
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(Date.parse(slot.end_at) + 60_000))
+    state.tasks = state.tasks.filter((task) => task.id !== deleted.id)
+    api(state)
+    const { client } = setup()
+    act(() => {
+      client.setQueryData(
+        taskKeys.detail(useSessionStore.getState().generation, deleted.id),
+        deleted,
+      )
+    })
+    const timeline = await ready()
+    expect(
+      within(timeline).getByRole('article', { name: /Удалённая задача.*Прошедший интервал/ }),
+    ).toBeVisible()
+    expect(
+      within(timeline).queryByRole('button', { name: /Удалённая задача/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument()
+    expect(screen.queryByText('Не удалось загрузить план дня')).not.toBeInTheDocument()
+    expect(screen.queryByText(deleted.title)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeEnabled()
     client.clear()
   })
 

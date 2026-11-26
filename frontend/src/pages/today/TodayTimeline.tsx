@@ -17,9 +17,13 @@ import { plannerExplanation } from '@/shared/lib/plannerText'
 export function TodayTimeline({
   state,
   search = '',
+  onReplan,
+  replanDisabled = false,
 }: {
   state: ReturnType<typeof useTodaySchedule>
   search?: string
+  onReplan?: () => void
+  replanDisabled?: boolean
 }) {
   const navigate = useNavigate()
   const user = useSessionStore((state) => state.user)
@@ -60,6 +64,35 @@ export function TodayTimeline({
             Повторить загрузку плана
           </Button>
         </section>
+      ) : state.stale ? (
+        <>
+          <section className={styles.planState} role="status">
+            <h2 className="text-heading">Расписание устарело</h2>
+            <p>
+              В сохранённом плане осталась ссылка на удалённую задачу. Пересчитайте расписание,
+              чтобы обновить интервалы и нагрузку.
+            </p>
+            {onReplan ? (
+              <Button variant="secondary" disabled={replanDisabled} onClick={onReplan}>
+                Пересчитать расписание
+              </Button>
+            ) : null}
+            <Button variant="ghost" disabled={replanDisabled} onClick={() => void state.refresh()}>
+              Повторить загрузку плана
+            </Button>
+          </section>
+          <TaskDayList
+            title={query ? 'Результаты поиска задач' : 'Задачи на этот день'}
+            tasks={matches}
+            onTaskSelect={open}
+            selectedTaskId={selected}
+          />
+          {!matches.length ? (
+            <p className={styles.searchSummary}>
+              {query ? 'На этот день ничего не найдено.' : 'Задач на этот день пока нет.'}
+            </p>
+          ) : null}
+        </>
       ) : query ? (
         <section aria-label="Результаты поиска задач">
           <h2 className="text-heading">Поиск задач</h2>

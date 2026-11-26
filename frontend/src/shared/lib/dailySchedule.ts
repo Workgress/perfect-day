@@ -6,6 +6,7 @@ export function dailySchedule(
   saved: SavedSchedule,
   tasks: Task[],
   work: { timezone: string; work_start: string; work_end: string },
+  deletedHistory: ReadonlySet<string> = new Set(),
 ): DailySchedule {
   if (work.timezone !== saved.timezone)
     throw new Error('Рабочее время задано в другом часовом поясе, чем сохранённое расписание.')
@@ -14,7 +15,7 @@ export function dailySchedule(
     ...saved.unscheduled.map((item) => item.task_id),
   ])
   const available = new Set(tasks.map((task) => task.id))
-  if ([...referenced].some((id) => !available.has(id)))
+  if ([...referenced].some((id) => !available.has(id) && !deletedHistory.has(id)))
     throw new Error('Загрузите все задачи, на которые ссылается расписание.')
   return {
     date: saved.planned_date,
@@ -26,7 +27,19 @@ export function dailySchedule(
       (task) => task.planned_date === saved.planned_date || referenced.has(task.id),
     ),
     // Older saved plans may contain the retired automatic lunch reservation.
-    slots: saved.slots.filter((slot) => slot.kind !== 'lunch'),
+    slots: saved.slots
+      .filter((slot) => slot.kind !== 'lunch')
+      .map((slot) =>
+        slot.task_id && deletedHistory.has(slot.task_id)
+          ? {
+              ...slot,
+              kind: 'history' as const,
+              task_id: null,
+              is_pinned: false,
+              explanation: 'Задача удалена. Прошедший интервал сохранён в истории дня.',
+            }
+          : slot,
+      ),
     unscheduled_task_ids: saved.unscheduled.map((item) => item.task_id),
   }
 }

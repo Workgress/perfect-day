@@ -11,6 +11,7 @@ type TaskDialogProps = {
   children: ReactNode
   returnFocusSelector?: string
   busy?: boolean
+  cancelLabel?: string
 }
 
 export function TaskDialog({
@@ -20,6 +21,7 @@ export function TaskDialog({
   children,
   returnFocusSelector = '[data-new-task-trigger]',
   busy = false,
+  cancelLabel = 'Отмена',
 }: TaskDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
@@ -55,7 +57,7 @@ export function TaskDialog({
       <div className={styles.panel}>
         <header className={styles.header}>
           <Button variant="ghost" className={styles.mobileCancel} onClick={close} disabled={busy}>
-            Отмена
+            {cancelLabel}
           </Button>
           <div className={styles.heading}>
             <h2 id={titleId} className={styles.title}>

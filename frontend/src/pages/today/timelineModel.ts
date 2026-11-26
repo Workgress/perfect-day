@@ -172,4 +172,5 @@ export const SYSTEM_SLOT_LABELS: Record<Exclude<ScheduleSlot['kind'], 'task'>, s
   break: 'Перерыв, прогулка',
   lunch: 'Обед',
   rest: 'Отдых',
+  history: 'Удалённая задача',
 }

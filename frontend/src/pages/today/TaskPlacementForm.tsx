@@ -12,6 +12,9 @@ export function TaskPlacementForm({
   disabled,
   onSave,
   onCancel,
+  submitLabel = 'Сохранить время',
+  cancelLabel = 'Отмена',
+  hint,
 }: {
   date: string
   start?: string | null
@@ -20,6 +23,9 @@ export function TaskPlacementForm({
   disabled: boolean
   onSave: (date: string, start: string) => Promise<boolean>
   onCancel: () => void
+  submitLabel?: string
+  cancelLabel?: string
+  hint?: string
 }) {
   const [value, setValue] = useState(start ? localDateTime(new Date(start), timezone) : `${date}T`)
   const [error, setError] = useState('')
@@ -54,7 +60,7 @@ export function TaskPlacementForm({
         value={value}
         disabled={busy}
         error={error}
-        hint={`Часовой пояс: ${timezone}. После переноса время будет закреплено.`}
+        hint={hint ?? `Часовой пояс: ${timezone}. После переноса время будет закреплено.`}
         onChange={(event) => {
           setValue(event.target.value)
           setError('')
@@ -62,10 +68,10 @@ export function TaskPlacementForm({
       />
       <div className={styles.placementButtons}>
         <Button type="submit" disabled={busy || disabled}>
-          {busy ? 'Сохраняем…' : 'Сохранить время'}
+          {busy ? 'Сохраняем…' : submitLabel}
         </Button>
         <Button variant="ghost" disabled={busy} onClick={onCancel}>
-          Отмена
+          {cancelLabel}
         </Button>
       </div>
     </form>

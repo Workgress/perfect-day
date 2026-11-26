@@ -24,11 +24,16 @@ export function TodayPage() {
   const name = user?.name
   const now = useCurrentTime()
   const date = localDate(now, timezone)
-  const plan = useTodaySchedule(date, generation, {
-    timezone,
-    work_start: user?.workStart,
-    work_end: user?.workEnd,
-  })
+  const plan = useTodaySchedule(
+    date,
+    generation,
+    {
+      timezone,
+      work_start: user?.workStart,
+      work_end: user?.workEnd,
+    },
+    now,
+  )
   const replan = useScheduleReplan(date, generation, timezone)
   const [searchState, setSearchState] = useState({ generation, date, value: '' })
   const search =
@@ -171,7 +176,19 @@ export function TodayPage() {
           </Button>
         </div>
       ) : null}
-      <TodayTimeline key={`${generation}:${date}:${timezone}`} state={plan} search={search} />
+      <TodayTimeline
+        key={`${generation}:${date}:${timezone}`}
+        state={plan}
+        search={search}
+        onReplan={plan.version === undefined ? undefined : () => void replan.execute(plan.version!)}
+        replanDisabled={
+          plan.version === undefined ||
+          replan.pending ||
+          replan.taskPending ||
+          replan.blocked ||
+          location.pathname !== paths.today
+        }
+      />
       <TodayEnergyProfile date={date} />
       <TodayCriticalDays date={date} />
       <Outlet />

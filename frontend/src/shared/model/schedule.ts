@@ -8,7 +8,10 @@ export type ScheduleSlot = {
   end_at: string
   explanation: string | null
   is_pinned: boolean
-} & ({ kind: 'task'; task_id: string } | { kind: 'break' | 'lunch' | 'rest'; task_id: null })
+} & (
+  | { kind: 'task'; task_id: string }
+  | { kind: 'break' | 'lunch' | 'rest' | 'history'; task_id: null }
+)
 
 /** GET /schedule?date=YYYY-MM-DD. Tasks and work clocks are not included. */
 export type SavedSchedule = {

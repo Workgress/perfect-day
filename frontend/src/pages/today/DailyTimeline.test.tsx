@@ -8,6 +8,24 @@ const now = new Date('2026-11-11T04:42:00Z')
 const normal = DAILY_SCHEDULE_FIXTURES.normal
 
 describe('daily timeline', () => {
+  it('keeps a deleted historical interval visible when no current tasks remain', () => {
+    const slot = normal.slots[0]
+    render(
+      <DailyTimeline
+        day={{
+          ...normal,
+          tasks: [],
+          slots: [{ ...slot, kind: 'history', task_id: null, is_pinned: false }],
+        }}
+        now={new Date(Date.parse(slot.end_at) + 60_000)}
+      />,
+    )
+    expect(
+      screen.getByRole('article', { name: /Удалённая задача.*Прошедший интервал/ }),
+    ).toBeVisible()
+    expect(screen.getByText('история дня', { exact: false })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Удалённая задача/ })).not.toBeInTheDocument()
+  })
   it('shows the cycle legend and aligns each rail segment with its interval and task type', () => {
     const { container } = render(<DailyTimeline day={normal} now={now} />)
     expect(screen.getByText('окна по циклам')).toBeInTheDocument()

@@ -262,6 +262,27 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-12);
 }
+.timeTrigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  text-align: left;
+  font: 400 15px / 22px var(--font-sans);
+}
+.timeTrigger > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.timeTrigger > svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
 .suggestion {
   display: flex;
   align-items: flex-start;
