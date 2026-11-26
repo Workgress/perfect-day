@@ -12,12 +12,16 @@ export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        // Surface connection failures instead of leaving the UI paused indefinitely.
+        networkMode: 'always',
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: shouldRetry,
         refetchOnWindowFocus: false,
       },
       mutations: {
+        // User commands must fail visibly, never queue and run on a later reconnect.
+        networkMode: 'always',
         retry: false,
       },
     },

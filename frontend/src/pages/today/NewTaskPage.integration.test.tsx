@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
@@ -84,6 +84,49 @@ function deferredResponse() {
 }
 
 describe('task creation with the API', () => {
+  afterEach(() => onlineManager.setOnline(true))
+
+  it('reports an offline creation immediately and never sends a queued write after reconnection', async () => {
+    const request = vi.fn<typeof fetch>(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    vi.stubGlobal('fetch', request)
+    const { client } = setup()
+    await fill()
+    act(() => onlineManager.setOnline(false))
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи с сервером')
+    expect(screen.getByRole('textbox', { name: 'Название' })).toHaveValue(
+      'Подготовиться к экзамену',
+    )
+    expect(screen.getByRole('button', { name: 'Добавить и распределить' })).toBeEnabled()
+    expect(request).toHaveBeenCalledTimes(1)
+    await act(async () => onlineManager.setOnline(true))
+    expect(request).toHaveBeenCalledTimes(1)
+    client.clear()
+  })
+
+  it('invalidates the displayed plan after an unconfirmed creation so closing the draft cannot leave a fresh stale list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Lost response')
+      }),
+    )
+    const { client, generation, router } = setup()
+    const listKey = taskKeys.day(generation, today())
+    const savedKey = scheduleKeys.day(generation, today())
+    client.setQueryData(listKey, [])
+    client.setQueryData(savedKey, { version: 1 })
+    await fill()
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
+    await screen.findByRole('alert')
+    expect(client.getQueryState(listKey)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(savedKey)?.isInvalidated).toBe(true)
+    expect(router.state.location.pathname).toBe('/today/new')
+    client.clear()
+  })
+
   it('explains an automatic move of a physical task instead of implying placement today', async () => {
     const target = new Date(`${today()}T12:00:00Z`)
     target.setUTCDate(target.getUTCDate() + 3)

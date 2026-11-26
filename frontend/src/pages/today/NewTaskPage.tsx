@@ -60,6 +60,16 @@ function NewTaskContent({ generation }: { generation: number }) {
           state: { taskCreated: { task, generation, requestedDate: draft.planned_date } },
         })
     },
+    onError: (error) => {
+      if (
+        useSessionStore.getState().generation !== generation ||
+        !taskCreationError(error).uncertain
+      )
+        return
+      // A lost response can still mean a committed task. Refresh reads without replaying POST.
+      void client.invalidateQueries({ queryKey: taskKeys.lists(generation) })
+      void client.invalidateQueries({ queryKey: scheduleKeys.all(generation) })
+    },
     onSettled: () => {
       sending.current = false
     },

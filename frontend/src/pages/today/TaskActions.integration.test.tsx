@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
@@ -41,6 +41,7 @@ function setup(
     commandError: '',
     commandMessage: '',
     failRead: false,
+    offline: false,
     loseResponse: false,
     wait: undefined as Promise<void> | undefined,
     scheduleVersion: 6,
@@ -79,6 +80,7 @@ function setup(
     moves: [],
   })
   const request = vi.fn<typeof fetch>(async (input, init) => {
+    if (state.offline) throw new TypeError('Offline')
     const url = new URL(String(input))
     if (url.pathname.endsWith('/schedule')) {
       if (state.scheduleFailure) return failure('PLANNER_UNAVAILABLE', 503)
@@ -153,7 +155,70 @@ describe('task actions through the saved task panel', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    onlineManager.setOnline(true)
+  })
+
+  it('reports offline actions without queuing writes and recovers using reads after reconnecting', async () => {
+    const { state, client, writes } = setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Закрепить' })).toBeEnabled())
+    state.offline = true
+    act(() => onlineManager.setOnline(false))
+    await userEvent.click(screen.getByRole('button', { name: 'Выполнить' }))
+    await screen.findByText(/Не удалось проверить результат/)
+    expect(screen.getByRole('button', { name: 'Выполнить' })).toBeDisabled()
+    expect(writes()).toHaveLength(1)
+    state.offline = false
+    await act(async () => onlineManager.setOnline(true))
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить данные задачи' }))
+    await screen.findByText('Данные обновлены. Проверьте план перед повторным действием.')
+    expect(screen.getByRole('button', { name: 'Выполнить' })).toBeEnabled()
+    expect(writes()).toHaveLength(1)
+    expect(state.task.status).toBe('scheduled')
+    client.clear()
+  })
+
+  it('preserves the move draft and blocks writes when the recovery task read also fails', async () => {
+    const { state, client, writes } = setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Перенести' })).toBeEnabled())
+    await userEvent.click(screen.getByRole('button', { name: 'Перенести' }))
+    fireEvent.change(screen.getByLabelText('Начало задачи'), {
+      target: { value: '2026-11-11T15:00' },
+    })
+    state.offline = true
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    await screen.findByText(/Не удалось проверить результат/)
+    expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-11T15:00')
+    expect(screen.getByRole('button', { name: 'Сохранить время' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Удалить задачу' })).toBeDisabled()
+    state.offline = false
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить данные задачи' }))
+    await screen.findByText('Данные обновлены. Проверьте план перед повторным действием.')
+    expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-11T15:00')
+    expect(screen.getByRole('button', { name: 'Сохранить время' })).toBeEnabled()
+    expect(writes()).toHaveLength(1)
+    client.clear()
+  })
+
+  it('hides cached task actions when a refresh confirms that the task was deleted', async () => {
+    const { client, request, generation, state, writes } = setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Перенести' })).toBeEnabled())
+    const original = request.getMockImplementation()!
+    request.mockImplementation(async (input, init) =>
+      (!init?.method || init.method === 'GET') && String(input).endsWith(`/tasks/${state.task.id}`)
+        ? failure('TASK_NOT_FOUND', 404)
+        : original(input, init),
+    )
+    await act(async () =>
+      client.invalidateQueries({ queryKey: taskKeys.detail(generation, state.task.id) }),
+    )
+    await screen.findByText('Задача удалена или недоступна.')
+    expect(screen.queryByRole('button', { name: 'Выполнить' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Начало задачи')).not.toBeInTheDocument()
+    expect(writes()).toHaveLength(0)
+    client.clear()
+  })
 
   it('shows readable server reasons and occupied times while preserving the move draft', async () => {
     const { state, client, writes } = setup({

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
 import { scheduleKeys, taskKeys } from '@/shared/api/planningKeys'
@@ -43,6 +43,8 @@ function setup(options: { absent?: boolean; readFailure?: boolean } = {}) {
     conflict: false,
     loseResponse: false,
     failAfterWrite: false,
+    staleRead: false,
+    offline: false,
     gate: undefined as Promise<void> | undefined,
     saved: {
       id: fixture.schedule!.id,
@@ -67,6 +69,7 @@ function setup(options: { absent?: boolean; readFailure?: boolean } = {}) {
     } as SavedSchedule,
   }
   const request = vi.fn<typeof fetch>(async (input) => {
+    if (state.offline) throw new TypeError('Offline')
     const url = new URL(String(input))
     if (url.pathname.endsWith('/schedule/replan')) {
       await state.gate
@@ -104,7 +107,12 @@ function setup(options: { absent?: boolean; readFailure?: boolean } = {}) {
     }
     if (state.readFailure) return failure('SERVICE_UNAVAILABLE', 503)
     if (url.pathname.endsWith('/schedule'))
-      return state.absent ? failure('SCHEDULE_NOT_FOUND', 404) : Response.json(state.saved)
+      return state.absent
+        ? failure('SCHEDULE_NOT_FOUND', 404)
+        : Response.json({
+            ...state.saved,
+            version: state.saved.version - (state.staleRead ? 1 : 0),
+          })
     if (url.pathname.endsWith('/tasks'))
       return Response.json({ items: state.tasks, total: state.tasks.length, limit: 100, offset: 0 })
     throw new Error(`Unexpected request: ${url}`)
@@ -129,7 +137,49 @@ describe('manual schedule replanning', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    onlineManager.setOnline(true)
+  })
+
+  it('fails an offline replan visibly and never replays its POST on reconnect', async () => {
+    const { state, client, writes } = setup()
+    await waitFor(() => expect(button()).toBeEnabled())
+    state.offline = true
+    act(() => onlineManager.setOnline(false))
+    await userEvent.click(button())
+    await screen.findByText(
+      'Не удалось проверить результат пересчёта. Обновите данные перед новым действием.',
+    )
+    expect(button()).toBeDisabled()
+    state.offline = false
+    await act(async () => onlineManager.setOnline(true))
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить данные плана' }))
+    await screen.findByText('Данные обновлены. Проверьте план перед пересчётом.')
+    expect(button()).toBeEnabled()
+    expect(writes()).toHaveLength(1)
+    expect(state.saved.version).toBe(6)
+    client.clear()
+  })
+
+  it('does not announce success or unlock actions until reads reach the acknowledged replan version', async () => {
+    const { state, writes, client } = setup()
+    await waitFor(() => expect(button()).toBeEnabled())
+    state.staleRead = true
+    await userEvent.click(button())
+    await screen.findByText(/не удалось загрузить результат/)
+    expect(button()).toBeDisabled()
+    expect(screen.queryByText('План и нагрузка обновлены.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить данные плана' }))
+    await screen.findByText(/Не удалось обновить план/)
+    expect(button()).toBeDisabled()
+    state.staleRead = false
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить данные плана' }))
+    await screen.findByText('Данные обновлены. Проверьте план перед пересчётом.')
+    expect(button()).toBeEnabled()
+    expect(writes()).toHaveLength(1)
+    client.clear()
+  })
 
   it('sends the displayed version, refreshes load and preserves pinned and completed tasks', async () => {
     const { client, generation, state, writes, pending } = setup()

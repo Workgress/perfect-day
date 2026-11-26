@@ -27,11 +27,16 @@ export function taskWriteFields(error: unknown): TaskFormErrors {
   return fields
 }
 
-export function taskCreationError(error: unknown): { message: string; fields: TaskFormErrors } {
+export function taskCreationError(error: unknown): {
+  message: string
+  fields: TaskFormErrors
+  uncertain: boolean
+} {
   const fields = taskWriteFields(error)
   const uncertain = !(error instanceof HttpError) || error.status >= 500
   return {
     fields,
+    uncertain,
     message: uncertain
       ? `${apiError(error)} Задача могла сохраниться. Проверьте список задач перед повторной отправкой.`
       : apiError(error),

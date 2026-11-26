@@ -144,7 +144,11 @@ function TaskContent({
   const close = () => {
     if (!sending.current && !actions.pending) navigate(paths.today, { replace: true })
   }
-  if (!task || !query.isFetchedAfterMount || query.isError)
+  if (
+    !task ||
+    !query.isFetchedAfterMount ||
+    (query.isError && (editing || apiProblem(query.error)?.code === 'TASK_NOT_FOUND'))
+  )
     return (
       <TaskDialog title="Задача" description="Данные задачи" onClose={close}>
         {query.isError ? (
@@ -182,7 +186,7 @@ function TaskContent({
       />
     )
   const remove = () => {
-    if (sending.current || actions.pending) return
+    if (sending.current || actions.pending || query.isError) return
     sending.current = true
     setNotice('')
     mutation.mutate()
@@ -196,7 +200,8 @@ function TaskContent({
     : undefined
   const run = (action: TaskAction) => {
     setNotice('')
-    if (sending.current) return Promise.resolve(false)
+    if (sending.current || (query.isError && action.kind !== 'refresh'))
+      return Promise.resolve(false)
     return actions.execute(action)
   }
   const pin = () => {
@@ -237,7 +242,7 @@ function TaskContent({
             : undefined
       }
       busy={busy}
-      actionsDisabled={actions.blocked}
+      actionsDisabled={actions.blocked || query.isError}
       onClose={close}
       onEdit={() => navigate(editTaskPath(id))}
       onMove={actions.placementReady ? () => setPlacement('move') : undefined}
@@ -258,7 +263,7 @@ function TaskContent({
             start={task.pinned_start ?? first?.start_at}
             timezone={timezone}
             busy={busy}
-            disabled={actions.blocked || !actions.placementReady}
+            disabled={actions.blocked || query.isError || !actions.placementReady}
             onCancel={() => setPlacement(null)}
             onSave={async (date, start) => {
               const saved = await run({ kind: placement, date, start })
@@ -269,7 +274,7 @@ function TaskContent({
         ) : null
       }
       recoveryAction={
-        actions.blocked || !actions.placementReady ? (
+        actions.blocked || query.isError || !actions.placementReady ? (
           <Button variant="secondary" disabled={busy} onClick={() => void run({ kind: 'refresh' })}>
             Обновить данные задачи
           </Button>
@@ -278,7 +283,12 @@ function TaskContent({
       notice={
         busy
           ? 'Сохраняем…'
-          : notice || actions.notice || (mutation.error ? apiError(mutation.error) : null)
+          : notice ||
+            (query.isError
+              ? actions.blocked
+                ? actions.notice
+                : apiError(query.error)
+              : actions.notice || (mutation.error ? apiError(mutation.error) : null))
       }
       deleteAction={
         <div className={styles.deleteAction}>
@@ -286,7 +296,7 @@ function TaskContent({
             variant="ghost"
             size="s"
             className={styles.deleteButton}
-            disabled={busy || actions.blocked}
+            disabled={busy || actions.blocked || query.isError}
             onClick={remove}
           >
             Удалить задачу

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createQueryClient } from '@/shared/api/queryClient'
 import { DAILY_SCHEDULE_FIXTURES } from '@/shared/fixtures/planning'
@@ -218,6 +218,26 @@ describe('today with the saved schedule API', () => {
   })
   afterEach(() => {
     vi.useRealTimers()
+    onlineManager.setOnline(true)
+  })
+
+  it('shows a recoverable network error on an offline initial visit instead of an endless loading state', async () => {
+    onlineManager.setOnline(false)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Offline')
+      }),
+    )
+    const { client } = setup()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи с сервером')
+    expect(screen.queryByText('На сегодня задач нет')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeDisabled()
+    const state = data()
+    api(state)
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить загрузку плана' }))
+    await ready()
+    client.clear()
   })
 
   it('loads every task page, renders server slots in profile timezone and opens a selected task', async () => {
