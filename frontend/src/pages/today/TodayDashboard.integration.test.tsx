@@ -477,7 +477,7 @@ describe('assembled Today dashboard', () => {
       fireEvent.focus(window)
     })
     expect(screen.getByRole('complementary', { name: 'Сводка дня' })).toHaveTextContent(
-      'На сегодня больше нет запланированных задач.',
+      'День завершён',
     )
     expect(summary).not.toHaveTextContent('Далее через 18 минут')
     client.clear()

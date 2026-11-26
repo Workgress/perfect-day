@@ -4,7 +4,7 @@ import { taskPath } from '@/app/router/paths'
 import type { DailySchedule, SavedSchedule } from '@/shared/model/schedule'
 import { TASK_TYPES, type TaskType } from '@/shared/model/task'
 import { useCurrentTime } from '@/shared/lib/useCurrentTime'
-import { localDate } from '@/shared/lib/dateTime'
+import { localDate, resolveLocalDateTime } from '@/shared/lib/dateTime'
 import { Button } from '@/shared/ui/button/Button'
 import {
   ArrowRightIcon,
@@ -21,6 +21,7 @@ import { TodayLoadWarning } from './TodayLoadWarning'
 import { useTaskActions } from './useTaskActions'
 import styles from './TodayDashboard.module.css'
 import { PlannerHints, type PlannerHintsState } from './PlannerHints'
+import { TodayDayEnd } from './TodayDayEnd'
 
 export function TodayPlanSummary({
   day,
@@ -91,188 +92,205 @@ export function TodayPlanSummary({
         : overloaded
           ? 'Можно разгрузить день'
           : 'Комфортно'
+  const end = resolveLocalDateTime(`${day.date}T${day.work_end.slice(0, 5)}`, day.timezone)
+  const ended =
+    day.tasks.length > 0 &&
+    ((end.status === 'valid' && now >= end.instant) ||
+      day.tasks.every(
+        (task) =>
+          task.planned_date !== day.date || task.status === 'done' || task.status === 'skipped',
+      ))
   return (
     <aside className={styles.summary} aria-label="Сводка дня">
-      <section
-        className={styles.nextTask}
-        aria-labelledby="today-next-task"
-        style={task ? { boxShadow: `0 6px 32px var(--type-${task.type}-glow)` } : undefined}
-      >
-        <div className={styles.nextHeader}>
-          <h2 id="today-next-task" className={styles.nextLabel}>
-            {task
-              ? remaining
-                ? `Далее через ${remainingLabel}`
-                : 'Сейчас по плану'
-              : 'Ближайшая задача'}
-          </h2>
-          {task ? (
-            <span
-              className={styles.taskType}
-              style={{ background: `var(--type-${task.type}-soft)` }}
-            >
-              <span style={{ background: `var(--type-${task.type})` }} aria-hidden="true" />
-              {TASK_TYPES[task.type]}
-            </span>
-          ) : null}
-        </div>
-        {task && next ? (
-          <>
-            <Link className={styles.nextTitle} to={taskPath(task.id)}>
-              {task.title}
-            </Link>
-            <p className={styles.nextMeta}>
-              <span className={styles.nextTime}>
-                {timelineClock(Date.parse(next.start_at), day.timezone)}–
-                {timelineClock(Date.parse(next.end_at), day.timezone)}
-              </span>
-              <span>
-                {(Date.parse(next.end_at) - Date.parse(next.start_at)) / 60_000} мин
-                {deadlineLabel ? ` · дедлайн ${deadlineLabel}` : ''}
-              </span>
-            </p>
-            {explanation ? (
-              <p className={styles.explanation}>
-                <SparklesIcon size={16} />
-                {explanation}
-              </p>
-            ) : null}
-            <div className={styles.nextActions}>
-              <Button
-                size="s"
-                variant="secondary"
-                disabled={
-                  actions.pending ||
-                  actions.blocked ||
-                  !!task.actual_start ||
-                  day.date !== localDate(new Date(now), day.timezone)
-                }
-                onClick={() => void actions.execute({ kind: 'start' })}
-              >
-                <ArrowRightIcon />
-                {task.actual_start ? 'Задача начата' : 'Начать'}
-              </Button>
-              <Link to={taskPath(task.id)} state={{ taskPlacement: 'move' }}>
-                <ClockIcon size={16} />
-                Перенести
-              </Link>
-              <Button
-                size="s"
-                variant="ghost"
-                disabled={actions.pending || actions.blocked}
-                onClick={() =>
-                  void actions.execute(
-                    task.is_pinned
-                      ? { kind: 'unpin' }
-                      : { kind: 'pin', date: day.date, start: next.start_at },
-                  )
-                }
-              >
-                <LockIcon />
-                {task.is_pinned ? 'Открепить' : 'Закрепить'}
-              </Button>
-            </div>
-            {actions.notice ? (
-              <p className={styles.context} role="status">
-                {actions.notice}
-              </p>
-            ) : null}
-            {actions.blocked ? (
-              <Button
-                variant="secondary"
-                size="s"
-                disabled={actions.pending}
-                onClick={() => void actions.execute({ kind: 'refresh' })}
-              >
-                Обновить данные задачи
-              </Button>
-            ) : null}
-          </>
-        ) : (
-          <p className={styles.context}>На сегодня больше нет запланированных задач.</p>
-        )}
-      </section>
-      <section
-        className={styles.load}
-        data-overloaded={overloaded || undefined}
-        aria-labelledby="today-load"
-      >
-        {load ? (
-          <>
-            <h2 id="today-load">
-              <button
-                className={styles.loadToggle}
-                type="button"
-                aria-expanded={loadExpanded}
-                aria-controls={loadId}
-                onClick={() => setLoadExpanded((value) => !value)}
-              >
-                <span>Нагрузка</span>
-                {!loadExpanded ? (
-                  <span className={styles.loadCompact}>
-                    {timelineDuration(load.planned)} из {timelineDuration(load.capacity)}
-                  </span>
-                ) : null}
-                <span className={styles.loadBadge} data-level={overloaded ? 'warning' : 'normal'}>
-                  {loadLabel}
-                </span>
-                <ChevronDownIcon size={16} />
-              </button>
-            </h2>
-            {loadExpanded ? (
-              <p className={styles.loadValue}>
-                <strong>{timelineDuration(load.planned)}</strong>
-                <span>
-                  из {timelineDuration(load.capacity)} рабочего окна ·{' '}
-                  {reserve >= 0
-                    ? `запас ${timelineDuration(reserve)}`
-                    : `сверх плана ${timelineDuration(-reserve)}`}
-                </span>
-              </p>
-            ) : null}
-            <div
-              className={styles.loadBar}
-              role="img"
-              aria-label={`Нагрузка: ${load.planned} из ${load.capacity} минут, ${percent} %`}
-            >
-              {Object.entries(busy).map(([type, minutes]) => (
+      {ended ? (
+        <TodayDayEnd day={day} />
+      ) : (
+        <>
+          <section
+            className={styles.nextTask}
+            aria-labelledby="today-next-task"
+            style={task ? { boxShadow: `0 6px 32px var(--type-${task.type}-glow)` } : undefined}
+          >
+            <div className={styles.nextHeader}>
+              <h2 id="today-next-task" className={styles.nextLabel}>
+                {task
+                  ? remaining
+                    ? `Далее через ${remainingLabel}`
+                    : 'Сейчас по плану'
+                  : 'Ближайшая задача'}
+              </h2>
+              {task ? (
                 <span
-                  key={type}
-                  style={{
-                    width: `${(minutes / scale) * 100}%`,
-                    background: `var(--type-${type})`,
-                  }}
-                />
-              ))}
+                  className={styles.taskType}
+                  style={{ background: `var(--type-${task.type}-soft)` }}
+                >
+                  <span style={{ background: `var(--type-${task.type})` }} aria-hidden="true" />
+                  {TASK_TYPES[task.type]}
+                </span>
+              ) : null}
             </div>
-            <div id={loadId} hidden={!loadExpanded}>
-              <ul className={styles.loadLegend} aria-label="Нагрузка по типам задач">
-                {Object.entries(busy)
-                  .filter(([, minutes]) => minutes > 0)
-                  .map(([type, minutes]) => (
-                    <li key={type}>
-                      <span
-                        className={styles.loadSwatch}
-                        style={{ background: `var(--type-${type})` }}
-                        aria-hidden="true"
-                      />
-                      {type === 'rest' ? 'Отдых' : TASK_TYPES[type as TaskType]}{' '}
-                      {timelineDuration(minutes)}
-                    </li>
+            {task && next ? (
+              <>
+                <Link className={styles.nextTitle} to={taskPath(task.id)}>
+                  {task.title}
+                </Link>
+                <p className={styles.nextMeta}>
+                  <span className={styles.nextTime}>
+                    {timelineClock(Date.parse(next.start_at), day.timezone)}–
+                    {timelineClock(Date.parse(next.end_at), day.timezone)}
+                  </span>
+                  <span>
+                    {(Date.parse(next.end_at) - Date.parse(next.start_at)) / 60_000} мин
+                    {deadlineLabel ? ` · дедлайн ${deadlineLabel}` : ''}
+                  </span>
+                </p>
+                {explanation ? (
+                  <p className={styles.explanation}>
+                    <SparklesIcon size={16} />
+                    {explanation}
+                  </p>
+                ) : null}
+                <div className={styles.nextActions}>
+                  <Button
+                    size="s"
+                    variant="secondary"
+                    disabled={
+                      actions.pending ||
+                      actions.blocked ||
+                      !!task.actual_start ||
+                      day.date !== localDate(new Date(now), day.timezone)
+                    }
+                    onClick={() => void actions.execute({ kind: 'start' })}
+                  >
+                    <ArrowRightIcon />
+                    {task.actual_start ? 'Задача начата' : 'Начать'}
+                  </Button>
+                  <Link to={taskPath(task.id)} state={{ taskPlacement: 'move' }}>
+                    <ClockIcon size={16} />
+                    Перенести
+                  </Link>
+                  <Button
+                    size="s"
+                    variant="ghost"
+                    disabled={actions.pending || actions.blocked}
+                    onClick={() =>
+                      void actions.execute(
+                        task.is_pinned
+                          ? { kind: 'unpin' }
+                          : { kind: 'pin', date: day.date, start: next.start_at },
+                      )
+                    }
+                  >
+                    <LockIcon />
+                    {task.is_pinned ? 'Открепить' : 'Закрепить'}
+                  </Button>
+                </div>
+                {actions.notice ? (
+                  <p className={styles.context} role="status">
+                    {actions.notice}
+                  </p>
+                ) : null}
+                {actions.blocked ? (
+                  <Button
+                    variant="secondary"
+                    size="s"
+                    disabled={actions.pending}
+                    onClick={() => void actions.execute({ kind: 'refresh' })}
+                  >
+                    Обновить данные задачи
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <p className={styles.context}>На сегодня больше нет запланированных задач.</p>
+            )}
+          </section>
+          <section
+            className={styles.load}
+            data-overloaded={overloaded || undefined}
+            aria-labelledby="today-load"
+          >
+            {load ? (
+              <>
+                <h2 id="today-load">
+                  <button
+                    className={styles.loadToggle}
+                    type="button"
+                    aria-expanded={loadExpanded}
+                    aria-controls={loadId}
+                    onClick={() => setLoadExpanded((value) => !value)}
+                  >
+                    <span>Нагрузка</span>
+                    {!loadExpanded ? (
+                      <span className={styles.loadCompact}>
+                        {timelineDuration(load.planned)} из {timelineDuration(load.capacity)}
+                      </span>
+                    ) : null}
+                    <span
+                      className={styles.loadBadge}
+                      data-level={overloaded ? 'warning' : 'normal'}
+                    >
+                      {loadLabel}
+                    </span>
+                    <ChevronDownIcon size={16} />
+                  </button>
+                </h2>
+                {loadExpanded ? (
+                  <p className={styles.loadValue}>
+                    <strong>{timelineDuration(load.planned)}</strong>
+                    <span>
+                      из {timelineDuration(load.capacity)} рабочего окна ·{' '}
+                      {reserve >= 0
+                        ? `запас ${timelineDuration(reserve)}`
+                        : `сверх плана ${timelineDuration(-reserve)}`}
+                    </span>
+                  </p>
+                ) : null}
+                <div
+                  className={styles.loadBar}
+                  role="img"
+                  aria-label={`Нагрузка: ${load.planned} из ${load.capacity} минут, ${percent} %`}
+                >
+                  {Object.entries(busy).map(([type, minutes]) => (
+                    <span
+                      key={type}
+                      style={{
+                        width: `${(minutes / scale) * 100}%`,
+                        background: `var(--type-${type})`,
+                      }}
+                    />
                   ))}
-              </ul>
-              <p className={styles.loadNote}>
-                <InfoIcon size={14} />
-                <span>Загрузка показывает долю задач в рабочем окне.</span>
-              </p>
-            </div>
-            {overloaded ? <TodayLoadWarning day={day} now={now} /> : null}
-          </>
-        ) : (
-          <p className={styles.context}>Не удалось определить рабочее окно.</p>
-        )}
-      </section>
-      <PlannerHints day={day} warnings={warnings} state={plannerState} now={now} />
+                </div>
+                <div id={loadId} hidden={!loadExpanded}>
+                  <ul className={styles.loadLegend} aria-label="Нагрузка по типам задач">
+                    {Object.entries(busy)
+                      .filter(([, minutes]) => minutes > 0)
+                      .map(([type, minutes]) => (
+                        <li key={type}>
+                          <span
+                            className={styles.loadSwatch}
+                            style={{ background: `var(--type-${type})` }}
+                            aria-hidden="true"
+                          />
+                          {type === 'rest' ? 'Отдых' : TASK_TYPES[type as TaskType]}{' '}
+                          {timelineDuration(minutes)}
+                        </li>
+                      ))}
+                  </ul>
+                  <p className={styles.loadNote}>
+                    <InfoIcon size={14} />
+                    <span>Загрузка показывает долю задач в рабочем окне.</span>
+                  </p>
+                </div>
+                {overloaded ? <TodayLoadWarning day={day} now={now} /> : null}
+              </>
+            ) : (
+              <p className={styles.context}>Не удалось определить рабочее окно.</p>
+            )}
+          </section>
+          <PlannerHints day={day} warnings={warnings} state={plannerState} now={now} />
+        </>
+      )}
     </aside>
   )
 }

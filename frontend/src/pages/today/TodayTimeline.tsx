@@ -13,6 +13,7 @@ import { TodayEmptyWindows } from './TodayEmptyWindows'
 import { todayWindows } from './todayWindowsModel'
 import { usePlannerDetails } from './usePlannerDetails'
 import { plannerExplanation } from '@/shared/lib/plannerText'
+import { TodayLoading } from './TodayLoading'
 
 export function TodayTimeline({
   state,
@@ -53,9 +54,7 @@ export function TodayTimeline({
   return (
     <div className={styles.plan}>
       {state.loading ? (
-        <p className={styles.planState} role="status">
-          Загружаем план дня…
-        </p>
+        <TodayLoading />
       ) : state.error ? (
         <section className={styles.planState} role="alert">
           <h2 className="text-heading">Не удалось загрузить план дня</h2>

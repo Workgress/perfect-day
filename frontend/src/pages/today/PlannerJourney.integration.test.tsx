@@ -181,6 +181,7 @@ describe('planner journey across creation, dashboard and task routes', () => {
     const replan = screen.getByRole('button', { name: 'Перепланировать' })
     await waitFor(() => expect(replan).toBeEnabled())
     await userEvent.click(replan)
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText('План и нагрузка обновлены.')
     await act(async () => router.navigate(`/today/tasks/${taskId}`))
     const refreshed = await screen.findByRole('dialog', { name: title })

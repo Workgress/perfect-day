@@ -142,12 +142,27 @@ describe('manual schedule replanning', () => {
     onlineManager.setOnline(true)
   })
 
+  it('does not submit a replan until confirmed and allows cancellation', async () => {
+    const { client, writes } = setup()
+    await waitFor(() => expect(button()).toBeEnabled())
+    await userEvent.click(button())
+    expect(writes()).toHaveLength(0)
+    expect(screen.getByRole('dialog', { name: 'Перепланировать день?' })).toHaveTextContent(
+      'Новый план будет сохранён сразу.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(writes()).toHaveLength(0)
+    expect(button()).toHaveFocus()
+    client.clear()
+  })
+
   it('fails an offline replan visibly and never replays its POST on reconnect', async () => {
     const { state, client, writes } = setup()
     await waitFor(() => expect(button()).toBeEnabled())
     state.offline = true
     act(() => onlineManager.setOnline(false))
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText(
       'Не удалось проверить результат пересчёта. Обновите данные перед новым действием.',
     )
@@ -167,6 +182,7 @@ describe('manual schedule replanning', () => {
     await waitFor(() => expect(button()).toBeEnabled())
     state.staleRead = true
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText(/не удалось загрузить результат/)
     expect(button()).toBeDisabled()
     expect(screen.queryByText('План и нагрузка обновлены.')).not.toBeInTheDocument()
@@ -187,6 +203,7 @@ describe('manual schedule replanning', () => {
     await waitFor(() => expect(button()).toBeEnabled())
     expect(screen.getByRole('img', { name: /Нагрузка: 420 из 600/ })).toBeInTheDocument()
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText('План и нагрузка обновлены.')
     expect(JSON.parse(String(writes()[0][1]?.body))).toEqual({
       planned_date: fixture.date,
@@ -209,10 +226,12 @@ describe('manual schedule replanning', () => {
     state.conflict = true
     await waitFor(() => expect(button()).toBeEnabled())
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText(/Расписание изменилось. Данные обновлены/)
     expect(writes()).toHaveLength(1)
     state.conflict = false
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText('План и нагрузка обновлены.')
     expect(JSON.parse(String(writes()[1][1]?.body)).schedule_version).toBe(9)
     client.clear()
@@ -223,6 +242,7 @@ describe('manual schedule replanning', () => {
     state.loseResponse = true
     await waitFor(() => expect(button()).toBeEnabled())
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText(/Загружен актуальный план/)
     expect(screen.getByRole('img', { name: /Нагрузка: 450 из 600/ })).toBeInTheDocument()
     expect(writes()).toHaveLength(1)
@@ -235,6 +255,7 @@ describe('manual schedule replanning', () => {
     state.failAfterWrite = true
     await waitFor(() => expect(button()).toBeEnabled())
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByRole('alert')
     expect(button()).toBeDisabled()
     view.rerender(
@@ -258,6 +279,7 @@ describe('manual schedule replanning', () => {
     const { writes, client } = setup({ absent: true })
     await waitFor(() => expect(button()).toBeEnabled())
     await userEvent.click(button())
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await screen.findByText('План и нагрузка обновлены.')
     expect(JSON.parse(String(writes()[0][1]?.body)).schedule_version).toBe(0)
     client.clear()
@@ -280,9 +302,15 @@ describe('manual schedule replanning', () => {
     await waitFor(() => expect(button()).toBeEnabled())
     const trigger = button()
     fireEvent.click(trigger)
-    fireEvent.click(trigger)
+    const confirm = screen.getByRole('button', { name: 'Пересчитать план' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
     await waitFor(() => expect(writes()).toHaveLength(1))
-    expect(screen.getByRole('button', { name: 'Обновляем план…' })).toBeDisabled()
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Обновляем план…' })
+        .every((item) => item.hasAttribute('disabled')),
+    ).toBe(true)
     expect(screen.getByRole('button', { name: 'Начать' })).toBeDisabled()
     await act(async () => release())
     await screen.findByText('План и нагрузка обновлены.')
@@ -297,6 +325,7 @@ describe('manual schedule replanning', () => {
     })
     await waitFor(() => expect(button()).toBeEnabled())
     fireEvent.click(button())
+    fireEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await waitFor(() => expect(writes()).toHaveLength(1))
     const signal = writes()[0][1]?.signal
     act(() => useSessionStore.getState().signIn({ accessToken: 'another-account' }))

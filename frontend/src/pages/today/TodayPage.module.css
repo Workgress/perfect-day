@@ -1,16 +1,18 @@
 .notice {
   position: fixed;
-  right: var(--space-24);
+  left: calc(50% + 116px);
+  transform: translateX(-50%);
   bottom: var(--space-24);
   z-index: 20;
   display: flex;
   align-items: center;
   gap: var(--space-12);
-  width: min(420px, calc(100% - 32px));
-  padding: var(--space-12) var(--space-16);
+  width: min(440px, calc(100% - 32px));
+  padding: 6px 8px 6px 16px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   background: var(--bg-elevated);
+  box-shadow: 0 8px 24px var(--bg-scrim);
 }
 
 .notice > svg {
@@ -43,6 +45,9 @@
 }
 
 @media (max-width: 768px) {
+  .notice {
+    left: 50%;
+  }
   .today {
     display: flex;
     flex-direction: column;

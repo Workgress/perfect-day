@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -150,7 +150,33 @@ function setup(
   return { state, client, router, generation, writes, request }
 }
 
+async function savePlacement() {
+  await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+  const confirmation = screen.queryByRole('dialog', { name: 'Перенести задачу' })
+  if (!confirmation) return
+  await userEvent.click(within(confirmation).getByRole('button', { name: 'Перенести' }))
+  await waitFor(() => {
+    if (confirmation.isConnected) expect(confirmation).toHaveAttribute('aria-busy', 'false')
+  })
+  if (confirmation.isConnected)
+    await userEvent.click(within(confirmation).getByRole('button', { name: 'Отмена' }))
+}
+
 describe('task actions through the saved task panel', () => {
+  it('keeps the chosen move time when confirmation is cancelled without sending a command', async () => {
+    const { client, writes } = setup()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Перенести' })).toBeEnabled())
+    await userEvent.click(screen.getByRole('button', { name: 'Перенести' }))
+    fireEvent.change(screen.getByLabelText('Начало задачи'), { target: { value: '2026-11-12T11:15' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    const confirmation = screen.getByRole('dialog', { name: 'Перенести задачу' })
+    expect(confirmation).toHaveTextContent('11:15–12:45')
+    expect(writes()).toHaveLength(0)
+    await userEvent.click(within(confirmation).getByRole('button', { name: 'Отмена' }))
+    expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-12T11:15')
+    expect(writes()).toHaveLength(0)
+    client.clear()
+  })
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-11T04:42:00Z'))
@@ -187,7 +213,7 @@ describe('task actions through the saved task panel', () => {
       target: { value: '2026-11-11T15:00' },
     })
     state.offline = true
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    await savePlacement()
     await screen.findByText(/Не удалось проверить результат/)
     expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-11T15:00')
     expect(screen.getByRole('button', { name: 'Сохранить время' })).toBeDisabled()
@@ -233,7 +259,7 @@ describe('task actions through the saved task panel', () => {
     fireEvent.change(screen.getByLabelText('Начало задачи'), {
       target: { value: '2026-11-11T14:45' },
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    await savePlacement()
     await screen.findByText(/Интервал занят задачей с 14:45 до 15:45\./)
     expect(screen.getByRole('dialog')).not.toHaveTextContent('+0500')
     expect(screen.getByRole('region', { name: 'Почему в это время' })).not.toHaveTextContent(
@@ -307,8 +333,8 @@ describe('task actions through the saved task panel', () => {
     fireEvent.change(screen.getByLabelText('Начало задачи'), {
       target: { value: '2026-11-12T11:15' },
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
-    await screen.findByText('Задача перенесена, время закреплено')
+    await savePlacement()
+    await screen.findByText('План дня')
     expect(JSON.parse(String(writes()[0][1]?.body))).toEqual({
       planned_date: '2026-11-12',
       start_at: '2026-11-12T06:15:00.000Z',
@@ -326,7 +352,7 @@ describe('task actions through the saved task panel', () => {
     fireEvent.change(screen.getByLabelText('Начало задачи'), {
       target: { value: '2026-11-11T11:15' },
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+    await savePlacement()
     await screen.findByText('Время закреплено')
     expect(JSON.parse(String(writes()[0][1]?.body)).schedule_versions).toEqual({
       [fixture.date]: 0,
@@ -344,13 +370,13 @@ describe('task actions through the saved task panel', () => {
       fireEvent.change(screen.getByLabelText('Начало задачи'), {
         target: { value: '2026-11-11T11:15' },
       })
-      await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
+      await savePlacement()
       await screen.findByText(/Данные обновлены — проверьте их/)
       expect(screen.getByLabelText('Начало задачи')).toHaveValue('2026-11-11T11:15')
       expect(writes()).toHaveLength(1)
       state.commandError = ''
-      await userEvent.click(screen.getByRole('button', { name: 'Сохранить время' }))
-      await screen.findByText('Задача перенесена, время закреплено')
+      await savePlacement()
+      await screen.findByText('План дня')
       expect(JSON.parse(String(writes()[1][1]?.body))).toMatchObject({
         version: 8,
         schedule_versions: { [fixture.date]: 9 },

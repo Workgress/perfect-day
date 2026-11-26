@@ -322,6 +322,7 @@ describe('today with the saved schedule API', () => {
     expect(screen.getByRole('button', { name: 'Перепланировать' })).toBeEnabled()
     const version = state.saved.version
     await userEvent.click(screen.getByRole('button', { name: 'Пересчитать расписание' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await ready()
     expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument()
     const writes = request.mock.calls.filter(([, init]) => init?.method === 'POST')
@@ -346,6 +347,7 @@ describe('today with the saved schedule API', () => {
     expect(screen.getByText('Задач на этот день пока нет.')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Пересчитать расписание' })).toBeEnabled()
     await userEvent.click(screen.getByRole('button', { name: 'Пересчитать расписание' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Пересчитать план' }))
     await waitFor(() => expect(screen.queryByText('Расписание устарело')).not.toBeInTheDocument())
     expect(screen.queryByText('Не удалось загрузить план дня')).not.toBeInTheDocument()
     client.clear()
@@ -594,6 +596,7 @@ describe('today with the saved schedule API', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
       await screen.findByRole('dialog', { name: 'Обновлённая задача' })
       await userEvent.click(screen.getByRole('button', { name: 'Удалить задачу' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
       await screen.findByText('Задача удалена')
       expect(
         within(await ready()).queryByRole('button', { name: /^Обновлённая задача\./ }),

@@ -20,6 +20,10 @@ import { useCurrentTime } from '@/shared/lib/useCurrentTime'
 import { taskSessionRequest } from './taskSessionRequest'
 import styles from './TaskDetailsPanel.module.css'
 import { usePlannerDetails } from './usePlannerDetails'
+import { ActionConfirmation } from './ActionConfirmation'
+import confirmationStyles from './ActionConfirmation.module.css'
+import { taskTimeLabel } from './taskTimeOptions'
+import { timelineDuration } from './timelineModel'
 
 export function TaskPage() {
   return <TaskRoute editing={false} />
@@ -57,6 +61,11 @@ function TaskContent({
   const sending = useRef(false)
   const mounted = useRef(false)
   const [notice, setNotice] = useState('')
+  const [confirmation, setConfirmation] = useState<
+    | { kind: 'delete'; version: number }
+    | { kind: 'move'; version: number; scheduleVersion: number; date: string; start: string }
+    | null
+  >(null)
   const [placement, setPlacement] = useState<'pin' | 'move' | null>(
     location.state?.taskPlacement === 'move' ? 'move' : null,
   )
@@ -130,7 +139,7 @@ function TaskContent({
       if (!mounted.current) return
       navigate(paths.today, {
         replace: true,
-        state: { taskNotice: { generation, message: 'Задача удалена' } },
+        state: { taskNotice: { generation, message: 'Задача удалена', detail: task?.title } },
       })
     },
     onError: (error) => {
@@ -209,100 +218,202 @@ function TaskContent({
     else if (first) void run({ kind: 'pin', date: task.planned_date, start: first.start_at })
     else setPlacement('pin')
   }
+  const placementLabel = (start: string) =>
+    taskTimeLabel(
+      start,
+      new Date(Date.parse(start) + task.duration_min * 60_000).toISOString(),
+      timezone,
+      now,
+    )
   return (
-    <TaskDetailsPanel
-      task={task}
-      planning={planner.isSuccess && !planner.isFetching ? planner.data : undefined}
-      explanationState={
-        source && (planner.isPending || planner.isFetching) ? (
-          <p>Загружаем подробные пояснения…</p>
-        ) : source && planner.isError ? (
-          <>
-            <p>Подробные пояснения временно недоступны.</p>
+    <>
+      <TaskDetailsPanel
+        task={task}
+        planning={planner.isSuccess && !planner.isFetching ? planner.data : undefined}
+        explanationState={
+          source && (planner.isPending || planner.isFetching) ? (
+            <p>Загружаем подробные пояснения…</p>
+          ) : source && planner.isError ? (
+            <>
+              <p>Подробные пояснения временно недоступны.</p>
+              <Button
+                size="s"
+                variant="ghost"
+                onClick={() => {
+                  void planner.refetch()
+                  void schedule.refetch()
+                }}
+              >
+                Повторить загрузку пояснений
+              </Button>
+            </>
+          ) : null
+        }
+        timezone={timezone}
+        slots={validSchedule ? schedule.data!.slots.filter((slot) => slot.kind !== 'lunch') : []}
+        placementMessage={
+          schedule.isPending
+            ? 'Загружаем расписание…'
+            : !validSchedule
+              ? 'Расписание недоступно. Размещение не подтверждено.'
+              : undefined
+        }
+        busy={busy}
+        actionsDisabled={actions.blocked || query.isError}
+        onClose={close}
+        onEdit={() => navigate(editTaskPath(id))}
+        onMove={actions.placementReady ? () => setPlacement('move') : undefined}
+        onPin={actions.placementReady ? pin : undefined}
+        onStart={
+          actions.placementReady && task.planned_date === localDate(now, timezone)
+            ? () => void run({ kind: 'start' })
+            : undefined
+        }
+        onComplete={() => void run({ kind: 'complete' })}
+        onSkip={() => void run({ kind: 'skip' })}
+        onReopen={() => void run({ kind: 'reopen' })}
+        placementAction={
+          placement ? (
+            <TaskPlacementForm
+              key={placement}
+              date={task.planned_date}
+              start={task.pinned_start ?? first?.start_at}
+              timezone={timezone}
+              busy={busy}
+              disabled={actions.blocked || query.isError || !actions.placementReady}
+              onCancel={() => setPlacement(null)}
+              onSave={async (date, start) => {
+                if (placement === 'move') {
+                  setConfirmation({ kind: 'move', version: task.version, scheduleVersion: source?.version ?? 0, date, start })
+                  return false
+                }
+                const saved = await run({ kind: placement, date, start })
+                if (saved && current() && mounted.current) setPlacement(null)
+                return saved
+              }}
+            />
+          ) : null
+        }
+        recoveryAction={
+          actions.blocked || query.isError || !actions.placementReady ? (
             <Button
-              size="s"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void run({ kind: 'refresh' })}
+            >
+              Обновить данные задачи
+            </Button>
+          ) : null
+        }
+        notice={
+          confirmation
+            ? null
+            : busy
+              ? 'Сохраняем…'
+              : notice ||
+                (query.isError
+                  ? actions.blocked
+                    ? actions.notice
+                    : apiError(query.error)
+                  : actions.notice || (mutation.error ? apiError(mutation.error) : null))
+        }
+        deleteAction={
+          <div className={styles.deleteAction}>
+            <Button
               variant="ghost"
-              onClick={() => {
-                void planner.refetch()
-                void schedule.refetch()
+              size="s"
+              className={styles.deleteButton}
+              disabled={busy || actions.blocked || query.isError}
+              onClick={() => setConfirmation({ kind: 'delete', version: task.version })}
+            >
+              Удалить задачу
+            </Button>
+          </div>
+        }
+      />
+      {confirmation ? (
+        <ActionConfirmation
+          title={confirmation.kind === 'delete' ? 'Удалить задачу?' : 'Перенести задачу'}
+          busy={busy}
+          onClose={() => setConfirmation(null)}
+        >
+          <p className={confirmation.kind === 'move' ? confirmationStyles.secondary : undefined}>
+            {task.title}
+            {confirmation.kind === 'move' ? ` · ${timelineDuration(task.duration_min)}` : ''}
+          </p>
+          <p className={confirmationStyles.secondary}>
+            {first
+              ? schedule.data!.slots.filter((slot) => slot.kind === 'task' && slot.task_id === task.id).map((slot) => taskTimeLabel(slot.start_at, slot.end_at, timezone, now)).join(', ')
+              : `${task.planned_date.split('-').reverse().join('.')} · время не назначено`}
+          </p>
+          <p className={confirmationStyles.secondary}>
+            {confirmation.kind === 'delete'
+              ? 'Задача исчезнет из плана. Восстановление после удаления недоступно.'
+              : `Новое время: ${placementLabel(confirmation.start)}`}
+          </p>
+          {confirmation.version !== task.version || (confirmation.kind === 'move' && source !== undefined && confirmation.scheduleVersion !== (source?.version ?? 0)) ? (
+            <p role="alert">Задача или расписание изменились. Закройте окно и проверьте актуальные данные.</p>
+          ) : null}
+          {notice || actions.notice ? <p role="status">{notice || actions.notice}</p> : null}
+          <div
+            className={
+              confirmation.kind === 'move' ? confirmationStyles.stack : confirmationStyles.actions
+            }
+          >
+            {confirmation.kind === 'delete' ? (
+              <Button
+                variant="ghost"
+                data-confirm-cancel
+                disabled={busy}
+                onClick={() => setConfirmation(null)}
+              >
+                Отмена
+              </Button>
+            ) : null}
+            <Button
+              className={confirmation.kind === 'delete' ? confirmationStyles.danger : undefined}
+              disabled={
+                busy || actions.blocked || query.isError || confirmation.version !== task.version ||
+                (confirmation.kind === 'move' && (!actions.placementReady || confirmation.scheduleVersion !== (source?.version ?? 0)))
+              }
+              onClick={async () => {
+                if (confirmation.kind === 'delete') {
+                  remove()
+                  return
+                }
+                const saved = await run({
+                  kind: 'move',
+                  date: confirmation.date,
+                  start: confirmation.start,
+                })
+                if (saved && current() && mounted.current)
+                  navigate(paths.today, {
+                    replace: true,
+                    state: {
+                      taskNotice: {
+                        generation,
+                        message: 'Задача перенесена',
+                        detail: placementLabel(confirmation.start),
+                      },
+                    },
+                  })
               }}
             >
-              Повторить загрузку пояснений
+              {busy ? 'Сохраняем…' : confirmation.kind === 'delete' ? 'Удалить' : 'Перенести'}
             </Button>
-          </>
-        ) : null
-      }
-      timezone={timezone}
-      slots={validSchedule ? schedule.data!.slots.filter((slot) => slot.kind !== 'lunch') : []}
-      placementMessage={
-        schedule.isPending
-          ? 'Загружаем расписание…'
-          : !validSchedule
-            ? 'Расписание недоступно. Размещение не подтверждено.'
-            : undefined
-      }
-      busy={busy}
-      actionsDisabled={actions.blocked || query.isError}
-      onClose={close}
-      onEdit={() => navigate(editTaskPath(id))}
-      onMove={actions.placementReady ? () => setPlacement('move') : undefined}
-      onPin={actions.placementReady ? pin : undefined}
-      onStart={
-        actions.placementReady && task.planned_date === localDate(now, timezone)
-          ? () => void run({ kind: 'start' })
-          : undefined
-      }
-      onComplete={() => void run({ kind: 'complete' })}
-      onSkip={() => void run({ kind: 'skip' })}
-      onReopen={() => void run({ kind: 'reopen' })}
-      placementAction={
-        placement ? (
-          <TaskPlacementForm
-            key={placement}
-            date={task.planned_date}
-            start={task.pinned_start ?? first?.start_at}
-            timezone={timezone}
-            busy={busy}
-            disabled={actions.blocked || query.isError || !actions.placementReady}
-            onCancel={() => setPlacement(null)}
-            onSave={async (date, start) => {
-              const saved = await run({ kind: placement, date, start })
-              if (saved && current() && mounted.current) setPlacement(null)
-              return saved
-            }}
-          />
-        ) : null
-      }
-      recoveryAction={
-        actions.blocked || query.isError || !actions.placementReady ? (
-          <Button variant="secondary" disabled={busy} onClick={() => void run({ kind: 'refresh' })}>
-            Обновить данные задачи
-          </Button>
-        ) : null
-      }
-      notice={
-        busy
-          ? 'Сохраняем…'
-          : notice ||
-            (query.isError
-              ? actions.blocked
-                ? actions.notice
-                : apiError(query.error)
-              : actions.notice || (mutation.error ? apiError(mutation.error) : null))
-      }
-      deleteAction={
-        <div className={styles.deleteAction}>
-          <Button
-            variant="ghost"
-            size="s"
-            className={styles.deleteButton}
-            disabled={busy || actions.blocked || query.isError}
-            onClick={remove}
-          >
-            Удалить задачу
-          </Button>
-        </div>
-      }
-    />
+            {confirmation.kind === 'move' ? (
+              <Button
+                variant="ghost"
+                data-confirm-cancel
+                disabled={busy}
+                onClick={() => setConfirmation(null)}
+              >
+                Отмена
+              </Button>
+            ) : null}
+          </div>
+        </ActionConfirmation>
+      ) : null}
+    </>
   )
 }

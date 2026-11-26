@@ -384,7 +384,9 @@ describe('task creation with the API', () => {
 
   it('sends a user-selected date and an absolute deadline in the profile timezone', async () => {
     const request = vi.fn<typeof fetch>(async (_url, init) =>
-      Response.json(taskResponse(JSON.parse(String(init?.body))), { status: 201 }),
+      init?.method === 'POST'
+        ? Response.json(taskResponse(JSON.parse(String(init.body))), { status: 201 })
+        : Response.json({ error: { code: 'SCHEDULE_NOT_FOUND', message: 'Нет расписания' } }, { status: 404 }),
     )
     vi.stubGlobal('fetch', request)
     const { client } = setup()
@@ -396,7 +398,7 @@ describe('task creation with the API', () => {
     fireEvent.change(screen.getByLabelText('Время дедлайна'), { target: { value: '18:00' } })
     await userEvent.click(screen.getByRole('button', { name: 'Добавить и распределить' }))
     expect(await screen.findByText('Задача добавлена')).toBeInTheDocument()
-    expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({
+    expect(JSON.parse(String(request.mock.calls.find(([, init]) => init?.method === 'POST')![1]?.body))).toMatchObject({
       planned_date: '2099-11-19',
       deadline: '2099-11-19T13:00:00.000Z',
     })

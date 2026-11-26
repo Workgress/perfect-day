@@ -39,6 +39,7 @@ import {
 import * as Segment from '@/shared/ui/segment/Segment'
 import { Toggle } from '@/shared/ui/toggle/Toggle'
 import { TaskTimeChooser } from './TaskTimeChooser'
+import { DeadlineAvailability } from './DeadlineAvailability'
 import {
   DURATION_PRESETS,
   TASK_TYPE_HINTS,
@@ -971,7 +972,23 @@ export function TaskForm({
               {mobile ? descriptionField : null}
             </div>
           </div>
-          {mode === 'create' && !(apiConnected && allowPinning && values.isPinned) ? (
+          {mode === 'create' &&
+          apiConnected &&
+          values.deadlineLocal &&
+          values.durationMin &&
+          values.type &&
+          !values.isPinned ? (
+            <DeadlineAvailability
+              context={context}
+              date={values.plannedDate}
+              duration={values.durationMin}
+              deadline={values.deadlineLocal}
+              now={clock}
+            />
+          ) : null}
+          {mode === 'create' &&
+          !(apiConnected && values.deadlineLocal) &&
+          !(apiConnected && allowPinning && values.isPinned) ? (
             <section
               className={cx(styles.suggestion, suggestion && styles.hasSuggestion)}
               aria-label="Предложенное время"

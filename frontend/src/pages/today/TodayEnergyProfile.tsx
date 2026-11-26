@@ -15,6 +15,7 @@ import { CYCLE_ORDER, formatDate, formatPercent } from '@/pages/biorhythms/biorh
 import { useTodayBiorhythms } from './useTodayBiorhythms'
 import { cycleTaskHint, daysSinceBirthLabel } from './todayEnergyModel'
 import styles from './TodayDashboard.module.css'
+import { EnergyLoading } from './TodayLoading'
 
 export function TodayEnergyProfile({ date }: { date: string }) {
   const id = useId()
@@ -58,9 +59,11 @@ export function TodayEnergyProfile({ date }: { date: string }) {
             <span className={styles.mobileTitle}>Энергия на сегодня</span>
           </h2>
           <p className={styles.context}>
-            {user?.birthDate
-              ? `Рассчитан по дате рождения ${formatDate(user.birthDate, { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${daysSinceBirthLabel(user.birthDate, date)}${chronotype ? ` · хронотип «${chronotype}»` : ''}`
-              : 'Укажите дату рождения в профиле для расчёта биоритмов.'}
+            {enabled && (query.isPending || query.isFetching)
+              ? 'Считаем циклы по дате рождения…'
+              : user?.birthDate
+                ? `Рассчитан по дате рождения ${formatDate(user.birthDate, { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${daysSinceBirthLabel(user.birthDate, date)}${chronotype ? ` · хронотип «${chronotype}»` : ''}`
+                : 'Укажите дату рождения в профиле для расчёта биоритмов.'}
           </p>
         </div>
         <Link className={styles.forecastLink} to={`${paths.biorhythms}?period=week&date=${date}`}>
@@ -68,9 +71,7 @@ export function TodayEnergyProfile({ date }: { date: string }) {
         </Link>
       </header>
       {!enabled ? null : query.isPending || query.isFetching ? (
-        <p className={styles.dataState} role="status">
-          Загружаем энергетический профиль…
-        </p>
+        <EnergyLoading />
       ) : query.isError ? (
         <div className={styles.dataState} role="status">
           <p>Не удалось загрузить биоритмы. {apiError(query.error)}</p>

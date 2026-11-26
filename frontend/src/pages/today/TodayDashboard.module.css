@@ -320,7 +320,8 @@
   text-align: left;
   font: inherit;
 }
-.summary h2:not(.nextLabel) {
+.load h2,
+.hints h2 {
   font: 600 17px / 24px var(--font-sans);
 }
 .loadToggle > span:first-child {

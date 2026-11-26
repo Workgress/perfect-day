@@ -15,7 +15,12 @@ type Command = {
   refreshOnly: boolean
   minimum?: ScheduleRevision
 }
-type ReplanResult = { blocked: boolean; message: string; minimum?: ScheduleRevision }
+type ReplanResult = {
+  blocked: boolean
+  message: string
+  minimum?: ScheduleRevision
+  review?: { before?: SavedSchedule; after: SavedSchedule }
+}
 
 export function useReplanLock(generation: number) {
   const key = ['schedule-replan', generation]
@@ -89,6 +94,7 @@ export function useScheduleReplan(date: string, generation: number, timezone: st
         }
       }
       let saved: SavedSchedule | undefined
+      const before = client.getQueryData<SavedSchedule>(scheduleKeys.day(generation, command.date))
       let failure: unknown
       try {
         saved = await taskSessionRequest(generation, (signal) =>
@@ -109,7 +115,12 @@ export function useScheduleReplan(date: string, generation: number, timezone: st
             : 'Не удалось проверить результат пересчёта. Обновите данные перед новым действием.',
         }
       }
-      if (saved) return { blocked: false, message: 'План и нагрузка обновлены.' }
+      if (saved)
+        return {
+          blocked: false,
+          message: 'План и нагрузка обновлены.',
+          review: { before, after: saved },
+        }
       const conflict = ['SCHEDULE_VERSION_CONFLICT', 'TASK_VERSION_CONFLICT'].includes(
         apiProblem(failure)?.code ?? '',
       )
@@ -126,6 +137,7 @@ export function useScheduleReplan(date: string, generation: number, timezone: st
     taskPending,
     blocked,
     message: latest?.status === 'success' ? latest.result?.message : undefined,
+    review: latest?.status === 'success' ? latest.result?.review : undefined,
     execute: async (version: number, refreshOnly = false) => {
       if (client.isMutating() || (blocked && !refreshOnly)) return
       try {

@@ -84,6 +84,19 @@ const writes = (request: ReturnType<typeof mockApi>) =>
   request.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')
 
 describe('saved tasks with the API', () => {
+  it('cancels deletion without a request and restores focus to the trigger', async () => {
+    const request = mockApi(() => new Response(null, { status: 204 }))
+    const { client } = setup()
+    const trigger = await screen.findByRole('button', { name: 'Удалить задачу' })
+    await userEvent.click(trigger)
+    expect(writes(request)).toHaveLength(0)
+    expect(screen.getByRole('dialog', { name: 'Удалить задачу?' })).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+    expect(screen.queryByRole('dialog', { name: 'Удалить задачу?' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(writes(request)).toHaveLength(0)
+    client.clear()
+  })
   it.each(['network', '503'])(
     'keeps edited values and avoids an automatic retry after a failed save (%s)',
     async (mode) => {
@@ -108,6 +121,7 @@ describe('saved tasks with the API', () => {
     })
     const { client, router } = setup()
     await userEvent.click(await screen.findByRole('button', { name: 'Удалить задачу' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
     await screen.findByText('Нет связи с сервером. Проверьте подключение и повторите попытку.')
     expect(router.state.location.pathname).toBe(`/today/tasks/${task().id}`)
     expect(screen.queryByText('Задача удалена')).not.toBeInTheDocument()
@@ -231,10 +245,11 @@ describe('saved tasks with the API', () => {
     client.clear()
   })
 
-  it('deletes with one click and closes after 204', async () => {
+  it('deletes only after confirmation and closes after 204', async () => {
     const request = mockApi(() => new Response(null, { status: 204 }))
     const { client, router } = setup()
     await userEvent.click(await screen.findByRole('button', { name: 'Удалить задачу' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
     await screen.findByText('Задача удалена')
     expect(router.state.location.pathname).toBe('/today')
     expect(writes(request)[0][1]?.method).toBe('DELETE')
@@ -253,6 +268,7 @@ describe('saved tasks with the API', () => {
     )
     const { client } = setup()
     await userEvent.click(await screen.findByRole('button', { name: 'Удалить задачу' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
     await screen.findByText(/Данные обновлены/)
     expect(writes(request)).toHaveLength(1)
     client.clear()

@@ -14,6 +14,9 @@ import { TodayEnergyProfile } from './TodayEnergyProfile'
 import { todayDateLabel, todayGreeting } from './todayHeaderModel'
 import { useTodaySchedule } from './useTodaySchedule'
 import { useScheduleReplan } from './useScheduleReplan'
+import { ActionConfirmation } from './ActionConfirmation'
+import { ReplanReview } from './ReplanReview'
+import confirmationStyles from './ActionConfirmation.module.css'
 
 export function TodayPage() {
   const navigate = useNavigate()
@@ -35,6 +38,16 @@ export function TodayPage() {
     now,
   )
   const replan = useScheduleReplan(date, generation, timezone)
+  const [replanConfirmation, setReplanConfirmation] = useState<{
+    date: string
+    generation: number
+    version: number
+  } | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const confirmReplan = () => {
+    if (plan.version !== undefined)
+      setReplanConfirmation({ date, generation, version: plan.version })
+  }
   const [searchState, setSearchState] = useState({ generation, date, value: '' })
   const search =
     searchState.generation === generation && searchState.date === date ? searchState.value : ''
@@ -55,8 +68,11 @@ export function TodayPage() {
       taskCreated?: { task: Task; generation: number; requestedDate?: string }
     } | null
   )?.taskCreated
-  const notice = (location.state as { taskNotice?: { generation: number; message: string } } | null)
-    ?.taskNotice
+  const notice = (
+    location.state as {
+      taskNotice?: { generation: number; message: string; detail?: string }
+    } | null
+  )?.taskNotice
 
   return (
     <div className={styles.today}>
@@ -108,7 +124,7 @@ export function TodayPage() {
               location.pathname !== paths.today
             }
             aria-busy={replan.pending}
-            onClick={() => plan.version !== undefined && void replan.execute(plan.version)}
+            onClick={confirmReplan}
           >
             <RefreshIcon />
             {replan.pending ? 'Обновляем план…' : 'Перепланировать'}
@@ -127,6 +143,11 @@ export function TodayPage() {
       {replan.message ? (
         <div className={styles.replanFeedback} role={replan.blocked ? 'alert' : 'status'}>
           <p>{replan.message}</p>
+          {replan.review ? (
+            <Button variant="ghost" size="s" onClick={() => setReviewOpen(true)}>
+              Посмотреть изменения
+            </Button>
+          ) : null}
           {replan.blocked ? (
             <Button
               variant="secondary"
@@ -180,7 +201,7 @@ export function TodayPage() {
         key={`${generation}:${date}:${timezone}`}
         state={plan}
         search={search}
-        onReplan={plan.version === undefined ? undefined : () => void replan.execute(plan.version!)}
+        onReplan={plan.version === undefined ? undefined : confirmReplan}
         replanDisabled={
           plan.version === undefined ||
           replan.pending ||
@@ -192,9 +213,60 @@ export function TodayPage() {
       <TodayEnergyProfile date={date} />
       <TodayCriticalDays date={date} />
       <Outlet />
+      {replanConfirmation?.generation === generation && replanConfirmation.date === date ? (
+        <ActionConfirmation
+          title="Перепланировать день?"
+          onClose={() => setReplanConfirmation(null)}
+          busy={replan.pending}
+        >
+          <p className={confirmationStyles.secondary}>
+            Подберём время для незакреплённых задач. Закреплённые, начатые и выполненные задачи
+            сохранятся. Даты задач не изменятся.
+          </p>
+          <p className={confirmationStyles.secondary}>
+            Новый план будет сохранён сразу. Затем можно посмотреть, что изменилось.
+          </p>
+          {!replan.pending && plan.version !== replanConfirmation.version ? (
+            <p role="alert">План изменился. Закройте окно и проверьте данные перед пересчётом.</p>
+          ) : null}
+          <div className={confirmationStyles.stack}>
+            <Button
+              disabled={
+                replan.pending || replan.taskPending || plan.version !== replanConfirmation.version
+              }
+              onClick={async () => {
+                await replan.execute(replanConfirmation.version)
+                setReplanConfirmation(null)
+              }}
+            >
+              {replan.pending ? 'Обновляем план…' : 'Пересчитать план'}
+            </Button>
+            <Button
+              variant="ghost"
+              data-confirm-cancel
+              disabled={replan.pending}
+              onClick={() => setReplanConfirmation(null)}
+            >
+              Отмена
+            </Button>
+          </div>
+        </ActionConfirmation>
+      ) : null}
+      {reviewOpen && replan.review ? (
+        <ReplanReview
+          review={replan.review}
+          tasks={plan.tasks}
+          now={now}
+          onClose={() => setReviewOpen(false)}
+        />
+      ) : null}
       {notice?.generation === generation ? (
         <div className={styles.notice} role="status">
-          <p>{notice.message}</p>
+          <CheckIcon size={18} />
+          <div>
+            <p className="text-label">{notice.message}</p>
+            {notice.detail ? <p className="text-caption">{notice.detail}</p> : null}
+          </div>
           <Button
             variant="ghost"
             aria-label="Закрыть уведомление"
